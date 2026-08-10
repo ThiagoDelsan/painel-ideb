@@ -1,0 +1,13 @@
+# Ambiente virtual
+.venv/
+
+# Credenciais
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+
+# Arquivos locais
+.env
+.DS_Store
