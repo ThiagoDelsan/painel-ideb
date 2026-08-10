@@ -1,3 +1,4 @@
+import hmac
 import re
 
 import altair as alt
@@ -94,10 +95,234 @@ st.markdown(
             margin-bottom: 2px;
         }
 
+        /* LOGIN */
+
+        .login-title {
+            text-align: center;
+            font-size: 34px;
+            font-weight: 750;
+            margin-top: 10vh;
+            margin-bottom: 4px;
+        }
+
+        .login-subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 22px;
+        }
+
+        .login-footer {
+            text-align: center;
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 18px;
+        }
+
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+
+# ============================================================
+# AUTENTICAÇÃO
+# ============================================================
+
+def autenticar_usuario(
+    usuario_digitado,
+    senha_digitada,
+):
+    """
+    Valida usuário e senha usando os valores armazenados
+    em st.secrets["auth"].
+    """
+
+    try:
+
+        usuario_correto = str(
+            st.secrets["auth"]["username"]
+        )
+
+        senha_correta = str(
+            st.secrets["auth"]["password"]
+        )
+
+    except Exception:
+
+        st.error(
+            "As credenciais de acesso não foram configuradas "
+            "corretamente nos Secrets do Streamlit."
+        )
+
+        st.stop()
+
+
+    usuario_ok = hmac.compare_digest(
+        str(usuario_digitado),
+        usuario_correto,
+    )
+
+    senha_ok = hmac.compare_digest(
+        str(senha_digitada),
+        senha_correta,
+    )
+
+
+    return (
+        usuario_ok
+        and
+        senha_ok
+    )
+
+
+def exibir_tela_login():
+
+    st.markdown(
+        """
+        <div class="login-title">
+            Painel IDEB
+        </div>
+
+        <div class="login-subtitle">
+            Entre com suas credenciais para acessar o painel.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    col_esq, col_login, col_dir = st.columns(
+        [
+            1.6,
+            1.0,
+            1.6,
+        ]
+    )
+
+
+    with col_login:
+
+        with st.form(
+            "form_login",
+            clear_on_submit=False,
+        ):
+
+            usuario = st.text_input(
+                "Usuário",
+                placeholder="Usuário",
+            )
+
+            senha = st.text_input(
+                "Senha",
+                type="password",
+                placeholder="Senha",
+            )
+
+            entrar = st.form_submit_button(
+                "Entrar",
+                width="stretch",
+                type="primary",
+            )
+
+
+        if entrar:
+
+            if autenticar_usuario(
+                usuario,
+                senha,
+            ):
+
+                st.session_state[
+                    "autenticado"
+                ] = True
+
+                st.session_state[
+                    "usuario_logado"
+                ] = usuario
+
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "Usuário ou senha incorretos."
+                )
+
+
+        st.markdown(
+            """
+            <div class="login-footer">
+                Acesso restrito
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+# ============================================================
+# ESTADO DA AUTENTICAÇÃO
+# ============================================================
+
+if (
+    "autenticado"
+    not in st.session_state
+):
+
+    st.session_state[
+        "autenticado"
+    ] = False
+
+
+if not st.session_state[
+    "autenticado"
+]:
+
+    exibir_tela_login()
+
+    st.stop()
+
+
+# ============================================================
+# LOGOUT
+# ============================================================
+
+with st.sidebar:
+
+    col_usuario, col_logout = st.columns(
+        [
+            1.35,
+            0.65,
+        ]
+    )
+
+
+    with col_usuario:
+
+        st.caption(
+            f"Usuário: "
+            f"{st.session_state.get('usuario_logado', '')}"
+        )
+
+
+    with col_logout:
+
+        if st.button(
+            "Sair",
+            key="logout",
+            width="stretch",
+        ):
+
+            st.session_state[
+                "autenticado"
+            ] = False
+
+            st.session_state.pop(
+                "usuario_logado",
+                None,
+            )
+
+            st.rerun()
 
 
 # ============================================================
@@ -152,6 +377,7 @@ ESCALA_CORES_ANOS = [
 # ============================================================
 
 ROTULOS_DIMENSOES = {
+
     "1ª IDEB 100% integral":
         "1º IDEB 100% integral (em construção)",
 
@@ -188,9 +414,11 @@ def calcular_consolidado(
             base["Ano"] == ano
         ].copy()
 
+
         recorte = recorte[
             recorte[indicador].notna()
         ].copy()
+
 
         recorte = recorte[
             recorte[peso].notna()
@@ -200,27 +428,40 @@ def calcular_consolidado(
             )
         ].copy()
 
+
         if recorte.empty:
             continue
+
 
         media = np.average(
             recorte[indicador],
             weights=recorte[peso],
         )
 
+
         resultados.append(
             {
-                "Ano": str(ano),
-                "Categoria": "Consolidado",
-                "Média": media,
-                "N escolas": recorte[
-                    "Cód. INEP"
-                ].nunique(),
-                "Matrículas": recorte[
-                    peso
-                ].sum(),
+                "Ano":
+                    str(ano),
+
+                "Categoria":
+                    "Consolidado",
+
+                "Média":
+                    media,
+
+                "N escolas":
+                    recorte[
+                        "Cód. INEP"
+                    ].nunique(),
+
+                "Matrículas":
+                    recorte[
+                        peso
+                    ].sum(),
             }
         )
+
 
     return pd.DataFrame(
         resultados
@@ -231,10 +472,12 @@ def chave_natural(valor):
 
     texto = str(valor)
 
+
     numeros = re.findall(
         r"-?\d+(?:[.,]\d+)?",
         texto,
     )
+
 
     if numeros:
 
@@ -247,14 +490,17 @@ def chave_natural(valor):
                 )
             )
 
+
             return (
                 0,
                 numero,
                 texto,
             )
 
+
         except ValueError:
             pass
+
 
     return (
         1,
@@ -262,6 +508,10 @@ def chave_natural(valor):
         texto,
     )
 
+
+# ============================================================
+# SAME SCHOOLS
+# ============================================================
 
 def filtrar_same_schools(
     base,
@@ -273,7 +523,9 @@ def filtrar_same_schools(
 
         return base
 
+
     peso = "Matrículas EM (total) 3/4"
+
 
     elegiveis = (
         base[
@@ -306,6 +558,7 @@ def filtrar_same_schools(
         .drop_duplicates()
     )
 
+
     contagem = (
         elegiveis
         .groupby(
@@ -316,6 +569,7 @@ def filtrar_same_schools(
         .nunique()
     )
 
+
     ids_validos = (
         contagem[
             contagem
@@ -325,6 +579,7 @@ def filtrar_same_schools(
         ]
         .index
     )
+
 
     return (
         base[
@@ -342,6 +597,10 @@ def filtrar_same_schools(
     )
 
 
+# ============================================================
+# DUAS DIMENSÕES
+# ============================================================
+
 def criar_duas_dimensoes(
     base,
     variavel_1,
@@ -353,12 +612,15 @@ def criar_duas_dimensoes(
         variavel_1,
     )
 
+
     temp_2 = criar_variavel_eixo(
         base,
         variavel_2,
     )
 
+
     resultado = base.copy()
+
 
     resultado[
         "Categoria_1"
@@ -368,6 +630,7 @@ def criar_duas_dimensoes(
         ].values
     )
 
+
     resultado[
         "Categoria_2"
     ] = (
@@ -375,6 +638,11 @@ def criar_duas_dimensoes(
             "Categoria"
         ].values
     )
+
+
+    # ========================================================
+    # CATEGORIA AGREGADA — TIPO DE ESCOLA
+    # ========================================================
 
     if variavel_1 == "Tipo de Escola":
 
@@ -392,11 +660,13 @@ def criar_duas_dimensoes(
             .copy()
         )
 
+
         agregado[
             "Categoria_1"
         ] = (
             "Integral (Mista + 100%)"
         )
+
 
         resultado = pd.concat(
             [
@@ -405,6 +675,7 @@ def criar_duas_dimensoes(
             ],
             ignore_index=True,
         )
+
 
     if variavel_2 == "Tipo de Escola":
 
@@ -422,11 +693,13 @@ def criar_duas_dimensoes(
             .copy()
         )
 
+
         agregado[
             "Categoria_2"
         ] = (
             "Integral (Mista + 100%)"
         )
+
 
         resultado = pd.concat(
             [
@@ -436,8 +709,13 @@ def criar_duas_dimensoes(
             ignore_index=True,
         )
 
+
     return resultado
 
+
+# ============================================================
+# MÉDIA PONDERADA — DUAS DIMENSÕES
+# ============================================================
 
 def media_ponderada_duas_dimensoes(
     base,
@@ -449,11 +727,13 @@ def media_ponderada_duas_dimensoes(
 
     peso = "Matrículas EM (total) 3/4"
 
+
     base_dupla = criar_duas_dimensoes(
         base,
         variavel_1,
         variavel_2,
     )
+
 
     base_dupla = (
         base_dupla[
@@ -465,6 +745,7 @@ def media_ponderada_duas_dimensoes(
         ]
         .copy()
     )
+
 
     base_dupla = (
         base_dupla[
@@ -486,6 +767,7 @@ def media_ponderada_duas_dimensoes(
         .copy()
     )
 
+
     if base_dupla.empty:
 
         return pd.DataFrame(
@@ -499,6 +781,7 @@ def media_ponderada_duas_dimensoes(
             ]
         )
 
+
     base_dupla[
         "_produto"
     ] = (
@@ -511,6 +794,7 @@ def media_ponderada_duas_dimensoes(
         ]
     )
 
+
     resultado = (
         base_dupla
         .groupby(
@@ -522,6 +806,7 @@ def media_ponderada_duas_dimensoes(
             as_index=False,
         )
         .agg(
+
             soma_ponderada=(
                 "_produto",
                 "sum",
@@ -541,6 +826,7 @@ def media_ponderada_duas_dimensoes(
         )
     )
 
+
     resultado[
         "Média"
     ] = (
@@ -553,6 +839,7 @@ def media_ponderada_duas_dimensoes(
         ]
     )
 
+
     resultado[
         "Ano"
     ] = (
@@ -562,6 +849,7 @@ def media_ponderada_duas_dimensoes(
         .astype(int)
         .astype(str)
     )
+
 
     return resultado[
         [
@@ -574,6 +862,10 @@ def media_ponderada_duas_dimensoes(
         ]
     ]
 
+
+# ============================================================
+# ORDENAÇÃO DE DIMENSÕES
+# ============================================================
 
 def ordenar_dimensao(
     valores,
@@ -589,6 +881,7 @@ def ordenar_dimensao(
         )
     ]
 
+
     if variavel == "Tipo de Escola":
 
         ordem = [
@@ -599,6 +892,7 @@ def ordenar_dimensao(
             "Outros / não informado",
         ]
 
+
         return [
             valor
             for valor
@@ -606,6 +900,7 @@ def ordenar_dimensao(
             if valor
             in valores
         ]
+
 
     if variavel.startswith(
         "Faixa IDEB"
@@ -619,6 +914,7 @@ def ordenar_dimensao(
             in valores
         ]
 
+
     return sorted(
         list(
             dict.fromkeys(
@@ -631,11 +927,15 @@ def ordenar_dimensao(
 
 # ============================================================
 # CARREGAMENTO DA BASE
+#
+# IMPORTANTE:
+# só acontece DEPOIS do login.
 # ============================================================
 
 try:
 
     df_completo = preparar_base()
+
 
 except Exception as erro:
 
@@ -741,7 +1041,7 @@ pagina = (
 
 
 # ============================================================
-# SIDEBAR
+# SIDEBAR — FILTROS
 # ============================================================
 
 st.sidebar.markdown(
@@ -773,11 +1073,13 @@ for nome in nomes_filtros:
         nome,
     )
 
+
     placeholder = (
         "Brasil"
         if nome == "Estado"
         else "Todos"
     )
+
 
     filtros[nome] = (
         st.sidebar.multiselect(
@@ -884,6 +1186,7 @@ try:
         filtros,
     )
 
+
     for ano, valores in filtro_ideb.items():
 
         df = aplicar_filtro_participacao_ideb(
@@ -891,6 +1194,7 @@ try:
             ano,
             valores,
         )
+
 
     if "Propedêutido" in df.columns:
 
@@ -904,11 +1208,13 @@ try:
 
         coluna_proped = "Propedêutido"
 
+
     df = aplicar_filtro_binario_coluna(
         df,
         coluna_proped,
         filtro_proped,
     )
+
 
     df = aplicar_filtro_binario_coluna(
         df,
@@ -1080,6 +1386,10 @@ if pagina == "MELHORES ESCOLAS":
         st.stop()
 
 
+    # ========================================================
+    # NOME DA ESCOLA
+    # ========================================================
+
     candidatos_nome_escola = [
         "Nome da Escola",
         "Nome da escola",
@@ -1100,6 +1410,7 @@ if pagina == "MELHORES ESCOLAS":
         if candidato in df.columns:
 
             coluna_nome_escola = candidato
+
             break
 
 
@@ -1169,6 +1480,10 @@ if pagina == "MELHORES ESCOLAS":
         )
 
 
+    # ========================================================
+    # VALOR ABSOLUTO
+    # ========================================================
+
     if criterio_rank == "Valor absoluto":
 
         ranking = (
@@ -1205,6 +1520,10 @@ if pagina == "MELHORES ESCOLAS":
             f"em {ano_rank_final}"
         )
 
+
+    # ========================================================
+    # VARIAÇÃO
+    # ========================================================
 
     else:
 
@@ -1338,6 +1657,10 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
+    # ========================================================
+    # DIMENSÕES DAS ESCOLAS
+    # ========================================================
+
     base_dimensoes = (
         df[
             (
@@ -1373,6 +1696,7 @@ if pagina == "MELHORES ESCOLAS":
                 dimensao,
             )
 
+
             base_dimensoes[
                 dimensao
             ] = (
@@ -1380,6 +1704,7 @@ if pagina == "MELHORES ESCOLAS":
                     "Categoria"
                 ].values
             )
+
 
         except Exception:
 
@@ -1455,6 +1780,7 @@ if pagina == "MELHORES ESCOLAS":
         ] = ranking[
             indicador_rank
         ]
+
 
     else:
 
@@ -1631,6 +1957,10 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
+    # ========================================================
+    # DUAS DIMENSÕES
+    # ========================================================
+
     opcoes_cruz = list(
         EIXOS_DISPONIVEIS.keys()
     )
@@ -1690,6 +2020,10 @@ if pagina == "CRUZAMENTOS":
         )
 
 
+    # ========================================================
+    # AGREGAÇÃO
+    # ========================================================
+
     try:
 
         resultado_cruz = (
@@ -1736,6 +2070,10 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
+    # ========================================================
+    # ORDENS
+    # ========================================================
+
     ordem_1 = ordenar_dimensao(
         resultado_cruz[
             "Categoria_1"
@@ -1770,6 +2108,10 @@ if pagina == "CRUZAMENTOS":
         else None
     )
 
+
+    # ========================================================
+    # BASE DO GRÁFICO
+    # ========================================================
 
     resultado_cruz_plot = (
         resultado_cruz[
@@ -1842,6 +2184,10 @@ if pagina == "CRUZAMENTOS":
     )
 
 
+    # ========================================================
+    # FORMATAÇÃO
+    # ========================================================
+
     if indicador_cruz == "Rendimento":
 
         formato_rotulo_cruz = ".1%"
@@ -1875,6 +2221,10 @@ if pagina == "CRUZAMENTOS":
     )
 
 
+    # ========================================================
+    # GRÁFICO PRINCIPAL
+    # ========================================================
+
     st.markdown(
         f"""
         <div style="
@@ -1900,10 +2250,6 @@ if pagina == "CRUZAMENTOS":
         unsafe_allow_html=True,
     )
 
-
-    # ========================================================
-    # GRÁFICO PRINCIPAL — LAYER PRIMEIRO, FACET DEPOIS
-    # ========================================================
 
     base_cruz_chart = (
         alt.Chart(
@@ -2111,6 +2457,7 @@ if pagina == "CRUZAMENTOS":
             ano_cruz_inicial
         )
 
+
         col_fim = str(
             ano_cruz_final
         )
@@ -2136,6 +2483,10 @@ if pagina == "CRUZAMENTOS":
                 ]
             )
 
+
+            # =================================================
+            # DELTA CONSOLIDADO
+            # =================================================
 
             delta_consol = (
                 consolidado_cruz[
@@ -2243,10 +2594,6 @@ if pagina == "CRUZAMENTOS":
                 unsafe_allow_html=True,
             )
 
-
-            # =================================================
-            # DELTA — LAYER PRIMEIRO, FACET DEPOIS
-            # =================================================
 
             base_delta_chart = (
                 alt.Chart(
@@ -2494,6 +2841,10 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # VARIÁVEL DAS BARRAS
+    # ========================================================
+
     with col_variavel_demo:
 
         st.markdown(
@@ -2568,6 +2919,10 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # COMPOSIÇÃO
+    # ========================================================
+
     with col_visual_demo:
 
         st.markdown(
@@ -2599,6 +2954,10 @@ if pagina == "DEMOGRAFIA":
         )
 
 
+    # ========================================================
+    # RECORTE
+    # ========================================================
+
     base_demo = (
         df[
             df[
@@ -2622,6 +2981,10 @@ if pagina == "DEMOGRAFIA":
 
         st.stop()
 
+
+    # ========================================================
+    # DIMENSÕES
+    # ========================================================
 
     try:
 
@@ -2668,6 +3031,10 @@ if pagina == "DEMOGRAFIA":
 
         st.stop()
 
+
+    # ========================================================
+    # TIPO DE ESCOLA
+    # ========================================================
 
     if variavel_demo == "Tipo de Escola":
 
@@ -2718,6 +3085,10 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # DISTRIBUIÇÃO
+    # ========================================================
+
     distribuicao = (
         base_demo
         .groupby(
@@ -2744,6 +3115,10 @@ if pagina == "DEMOGRAFIA":
         )
     )
 
+
+    # ========================================================
+    # CONSOLIDADO
+    # ========================================================
 
     base_consolidado = (
         df[
@@ -2804,6 +3179,10 @@ if pagina == "DEMOGRAFIA":
         ignore_index=True,
     )
 
+
+    # ========================================================
+    # TOTAIS
+    # ========================================================
 
     totais_grupos = (
         base_demo[
@@ -2964,6 +3343,10 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # ESPAÇO
+    # ========================================================
+
     ESPACO_DEMO = "   "
 
 
@@ -3039,6 +3422,10 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # CORES
+    # ========================================================
+
     paleta_demo = [
         "#4E79A7",
         "#F28E2B",
@@ -3082,6 +3469,10 @@ if pagina == "DEMOGRAFIA":
         ),
     )
 
+
+    # ========================================================
+    # GRÁFICOS
+    # ========================================================
 
     with col_visual_demo:
 
@@ -3313,6 +3704,10 @@ st.caption(
 )
 
 
+# ============================================================
+# INDICADOR + ORDENAÇÃO + SAME SCHOOLS
+# ============================================================
+
 (
     col_indicador,
     col_ordenacao,
@@ -3365,6 +3760,10 @@ with col_same:
         ),
     )
 
+
+# ============================================================
+# ANOS
+# ============================================================
 
 (
     _,
@@ -3431,6 +3830,10 @@ if not anos:
     st.stop()
 
 
+# ============================================================
+# SAME SCHOOLS
+# ============================================================
+
 df_principal = (
     df.copy()
 )
@@ -3474,6 +3877,10 @@ if same_schools:
     )
 
 
+# ============================================================
+# EIXO X
+# ============================================================
+
 if "eixo_x" not in st.session_state:
 
     st.session_state.eixo_x = (
@@ -3485,6 +3892,10 @@ eixo_x = (
     st.session_state.eixo_x
 )
 
+
+# ============================================================
+# AGREGAÇÃO
+# ============================================================
 
 try:
 
@@ -3530,6 +3941,10 @@ if resultado.empty:
     st.stop()
 
 
+# ============================================================
+# FORMATAÇÃO
+# ============================================================
+
 if indicador == "Rendimento":
 
     formato_rotulo = ".1%"
@@ -3542,6 +3957,10 @@ else:
     formato_tooltip = ".3f"
     formato_eixo = ".1f"
 
+
+# ============================================================
+# ANOS MAIS RECENTES
+# ============================================================
 
 anos_ordenados = sorted(
     anos
@@ -3561,6 +3980,10 @@ ano_inicial = (
     else None
 )
 
+
+# ============================================================
+# DELTA
+# ============================================================
 
 base_variacao = pd.DataFrame()
 
@@ -3619,6 +4042,10 @@ if ano_inicial is not None:
             ]
         )
 
+
+# ============================================================
+# DELTA CONSOLIDADO
+# ============================================================
 
 delta_consolidado = pd.DataFrame()
 
@@ -3691,6 +4118,10 @@ if (
             ]
         )
 
+
+# ============================================================
+# ORDEM
+# ============================================================
 
 categorias_presentes = (
     resultado[
@@ -3769,6 +4200,10 @@ for categoria in categorias_presentes:
         )
 
 
+# ============================================================
+# CONSOLIDADO
+# ============================================================
+
 CATEGORIA_ESPACO = "   "
 
 
@@ -3821,6 +4256,10 @@ for ano in anos:
         ignore_index=True,
     )
 
+
+# ============================================================
+# GRÁFICO PRINCIPAL
+# ============================================================
 
 st.markdown(
     f"""
@@ -3962,6 +4401,10 @@ st.altair_chart(
 )
 
 
+# ============================================================
+# SELEÇÃO DO EIXO
+# ============================================================
+
 st.markdown(
     """
     <div style="
@@ -3989,6 +4432,10 @@ st.radio(
     key="eixo_x",
 )
 
+
+# ============================================================
+# DELTA
+# ============================================================
 
 if (
     ano_inicial is not None
@@ -4164,6 +4611,10 @@ else:
     )
 
 
+# ============================================================
+# TABELA
+# ============================================================
+
 st.markdown(
     """
     <div style="
@@ -4256,6 +4707,7 @@ for categoria in categorias_tabela:
         "categoria"
     )
 
+
     html += (
         f'<th colspan="2" '
         f'class="{classe}">'
@@ -4278,6 +4730,7 @@ for categoria in categorias_tabela:
         == "Consolidado"
         else ""
     )
+
 
     html += (
         f"<th{classe}>Escolas</th>"
@@ -4326,7 +4779,9 @@ for ano in anos:
         if recorte.empty:
 
             escolas = "—"
+
             matriculas = "—"
+
 
         else:
 
@@ -4354,6 +4809,10 @@ for ano in anos:
         )
 
 
+    # ========================================================
+    # CONSOLIDADO REAL
+    # ========================================================
+
     recorte_consol = (
         consolidado[
             consolidado[
@@ -4369,7 +4828,9 @@ for ano in anos:
     if recorte_consol.empty:
 
         escolas_total = "—"
+
         matriculas_total = "—"
+
 
     else:
 
