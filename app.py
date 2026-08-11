@@ -1678,20 +1678,360 @@ def grafico_barra_100_top(
 # DISTRIBUIÇÕES — BOXPLOTS
 # ============================================================
 
+def _rotulo_combinacao_boxplot(
+    categoria_1,
+    categoria_2=None,
+):
+
+    categoria_1 = str(
+        categoria_1
+    )
+
+
+    if (
+        categoria_2 is None
+        or
+        str(
+            categoria_2
+        ).strip()
+        == ""
+    ):
+
+        return categoria_1
+
+
+    return (
+        f"{categoria_1} · "
+        f"{str(categoria_2)}"
+    )
+
+
+def _ordenar_combinacoes_boxplot(
+    dados,
+    variavel_1,
+    variavel_2=None,
+):
+
+    if dados.empty:
+
+        return []
+
+
+    ordem_1 = ordenar_dimensao(
+        dados[
+            "Categoria_1"
+        ]
+        .dropna()
+        .astype(str)
+        .unique(),
+        variavel_1,
+    )
+
+
+    mapa_1 = {
+        valor: indice
+        for indice, valor
+        in enumerate(
+            ordem_1
+        )
+    }
+
+
+    pares = (
+        dados[
+            [
+                "Categoria_1",
+                "Categoria_2",
+                "Categoria",
+            ]
+        ]
+        .drop_duplicates()
+        .copy()
+    )
+
+
+    if variavel_2 is None:
+
+        pares[
+            "_ordem_1"
+        ] = (
+            pares[
+                "Categoria_1"
+            ]
+            .map(
+                mapa_1
+            )
+            .fillna(
+                999
+            )
+        )
+
+
+        return (
+            pares
+            .sort_values(
+                [
+                    "_ordem_1",
+                    "Categoria",
+                ]
+            )[
+                "Categoria"
+            ]
+            .astype(str)
+            .tolist()
+        )
+
+
+    ordem_2 = ordenar_dimensao(
+        dados[
+            "Categoria_2"
+        ]
+        .dropna()
+        .astype(str)
+        .unique(),
+        variavel_2,
+    )
+
+
+    mapa_2 = {
+        valor: indice
+        for indice, valor
+        in enumerate(
+            ordem_2
+        )
+    }
+
+
+    pares[
+        "_ordem_1"
+    ] = (
+        pares[
+            "Categoria_1"
+        ]
+        .map(
+            mapa_1
+        )
+        .fillna(
+            999
+        )
+    )
+
+
+    pares[
+        "_ordem_2"
+    ] = (
+        pares[
+            "Categoria_2"
+        ]
+        .map(
+            mapa_2
+        )
+        .fillna(
+            999
+        )
+    )
+
+
+    return (
+        pares
+        .sort_values(
+            [
+                "_ordem_1",
+                "_ordem_2",
+                "Categoria",
+            ]
+        )[
+            "Categoria"
+        ]
+        .astype(str)
+        .tolist()
+    )
+
+
+def _categorizar_base_boxplot(
+    base,
+    variavel_1,
+    variavel_2=None,
+    incluir_integral_agregado=False,
+):
+
+    if base.empty:
+
+        return pd.DataFrame(
+            columns=[
+                *base.columns,
+                "Categoria_1",
+                "Categoria_2",
+                "Categoria",
+            ]
+        )
+
+
+    if variavel_2 is None:
+
+        temp = criar_variavel_eixo(
+            base,
+            variavel_1,
+        )
+
+
+        resultado = base.copy()
+
+
+        resultado[
+            "Categoria_1"
+        ] = temp[
+            "Categoria"
+        ].values
+
+
+        resultado[
+            "Categoria_2"
+        ] = ""
+
+
+        if (
+            incluir_integral_agregado
+            and
+            variavel_1
+            == "Tipo de Escola"
+        ):
+
+            agregado = (
+                resultado[
+                    resultado[
+                        "Categoria_1"
+                    ].isin(
+                        [
+                            "Mista",
+                            "100% Integral",
+                        ]
+                    )
+                ]
+                .copy()
+            )
+
+
+            agregado[
+                "Categoria_1"
+            ] = CATEGORIA_INTEGRAL_AGREGADA
+
+
+            resultado = pd.concat(
+                [
+                    resultado,
+                    agregado,
+                ],
+                ignore_index=True,
+            )
+
+
+    else:
+
+        resultado = criar_duas_dimensoes(
+            base=base,
+            variavel_1=variavel_1,
+            variavel_2=variavel_2,
+            incluir_integral_agregado=(
+                incluir_integral_agregado
+            ),
+        )
+
+
+    resultado = (
+        resultado[
+            resultado[
+                "Categoria_1"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    resultado[
+        "Categoria_1"
+    ] = (
+        resultado[
+            "Categoria_1"
+        ]
+        .astype(str)
+    )
+
+
+    if variavel_2 is not None:
+
+        resultado = (
+            resultado[
+                resultado[
+                    "Categoria_2"
+                ].notna()
+            ]
+            .copy()
+        )
+
+
+        resultado[
+            "Categoria_2"
+        ] = (
+            resultado[
+                "Categoria_2"
+            ]
+            .astype(str)
+        )
+
+
+    resultado[
+        "Categoria"
+    ] = resultado.apply(
+        lambda linha:
+            _rotulo_combinacao_boxplot(
+                linha[
+                    "Categoria_1"
+                ],
+                (
+                    linha[
+                        "Categoria_2"
+                    ]
+                    if variavel_2
+                    is not None
+                    else None
+                ),
+            ),
+        axis=1,
+    )
+
+
+    return resultado
+
+
 def preparar_dados_boxplot(
     base,
     indicador,
-    variavel,
-    ano=2025,
+    variavel_1,
+    anos,
+    variavel_2=None,
     incluir_integral_agregado=False,
 ):
+
+    anos = sorted(
+        list(
+            dict.fromkeys(
+                int(
+                    ano
+                )
+                for ano in anos
+            )
+        )
+    )
+
 
     recorte = (
         base[
             base[
                 "Ano"
-            ]
-            == ano
+            ].isin(
+                anos
+            )
         ]
         .copy()
     )
@@ -1703,22 +2043,15 @@ def preparar_dados_boxplot(
             pd.DataFrame(
                 columns=[
                     "Cód. INEP",
+                    "Ano",
+                    "Categoria_1",
+                    "Categoria_2",
                     "Categoria",
                     "Valor",
                 ]
             ),
             [],
         )
-
-
-    recorte = (
-        recorte[
-            recorte[
-                indicador
-            ].notna()
-        ]
-        .copy()
-    )
 
 
     recorte[
@@ -1739,7 +2072,8 @@ def preparar_dados_boxplot(
         ]
         .drop_duplicates(
             subset=[
-                "Cód. INEP"
+                "Cód. INEP",
+                "Ano",
             ],
             keep="first",
         )
@@ -1753,6 +2087,9 @@ def preparar_dados_boxplot(
             pd.DataFrame(
                 columns=[
                     "Cód. INEP",
+                    "Ano",
+                    "Categoria_1",
+                    "Categoria_2",
                     "Categoria",
                     "Valor",
                 ]
@@ -1761,90 +2098,26 @@ def preparar_dados_boxplot(
         )
 
 
-    categorias = criar_variavel_eixo(
-        recorte,
-        variavel,
+    categorizado = _categorizar_base_boxplot(
+        base=recorte,
+        variavel_1=variavel_1,
+        variavel_2=variavel_2,
+        incluir_integral_agregado=(
+            incluir_integral_agregado
+        ),
     )
 
 
-    dados_categoria = recorte[
+    dados_categoria = categorizado[
         [
             "Cód. INEP",
+            "Ano",
+            "Categoria_1",
+            "Categoria_2",
+            "Categoria",
             indicador,
         ]
     ].copy()
-
-
-    dados_categoria[
-        "Categoria"
-    ] = categorias[
-        "Categoria"
-    ].values
-
-
-    dados_categoria = (
-        dados_categoria[
-            dados_categoria[
-                "Categoria"
-            ].notna()
-        ]
-        .copy()
-    )
-
-
-    dados_categoria[
-        "Categoria"
-    ] = (
-        dados_categoria[
-            "Categoria"
-        ]
-        .astype(str)
-    )
-
-
-    if (
-        incluir_integral_agregado
-        and
-        variavel == "Tipo de Escola"
-    ):
-
-        agregado = (
-            dados_categoria[
-                dados_categoria[
-                    "Categoria"
-                ].isin(
-                    [
-                        "Mista",
-                        "100% Integral",
-                    ]
-                )
-            ]
-            .copy()
-        )
-
-
-        agregado[
-            "Categoria"
-        ] = CATEGORIA_INTEGRAL_AGREGADA
-
-
-        dados_categoria = pd.concat(
-            [
-                dados_categoria,
-                agregado,
-            ],
-            ignore_index=True,
-        )
-
-
-    ordem_categorias = ordenar_dimensao(
-        dados_categoria[
-            "Categoria"
-        ]
-        .dropna()
-        .unique(),
-        variavel,
-    )
 
 
     dados_categoria = dados_categoria.rename(
@@ -1854,11 +2127,19 @@ def preparar_dados_boxplot(
     )
 
 
-    # O consolidado usa a base original do ano, sem duplicar as escolas
-    # eventualmente replicadas para a categoria Integral (Mista + 100%).
+    ordem_categorias = _ordenar_combinacoes_boxplot(
+        dados=dados_categoria,
+        variavel_1=variavel_1,
+        variavel_2=variavel_2,
+    )
+
+
+    # O Consolidado usa a base original, sem as duplicações criadas
+    # para a categoria Integral (Mista + 100%).
     consolidado = recorte[
         [
             "Cód. INEP",
+            "Ano",
             indicador,
         ]
     ].copy()
@@ -1872,6 +2153,16 @@ def preparar_dados_boxplot(
 
 
     consolidado[
+        "Categoria_1"
+    ] = "Consolidado"
+
+
+    consolidado[
+        "Categoria_2"
+    ] = ""
+
+
+    consolidado[
         "Categoria"
     ] = "Consolidado"
 
@@ -1881,6 +2172,9 @@ def preparar_dados_boxplot(
             dados_categoria[
                 [
                     "Cód. INEP",
+                    "Ano",
+                    "Categoria_1",
+                    "Categoria_2",
                     "Categoria",
                     "Valor",
                 ]
@@ -1888,8 +2182,281 @@ def preparar_dados_boxplot(
             consolidado[
                 [
                     "Cód. INEP",
+                    "Ano",
+                    "Categoria_1",
+                    "Categoria_2",
                     "Categoria",
                     "Valor",
+                ]
+            ],
+        ],
+        ignore_index=True,
+    )
+
+
+    dados[
+        "Ano"
+    ] = (
+        dados[
+            "Ano"
+        ]
+        .astype(int)
+        .astype(str)
+    )
+
+
+    ordem = (
+        ordem_categorias
+        +
+        [
+            "Consolidado"
+        ]
+    )
+
+
+    return (
+        dados,
+        ordem,
+    )
+
+
+def preparar_dados_delta_boxplot(
+    base,
+    indicador,
+    variavel_1,
+    ano_inicial,
+    ano_final,
+    variavel_2=None,
+    incluir_integral_agregado=False,
+):
+
+    anos_delta = [
+        int(
+            ano_inicial
+        ),
+        int(
+            ano_final
+        ),
+    ]
+
+
+    recorte = (
+        base[
+            base[
+                "Ano"
+            ].isin(
+                anos_delta
+            )
+        ]
+        .copy()
+    )
+
+
+    if recorte.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    recorte[
+        indicador
+    ] = pd.to_numeric(
+        recorte[
+            indicador
+        ],
+        errors="coerce",
+    )
+
+
+    recorte = (
+        recorte[
+            recorte[
+                indicador
+            ].notna()
+        ]
+        .drop_duplicates(
+            subset=[
+                "Cód. INEP",
+                "Ano",
+            ],
+            keep="first",
+        )
+        .copy()
+    )
+
+
+    pivot = (
+        recorte[
+            [
+                "Cód. INEP",
+                "Ano",
+                indicador,
+            ]
+        ]
+        .pivot(
+            index="Cód. INEP",
+            columns="Ano",
+            values=indicador,
+        )
+    )
+
+
+    if (
+        ano_inicial
+        not in pivot.columns
+        or
+        ano_final
+        not in pivot.columns
+    ):
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    pivot = (
+        pivot[
+            [
+                ano_inicial,
+                ano_final,
+            ]
+        ]
+        .dropna()
+        .reset_index()
+    )
+
+
+    if pivot.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    pivot[
+        "Delta"
+    ] = (
+        pivot[
+            ano_final
+        ]
+        -
+        pivot[
+            ano_inicial
+        ]
+    )
+
+
+    deltas_escola = pivot[
+        [
+            "Cód. INEP",
+            "Delta",
+        ]
+    ].copy()
+
+
+    # As dimensões são definidas pela classificação da escola no ano
+    # mais recente da comparação, seguindo a lógica do painel para a
+    # composição dos grupos na comparação entre edições.
+    base_final = (
+        recorte[
+            recorte[
+                "Ano"
+            ]
+            == ano_final
+        ]
+        .merge(
+            deltas_escola,
+            on="Cód. INEP",
+            how="inner",
+            validate="one_to_one",
+        )
+    )
+
+
+    categorizado = _categorizar_base_boxplot(
+        base=base_final,
+        variavel_1=variavel_1,
+        variavel_2=variavel_2,
+        incluir_integral_agregado=(
+            incluir_integral_agregado
+        ),
+    )
+
+
+    dados_categoria = categorizado[
+        [
+            "Cód. INEP",
+            "Categoria_1",
+            "Categoria_2",
+            "Categoria",
+            "Delta",
+        ]
+    ].copy()
+
+
+    ordem_categorias = _ordenar_combinacoes_boxplot(
+        dados=dados_categoria,
+        variavel_1=variavel_1,
+        variavel_2=variavel_2,
+    )
+
+
+    consolidado = deltas_escola.copy()
+
+
+    consolidado[
+        "Categoria_1"
+    ] = "Consolidado"
+
+
+    consolidado[
+        "Categoria_2"
+    ] = ""
+
+
+    consolidado[
+        "Categoria"
+    ] = "Consolidado"
+
+
+    dados = pd.concat(
+        [
+            dados_categoria,
+            consolidado[
+                [
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Delta",
                 ]
             ],
         ],
@@ -1916,8 +2483,9 @@ def criar_grafico_boxplots(
     dados,
     ordem,
     indicador,
-    variavel,
-    ano,
+    variavel_1,
+    anos,
+    variavel_2=None,
 ):
 
     if dados.empty:
@@ -1944,10 +2512,23 @@ def criar_grafico_boxplots(
         )
 
 
+    anos_str = [
+        str(
+            ano
+        )
+        for ano in sorted(
+            anos
+        )
+    ]
+
+
     medias = (
         dados
         .groupby(
-            "Categoria",
+            [
+                "Categoria",
+                "Ano",
+            ],
             as_index=False,
         )
         .agg(
@@ -2004,17 +2585,28 @@ def criar_grafico_boxplots(
         )
 
 
+    titulo_dimensao = rotulo_dimensao(
+        variavel_1
+    )
+
+
+    if variavel_2 is not None:
+
+        titulo_dimensao = (
+            f"{titulo_dimensao} × "
+            f"{rotulo_dimensao(variavel_2)}"
+        )
+
+
     eixo_x = alt.X(
         "Categoria:N",
         sort=ordem,
-        title=rotulo_dimensao(
-            variavel
-        ),
+        title=titulo_dimensao,
         axis=alt.Axis(
-            labelAngle=-20,
-            labelFontSize=11,
+            labelAngle=-25,
+            labelFontSize=10,
             titleFontSize=12,
-            labelLimit=180,
+            labelLimit=210,
             labelPadding=8,
         ),
     )
@@ -2031,6 +2623,340 @@ def criar_grafico_boxplots(
             labelFontSize=11,
             titleFontSize=12,
         ),
+    )
+
+
+    escala_anos = alt.Scale(
+        domain=anos_str,
+        range=[
+            CORES_ANOS[
+                ano
+            ]
+            for ano in anos_str
+        ],
+    )
+
+
+    deslocamento_ano = alt.XOffset(
+        "Ano:N",
+        sort=anos_str,
+    )
+
+
+    tamanho_caixa = max(
+        14,
+        42
+        -
+        5
+        *
+        (
+            len(
+                anos_str
+            )
+            - 1
+        ),
+    )
+
+
+    caixas = (
+        alt.Chart(
+            dados
+        )
+        .mark_boxplot(
+            extent=1.5,
+            size=tamanho_caixa,
+        )
+        .encode(
+            x=eixo_x,
+            xOffset=deslocamento_ano,
+            y=eixo_y,
+            color=alt.Color(
+                "Ano:N",
+                title="Ano",
+                sort=anos_str,
+                scale=escala_anos,
+                legend=alt.Legend(
+                    orient="top",
+                    direction="horizontal",
+                    title=None,
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categoria",
+                ),
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+            ],
+        )
+    )
+
+
+    pontos_media = (
+        alt.Chart(
+            medias
+        )
+        .mark_point(
+            shape="diamond",
+            filled=True,
+            size=80,
+            color="#2F313C",
+            stroke="white",
+            strokeWidth=0.8,
+        )
+        .encode(
+            x=alt.X(
+                "Categoria:N",
+                sort=ordem,
+            ),
+            xOffset=alt.XOffset(
+                "Ano:N",
+                sort=anos_str,
+            ),
+            y=alt.Y(
+                "Média:Q",
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categoria",
+                ),
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title="Média",
+                    format=formato_tooltip,
+                ),
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="N escolas",
+                    format="d",
+                ),
+            ],
+        )
+    )
+
+
+    rotulos_media = (
+        alt.Chart(
+            medias
+        )
+        .mark_text(
+            dy=-12,
+            fontSize=9.5,
+            fontWeight="bold",
+            color="#2F313C",
+        )
+        .encode(
+            x=alt.X(
+                "Categoria:N",
+                sort=ordem,
+            ),
+            xOffset=alt.XOffset(
+                "Ano:N",
+                sort=anos_str,
+            ),
+            y=alt.Y(
+                "Média:Q",
+            ),
+            text=alt.Text(
+                "Rótulo média:N"
+            ),
+        )
+    )
+
+
+    return (
+        caixas
+        +
+        pontos_media
+        +
+        rotulos_media
+    ).properties(
+        height=430,
+        title=alt.TitleParams(
+            text=(
+                f"Distribuição de {indicador} por "
+                f"{titulo_dimensao}"
+            ),
+            subtitle=(
+                "O losango e o rótulo indicam a média de cada distribuição. "
+                "O Consolidado aparece ao final, à direita."
+            ),
+            anchor="middle",
+            fontSize=16,
+            subtitleFontSize=11,
+            subtitlePadding=8,
+        ),
+    )
+
+
+def criar_grafico_delta_boxplots(
+    dados,
+    ordem,
+    indicador,
+    variavel_1,
+    ano_inicial,
+    ano_final,
+    variavel_2=None,
+):
+
+    if dados.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "Mensagem": [
+                            "Sem dados"
+                        ]
+                    }
+                )
+            )
+            .mark_text(
+                fontSize=15,
+            )
+            .encode(
+                text="Mensagem:N"
+            )
+            .properties(
+                height=360,
+            )
+        )
+
+
+    medias = (
+        dados
+        .groupby(
+            "Categoria",
+            as_index=False,
+        )
+        .agg(
+            Média=(
+                "Delta",
+                "mean",
+            ),
+            **{
+                "N escolas": (
+                    "Cód. INEP",
+                    "nunique",
+                )
+            },
+        )
+    )
+
+
+    if indicador == "Rendimento":
+
+        formato_eixo = "+.0%"
+        formato_tooltip = "+.1%"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor) * 100:+.1f} p.p."
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+    else:
+
+        formato_eixo = "+.1f"
+        formato_tooltip = "+.2f"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor):+.2f}"
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+
+    titulo_dimensao = rotulo_dimensao(
+        variavel_1
+    )
+
+
+    if variavel_2 is not None:
+
+        titulo_dimensao = (
+            f"{titulo_dimensao} × "
+            f"{rotulo_dimensao(variavel_2)}"
+        )
+
+
+    eixo_x = alt.X(
+        "Categoria:N",
+        sort=ordem,
+        title=titulo_dimensao,
+        axis=alt.Axis(
+            labelAngle=-25,
+            labelFontSize=10,
+            titleFontSize=12,
+            labelLimit=210,
+            labelPadding=8,
+        ),
+    )
+
+
+    eixo_y = alt.Y(
+        "Delta:Q",
+        title=(
+            f"Delta de {indicador}"
+        ),
+        scale=alt.Scale(
+            zero=False,
+        ),
+        axis=alt.Axis(
+            format=formato_eixo,
+            labelFontSize=11,
+            titleFontSize=12,
+        ),
+    )
+
+
+    linha_zero = (
+        alt.Chart(
+            pd.DataFrame(
+                {
+                    "Zero": [
+                        0
+                    ]
+                }
+            )
+        )
+        .mark_rule(
+            color="#9AA0A6",
+            strokeDash=[
+                4,
+                4,
+            ],
+            strokeWidth=1,
+        )
+        .encode(
+            y=alt.Y(
+                "Zero:Q"
+            )
+        )
     )
 
 
@@ -2055,6 +2981,12 @@ def criar_grafico_boxplots(
                     "#6C9FCC"
                 ),
             ),
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categoria",
+                ),
+            ],
         )
     )
 
@@ -2086,7 +3018,7 @@ def criar_grafico_boxplots(
                 ),
                 alt.Tooltip(
                     "Média:Q",
-                    title="Média",
+                    title="Média do delta",
                     format=formato_tooltip,
                 ),
                 alt.Tooltip(
@@ -2105,7 +3037,7 @@ def criar_grafico_boxplots(
         )
         .mark_text(
             dy=-13,
-            fontSize=10.5,
+            fontSize=10,
             fontWeight="bold",
             color="#2F313C",
         )
@@ -2125,6 +3057,8 @@ def criar_grafico_boxplots(
 
 
     return (
+        linha_zero
+        +
         caixas
         +
         pontos_media
@@ -2134,12 +3068,12 @@ def criar_grafico_boxplots(
         height=430,
         title=alt.TitleParams(
             text=(
-                f"Distribuição de {indicador} por "
-                f"{rotulo_dimensao(variavel)} — {ano}"
+                f"Distribuição dos deltas de {indicador} por "
+                f"{titulo_dimensao} — {ano_final} − {ano_inicial}"
             ),
             subtitle=(
-                "O losango e o rótulo indicam a média de cada distribuição. "
-                "O Consolidado reúne todas as escolas elegíveis."
+                "Cada delta é calculado por escola. O losango e o rótulo "
+                "indicam a média dos deltas; o Consolidado aparece ao final."
             ),
             anchor="middle",
             fontSize=16,
@@ -4396,19 +5330,19 @@ if pagina == "DISTRIBUIÇÕES":
     )
 
 
-    # A aba usa a edição mais recente disponível no painel. Mantemos
-    # apenas os dois controles solicitados: Indicador e Dimensão.
-    ano_distribuicoes = max(
-        ANOS_PAINEL
+    opcoes_distribuicoes = list(
+        EIXOS_DISPONIVEIS.keys()
     )
 
 
-    _, dist_1, dist_2, __ = st.columns(
+    SEM_ESCOLHA_DISTRIB = "<vazio>"
+
+
+    dist_1, dist_2, dist_3 = st.columns(
         [
-            1.15,
-            1.20,
-            1.70,
-            1.15,
+            1.05,
+            1.35,
+            1.35,
         ]
     )
 
@@ -4430,30 +5364,136 @@ if pagina == "DISTRIBUIÇÕES":
 
     with dist_2:
 
-        opcoes_distribuicoes = list(
-            EIXOS_DISPONIVEIS.keys()
-        )
-
-
-        variavel_distribuicoes = st.selectbox(
-            "Dimensão",
+        variavel_1_distribuicoes = st.selectbox(
+            "1ª dimensão",
             options=opcoes_distribuicoes,
             index=(
                 opcoes_distribuicoes.index(
-                    "Tipo de Escola"
+                    "INSE"
                 )
-                if "Tipo de Escola"
+                if "INSE"
                 in opcoes_distribuicoes
                 else 0
             ),
             format_func=rotulo_dimensao,
-            key="variavel_distribuicoes",
+            key="variavel_1_distribuicoes",
         )
 
 
-    st.caption(
-        f"Distribuições por escola para a edição {ano_distribuicoes}. "
-        "Os filtros laterais também são aplicados a esta visualização."
+    opcoes_2_distribuicoes = [
+        SEM_ESCOLHA_DISTRIB,
+        *[
+            item
+            for item
+            in opcoes_distribuicoes
+            if item
+            != variavel_1_distribuicoes
+        ],
+    ]
+
+
+    with dist_3:
+
+        indice_padrao_var_2_distrib = (
+            opcoes_2_distribuicoes.index(
+                "PPI"
+            )
+            if "PPI"
+            in opcoes_2_distribuicoes
+            else 0
+        )
+
+
+        variavel_2_distribuicoes = st.selectbox(
+            "2ª dimensão",
+            options=opcoes_2_distribuicoes,
+            index=indice_padrao_var_2_distrib,
+            format_func=(
+                lambda valor:
+                    SEM_ESCOLHA_DISTRIB
+                    if valor
+                    == SEM_ESCOLHA_DISTRIB
+                    else rotulo_dimensao(
+                        valor
+                    )
+            ),
+            key="variavel_2_distribuicoes",
+        )
+
+
+    variavel_2_boxplot = (
+        None
+        if variavel_2_distribuicoes
+        == SEM_ESCOLHA_DISTRIB
+        else variavel_2_distribuicoes
+    )
+
+
+    _, bloco_distrib_anos, __ = st.columns(
+        [
+            1.3,
+            3.4,
+            1.3,
+        ]
+    )
+
+
+    with bloco_distrib_anos:
+
+        cols_distrib = st.columns(5)
+
+
+        defaults_distrib = {
+            2017: False,
+            2019: False,
+            2021: False,
+            2023: True,
+            2025: True,
+        }
+
+
+        selecao_distrib = {}
+
+
+        for col, ano in zip(
+            cols_distrib,
+            ANOS_PAINEL,
+        ):
+
+            with col:
+
+                selecao_distrib[
+                    ano
+                ] = st.checkbox(
+                    str(
+                        ano
+                    ),
+                    value=defaults_distrib[
+                        ano
+                    ],
+                    key=f"distrib_ano_{ano}",
+                )
+
+
+    anos_distribuicoes = [
+        ano
+        for ano, ativo
+        in selecao_distrib.items()
+        if ativo
+    ]
+
+
+    if not anos_distribuicoes:
+
+        st.warning(
+            "Selecione pelo menos um ano."
+        )
+
+        st.stop()
+
+
+    anos_distribuicoes = sorted(
+        anos_distribuicoes
     )
 
 
@@ -4462,8 +5502,9 @@ if pagina == "DISTRIBUIÇÕES":
         dados_boxplot, ordem_boxplot = preparar_dados_boxplot(
             base=df,
             indicador=indicador_distribuicoes,
-            variavel=variavel_distribuicoes,
-            ano=ano_distribuicoes,
+            variavel_1=variavel_1_distribuicoes,
+            variavel_2=variavel_2_boxplot,
+            anos=anos_distribuicoes,
             incluir_integral_agregado=(
                 mostrar_integral_agregado
             ),
@@ -4483,28 +5524,125 @@ if pagina == "DISTRIBUIÇÕES":
         st.stop()
 
 
+    st.markdown(
+        "#### Distribuições dos valores"
+    )
+
+
+    st.caption(
+        "Os boxplots mostram a distribuição entre escolas em cada ano "
+        "selecionado. O losango representa a média de cada distribuição."
+    )
+
+
     if dados_boxplot.empty:
 
         st.info(
             "Não há dados disponíveis para a combinação selecionada."
         )
 
+    else:
+
+        grafico_boxplots = criar_grafico_boxplots(
+            dados=dados_boxplot,
+            ordem=ordem_boxplot,
+            indicador=indicador_distribuicoes,
+            variavel_1=variavel_1_distribuicoes,
+            variavel_2=variavel_2_boxplot,
+            anos=anos_distribuicoes,
+        )
+
+
+        st.altair_chart(
+            grafico_boxplots,
+            width="stretch",
+        )
+
+
+    st.markdown(
+        "#### Distribuições dos deltas"
+    )
+
+
+    if len(
+        anos_distribuicoes
+    ) < 2:
+
+        st.info(
+            "Selecione pelo menos dois anos para visualizar "
+            "a distribuição dos deltas."
+        )
+
         st.stop()
 
 
-    grafico_boxplots = criar_grafico_boxplots(
-        dados=dados_boxplot,
-        ordem=ordem_boxplot,
-        indicador=indicador_distribuicoes,
-        variavel=variavel_distribuicoes,
-        ano=ano_distribuicoes,
+    ano_final_distrib = anos_distribuicoes[-1]
+    ano_inicial_distrib = anos_distribuicoes[-2]
+
+
+    st.caption(
+        f"Delta calculado como {ano_final_distrib} − "
+        f"{ano_inicial_distrib}. Quando mais de dois anos estão "
+        "selecionados, são usadas as duas edições mais recentes. "
+        f"As dimensões de cada escola são consideradas em "
+        f"{ano_final_distrib}."
     )
 
 
-    st.altair_chart(
-        grafico_boxplots,
-        width="stretch",
-    )
+    try:
+
+        dados_delta_boxplot, ordem_delta_boxplot = (
+            preparar_dados_delta_boxplot(
+                base=df,
+                indicador=indicador_distribuicoes,
+                variavel_1=variavel_1_distribuicoes,
+                variavel_2=variavel_2_boxplot,
+                ano_inicial=ano_inicial_distrib,
+                ano_final=ano_final_distrib,
+                incluir_integral_agregado=(
+                    mostrar_integral_agregado
+                ),
+            )
+        )
+
+
+    except Exception as erro:
+
+        st.error(
+            "Não foi possível preparar os deltas das distribuições."
+        )
+
+        st.exception(
+            erro
+        )
+
+        st.stop()
+
+
+    if dados_delta_boxplot.empty:
+
+        st.info(
+            "Não há escolas com resultados válidos nos dois anos "
+            "mais recentes selecionados para calcular os deltas."
+        )
+
+    else:
+
+        grafico_delta_boxplots = criar_grafico_delta_boxplots(
+            dados=dados_delta_boxplot,
+            ordem=ordem_delta_boxplot,
+            indicador=indicador_distribuicoes,
+            variavel_1=variavel_1_distribuicoes,
+            variavel_2=variavel_2_boxplot,
+            ano_inicial=ano_inicial_distrib,
+            ano_final=ano_final_distrib,
+        )
+
+
+        st.altair_chart(
+            grafico_delta_boxplots,
+            width="stretch",
+        )
 
 
     st.stop()
