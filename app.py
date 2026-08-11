@@ -8873,8 +8873,14 @@ if same_schools_ativo:
 
     if "Transicao" not in df_base_filtros.columns:
 
+        # Esta mensagem só deve aparecer se a preparação da base
+        # realmente não tiver conseguido incorporar o atributo da
+        # aba Escolas_2025. O nome exibido no painel continua sendo
+        # "Categorias Same Schools"; "Transicao" é apenas o nome
+        # físico da coluna de origem.
         st.error(
-            "A coluna Transicao não foi encontrada na base carregada da aba Escolas_2025."
+            "Não foi possível carregar o campo Categorias Same Schools "
+            "a partir da coluna Transicao da aba Escolas_2025."
         )
         st.stop()
 
