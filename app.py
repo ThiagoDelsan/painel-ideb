@@ -8898,21 +8898,44 @@ if same_schools_ativo:
     )
 
 
-    # Sinalização visual de que o universo SAME SCHOOLS está ativo.
-    st.markdown(
-        """
-        <style>
-            .stApp,
-            [data-testid="stAppViewContainer"] {
-                background-color: #EEF7FF !important;
-            }
+# Cor única do painel e dos gráficos conforme o universo selecionado.
+# SAME SCHOOLS ligado  -> azul-claro.
+# SAME SCHOOLS desligado -> branco.
+COR_FUNDO_PAINEL = (
+    "#EEF7FF"
+    if same_schools_ativo
+    else "#FFFFFF"
+)
 
-            [data-testid="stHeader"] {
-                background-color: rgba(238, 247, 255, 0.94) !important;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
+COR_FUNDO_HEADER = (
+    "rgba(238, 247, 255, 0.94)"
+    if same_schools_ativo
+    else "rgba(255, 255, 255, 0.94)"
+)
+
+
+st.markdown(
+    f"""
+    <style>
+        .stApp,
+        [data-testid="stAppViewContainer"] {{
+            background-color: {COR_FUNDO_PAINEL} !important;
+        }}
+
+        [data-testid="stHeader"] {{
+            background-color: {COR_FUNDO_HEADER} !important;
+        }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+def aplicar_fundo_grafico(grafico):
+    """Mantém o fundo dos gráficos sincronizado com SAME SCHOOLS."""
+
+    return grafico.properties(
+        background=COR_FUNDO_PAINEL
     )
 
 
@@ -9782,7 +9805,9 @@ if pagina == "DISTRIBUIÇÕES":
 
 
             st.altair_chart(
-                grafico_boxplots,
+                    aplicar_fundo_grafico(
+                        grafico_boxplots
+                    ),
                 width="stretch",
             )
 
@@ -9852,7 +9877,9 @@ if pagina == "DISTRIBUIÇÕES":
 
 
             st.altair_chart(
-                grafico_delta_boxplots,
+                    aplicar_fundo_grafico(
+                        grafico_delta_boxplots
+                    ),
                 width="stretch",
             )
 
@@ -10468,7 +10495,9 @@ if pagina == "DISTRIBUIÇÕES":
 
 
                 st.altair_chart(
-                    grafico_agregado,
+                        aplicar_fundo_grafico(
+                            grafico_agregado
+                        ),
                     width="stretch",
                 )
 
@@ -10492,7 +10521,9 @@ if pagina == "DISTRIBUIÇÕES":
 
 
                 st.altair_chart(
-                    grafico_medias_agregado,
+                        aplicar_fundo_grafico(
+                            grafico_medias_agregado
+                        ),
                     width="stretch",
                 )
 
@@ -10629,7 +10660,9 @@ if pagina == "DISTRIBUIÇÕES":
 
 
                 st.altair_chart(
-                    grafico_delta_agregado,
+                        aplicar_fundo_grafico(
+                            grafico_delta_agregado
+                        ),
                     width="stretch",
                 )
 
@@ -10652,7 +10685,9 @@ if pagina == "DISTRIBUIÇÕES":
 
 
                 st.altair_chart(
-                    grafico_medias_delta_agregado,
+                        aplicar_fundo_grafico(
+                            grafico_medias_delta_agregado
+                        ),
                     width="stretch",
                 )
 
@@ -11125,7 +11160,8 @@ if pagina == "MELHORES ESCOLAS":
     with g1:
 
         st.altair_chart(
-            grafico_barra_100_top(
+            aplicar_fundo_grafico(
+                grafico_barra_100_top(
                 dist_tipo,
                 "Tipo de Escola",
                 [
@@ -11133,6 +11169,7 @@ if pagina == "MELHORES ESCOLAS":
                     "Mista",
                     "Parcial/Regular",
                 ],
+                )
             ),
             width="stretch",
         )
@@ -11141,7 +11178,8 @@ if pagina == "MELHORES ESCOLAS":
     with g2:
 
         st.altair_chart(
-            grafico_barra_100_top(
+            aplicar_fundo_grafico(
+                grafico_barra_100_top(
                 dist_inse,
                 "INSE",
                 ordenar_dimensao(
@@ -11149,7 +11187,8 @@ if pagina == "MELHORES ESCOLAS":
                         "Categoria"
                     ].tolist(),
                     "INSE",
-                ),
+                    ),
+                )
             ),
             width="stretch",
         )
@@ -11158,7 +11197,8 @@ if pagina == "MELHORES ESCOLAS":
     with g3:
 
         st.altair_chart(
-            grafico_barra_100_top(
+            aplicar_fundo_grafico(
+                grafico_barra_100_top(
                 dist_ppi,
                 "PPI",
                 ordenar_dimensao(
@@ -11166,7 +11206,8 @@ if pagina == "MELHORES ESCOLAS":
                         "Categoria"
                     ].tolist(),
                     "PPI",
-                ),
+                    ),
+                )
             ),
             width="stretch",
         )
@@ -12134,10 +12175,20 @@ if pagina == "PRINCIPAIS INDICADORES":
         )
 
 
-    st.altair_chart(
-        painel_cruz,
-        width="stretch",
+    # Centraliza a composição do painel (média ponderada + variação).
+    col_princ_esq, col_princ_centro, col_princ_dir = st.columns(
+        [0.7, 8.6, 0.7]
     )
+
+
+    with col_princ_centro:
+
+        st.altair_chart(
+            aplicar_fundo_grafico(
+                painel_cruz
+            ),
+            width="stretch",
+        )
 
 
     st.stop()
@@ -13084,25 +13135,40 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    st.altair_chart(
-        alt.hconcat(
-            graf_pct,
-            graf_n,
-            spacing=20,
-        )
-        .resolve_scale(
-            y="shared"
-        )
-        .configure_view(
-            stroke=None
-        ),
-        width="stretch",
-        key="grafico_demografia_interativo",
-        on_select="rerun",
-        selection_mode=[
-            "selecionar_composicao_demo"
-        ],
+    # Centraliza a composição dos dois gráficos de Demografia.
+    col_demo_esq, col_demo_centro, col_demo_dir = st.columns(
+        [0.9, 8.2, 0.9]
     )
+
+
+    with col_demo_centro:
+
+        grafico_demografia_completo = (
+            alt.hconcat(
+                graf_pct,
+                graf_n,
+                spacing=20,
+            )
+            .resolve_scale(
+                y="shared"
+            )
+            .configure_view(
+                stroke=None
+            )
+        )
+
+
+        st.altair_chart(
+            aplicar_fundo_grafico(
+                grafico_demografia_completo
+            ),
+            width="stretch",
+            key="grafico_demografia_interativo",
+            on_select="rerun",
+            selection_mode=[
+                "selecionar_composicao_demo"
+            ],
+        )
 
 
     st.stop()
