@@ -70,11 +70,6 @@ st.markdown(
             color: #642329 !important;
         }
 
-        .sidebar-filter-divider {
-            width: 100%;
-            border-top: 1px solid rgba(120, 125, 135, 0.26);
-            margin: 0.42rem 0 0.34rem 0;
-        }
 
         div[data-testid="stButton"] button p {
             font-size: 0.72rem !important;
@@ -777,6 +772,180 @@ def ordenar_dimensao(
             )
         ),
         key=chave_natural,
+    )
+
+
+def ordenar_dimensao_para_grafico(
+    valores,
+    variavel,
+):
+
+    valores_unicos = list(
+        dict.fromkeys(
+            str(valor)
+            for valor
+            in valores
+            if pd.notna(valor)
+        )
+    )
+
+
+    # PPI: usa ordem natural dos rótulos, de modo que faixas com
+    # números sejam apresentadas na sequência numérica esperada.
+    if variavel == "PPI":
+
+        return sorted(
+            valores_unicos,
+            key=chave_natural,
+        )
+
+
+    # Faixa IDEB: respeita a progressão explícita das faixas.
+    if str(variavel).startswith(
+        "Faixa IDEB"
+    ):
+
+        ordenados = [
+            valor
+            for valor
+            in ORDEM_FAIXA_IDEB
+            if valor
+            in valores_unicos
+        ]
+
+        extras = sorted(
+            [
+                valor
+                for valor
+                in valores_unicos
+                if valor
+                not in ordenados
+            ],
+            key=lambda valor: str(valor).casefold(),
+        )
+
+        return ordenados + extras
+
+
+    # Demais dimensões: ordem alfabética.
+    return sorted(
+        valores_unicos,
+        key=lambda valor: str(valor).casefold(),
+    )
+
+
+def ordenar_combinacoes_para_grafico(
+    dados,
+    variavel_1,
+    variavel_2=None,
+):
+
+    if dados.empty:
+
+        return []
+
+
+    pares = (
+        dados[
+            [
+                "Categoria_1",
+                "Categoria_2",
+                "Categoria",
+            ]
+        ]
+        .drop_duplicates()
+        .copy()
+    )
+
+
+    ordem_1 = ordenar_dimensao_para_grafico(
+        pares[
+            "Categoria_1"
+        ],
+        variavel_1,
+    )
+
+    mapa_1 = {
+        valor: indice
+        for indice, valor
+        in enumerate(
+            ordem_1
+        )
+    }
+
+    pares[
+        "_ordem_1"
+    ] = (
+        pares[
+            "Categoria_1"
+        ]
+        .astype(str)
+        .map(
+            mapa_1
+        )
+        .fillna(999)
+    )
+
+
+    if variavel_2 is None:
+
+        return (
+            pares
+            .sort_values(
+                [
+                    "_ordem_1",
+                    "Categoria",
+                ]
+            )[
+                "Categoria"
+            ]
+            .astype(str)
+            .tolist()
+        )
+
+
+    ordem_2 = ordenar_dimensao_para_grafico(
+        pares[
+            "Categoria_2"
+        ],
+        variavel_2,
+    )
+
+    mapa_2 = {
+        valor: indice
+        for indice, valor
+        in enumerate(
+            ordem_2
+        )
+    }
+
+    pares[
+        "_ordem_2"
+    ] = (
+        pares[
+            "Categoria_2"
+        ]
+        .astype(str)
+        .map(
+            mapa_2
+        )
+        .fillna(999)
+    )
+
+
+    return (
+        pares
+        .sort_values(
+            [
+                "_ordem_1",
+                "_ordem_2",
+                "Categoria",
+            ]
+        )[
+            "Categoria"
+        ]
+        .astype(str)
+        .tolist()
     )
 
 
@@ -8688,14 +8857,73 @@ st.sidebar.button(
 )
 
 
+same_schools_ativo = st.sidebar.toggle(
+    "SAME SCHOOLS",
+    value=False,
+    key="filtro_same_schools",
+)
+
+
+# SAME SCHOOLS agora significa manter somente as escolas cuja
+# classificação em Categorias_Same_School é diferente de "-".
+df_base_filtros = df_completo.copy()
+
+
+if same_schools_ativo:
+
+    if "Categorias_Same_School" not in df_base_filtros.columns:
+
+        st.error(
+            "A coluna Categorias_Same_School não foi encontrada na base."
+        )
+        st.stop()
+
+
+    valores_same_school = (
+        df_base_filtros[
+            "Categorias_Same_School"
+        ]
+        .astype("string")
+        .str.strip()
+    )
+
+
+    df_base_filtros = (
+        df_base_filtros[
+            valores_same_school.notna()
+            &
+            valores_same_school.ne("-")
+        ]
+        .copy()
+    )
+
+
+    # Sinalização visual de que o universo SAME SCHOOLS está ativo.
+    st.markdown(
+        """
+        <style>
+            .stApp,
+            [data-testid="stAppViewContainer"] {
+                background-color: #EEF7FF !important;
+            }
+
+            [data-testid="stHeader"] {
+                background-color: rgba(238, 247, 255, 0.94) !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 filtros = {}
 
 
-# Mantém os grupos visualmente separados, sem inserir títulos.
-def divisor_filtros_sidebar():
+# Mantém apenas um pequeno respiro entre os grupos, sem linhas ou títulos.
+def espaco_filtros_sidebar():
 
     st.sidebar.markdown(
-        '<div class="sidebar-filter-divider"></div>',
+        '<div style="height:0.24rem"></div>',
         unsafe_allow_html=True,
     )
 
@@ -8704,7 +8932,7 @@ def divisor_filtros_sidebar():
 def renderizar_filtro_categorico(nome):
 
     opcoes = obter_opcoes_filtro(
-        df_completo,
+        df_base_filtros,
         nome,
     )
 
@@ -8745,7 +8973,7 @@ renderizar_filtro_categorico(
 # BLOCO 2 — LOCALIZAÇÃO
 # ============================================================
 
-divisor_filtros_sidebar()
+espaco_filtros_sidebar()
 
 renderizar_filtro_categorico(
     "Região do Brasil"
@@ -8760,10 +8988,10 @@ renderizar_filtro_categorico(
 # BLOCO 3 — TRAJETÓRIA / INTEGRAL
 # ============================================================
 
-divisor_filtros_sidebar()
+espaco_filtros_sidebar()
 
 renderizar_filtro_categorico(
-    "Transição"
+    "Categorias_Same_School"
 )
 
 renderizar_filtro_categorico(
@@ -8779,7 +9007,7 @@ renderizar_filtro_categorico(
 # BLOCO 4 — PERFIL
 # ============================================================
 
-divisor_filtros_sidebar()
+espaco_filtros_sidebar()
 
 renderizar_filtro_categorico(
     "PPI"
@@ -8794,7 +9022,7 @@ renderizar_filtro_categorico(
 # BLOCO 5 — IDEB POR EDIÇÃO
 # ============================================================
 
-divisor_filtros_sidebar()
+espaco_filtros_sidebar()
 
 filtro_ideb = {}
 
@@ -8826,7 +9054,7 @@ for ano in ANOS_PAINEL:
 # BLOCO 6 — OFERTA
 # ============================================================
 
-divisor_filtros_sidebar()
+espaco_filtros_sidebar()
 
 filtro_proped = (
     st.sidebar.multiselect(
@@ -8858,7 +9086,7 @@ filtro_ept = (
 # BLOCO 7 — CARACTERÍSTICAS DA ESCOLA
 # ============================================================
 
-divisor_filtros_sidebar()
+espaco_filtros_sidebar()
 
 renderizar_filtro_categorico(
     "Colégio Militar"
@@ -8887,7 +9115,7 @@ filtros_categoricos_existentes = [
     "Região do Brasil",
     "1º IDEB 100% integral",
     "Carga horária",
-    "Transição",
+    "Categorias_Same_School",
 ]
 
 
@@ -8907,7 +9135,7 @@ filtros_adicionais = [
 
 if filtros_adicionais:
 
-    divisor_filtros_sidebar()
+    espaco_filtros_sidebar()
 
 
     for nome in filtros_adicionais:
@@ -8947,7 +9175,7 @@ mostrar_integral_agregado = (
 try:
 
     df = aplicar_filtros_categoricos(
-        df_completo,
+        df_base_filtros,
         filtros,
     )
 
@@ -9141,6 +9369,7 @@ if pagina == "DISTRIBUIÇÕES":
                 [
                     "Número absoluto",
                     "Delta",
+                    "Ordem para gráfico",
                 ],
                 key="ordenacao_distribuicoes",
             )
@@ -9374,6 +9603,8 @@ if pagina == "DISTRIBUIÇÕES":
 
 
         elif (
+            ordenacao_distribuicoes == "Delta"
+            and
             ano_inicial_distrib is not None
             and
             not dados_delta_boxplot.empty
@@ -9409,6 +9640,25 @@ if pagina == "DISTRIBUIÇÕES":
                 ]
                 .astype(str)
                 .tolist()
+            )
+
+
+        elif ordenacao_distribuicoes == "Ordem para gráfico":
+
+            dados_ordem_grafico = (
+                dados_boxplot[
+                    dados_boxplot[
+                        "Categoria"
+                    ]
+                    != "Consolidado"
+                ]
+                .copy()
+            )
+
+            ordem_rank = ordenar_combinacoes_para_grafico(
+                dados=dados_ordem_grafico,
+                variavel_1=variavel_1_distribuicoes,
+                variavel_2=variavel_2_boxplot,
             )
 
 
@@ -11308,6 +11558,7 @@ if pagina == "PRINCIPAIS INDICADORES":
             [
                 "Número absoluto",
                 "Delta",
+                "Ordem para gráfico",
             ],
             key="ordenacao_cruz",
         )
@@ -11487,6 +11738,14 @@ if pagina == "PRINCIPAIS INDICADORES":
                 ]
                 .astype(str)
                 .tolist()
+            )
+
+
+        elif ordenacao_cruz == "Ordem para gráfico":
+
+            ordem_categorias_cruz = ordenar_dimensao_para_grafico(
+                categorias_cruz,
+                variavel_1,
             )
 
 
@@ -11817,6 +12076,29 @@ if pagina == "PRINCIPAIS INDICADORES":
                         not in ordem_temp
                     ]
                 )
+
+
+        elif ordenacao_cruz == "Ordem para gráfico":
+
+            ordem_nivel_1 = ordenar_dimensao_para_grafico(
+                resultado_cruz[
+                    "Categoria_1"
+                ]
+                .dropna()
+                .astype(str)
+                .unique(),
+                variavel_1,
+            )
+
+            ordem_nivel_2 = ordenar_dimensao_para_grafico(
+                resultado_cruz[
+                    "Categoria_2"
+                ]
+                .dropna()
+                .astype(str)
+                .unique(),
+                variavel_2,
+            )
 
 
         (
