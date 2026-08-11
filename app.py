@@ -943,93 +943,6 @@ def calcular_consolidado(
 
 
 # ============================================================
-# SAME SCHOOLS
-# ============================================================
-
-def filtrar_same_schools(
-    base,
-    indicador,
-    anos,
-):
-
-    if not anos:
-
-        return base
-
-
-    peso = (
-        "Matrículas EM (total) 3/4"
-    )
-
-
-    elegiveis = (
-        base[
-            base[
-                "Ano"
-            ].isin(
-                anos
-            )
-            &
-            base[
-                indicador
-            ].notna()
-            &
-            base[
-                peso
-            ].notna()
-            &
-            (
-                base[
-                    peso
-                ]
-                > 0
-            )
-        ][
-            [
-                "Cód. INEP",
-                "Ano",
-            ]
-        ]
-        .drop_duplicates()
-    )
-
-
-    contagem = (
-        elegiveis
-        .groupby(
-            "Cód. INEP"
-        )[
-            "Ano"
-        ]
-        .nunique()
-    )
-
-
-    ids = (
-        contagem[
-            contagem
-            == len(
-                anos
-            )
-        ]
-        .index
-    )
-
-
-    return (
-        base[
-            base[
-                "Cód. INEP"
-            ]
-            .isin(
-                ids
-            )
-        ]
-        .copy()
-    )
-
-
-# ============================================================
 # DUAS DIMENSÕES
 # ============================================================
 
@@ -5848,13 +5761,83 @@ def formatar_diferenca_medias(
     )
 
 
+def classificar_relevancia_estatistica(
+    p_valor,
+):
+
+    if pd.isna(
+        p_valor
+    ):
+
+        return (
+            "Indisponível",
+            "#F3F4F6",
+            "#6B7280",
+        )
+
+
+    p_valor = float(
+        p_valor
+    )
+
+
+    # Escala convencional de evidência estatística:
+    # p < 0,001  -> evidência muito forte
+    # p < 0,01   -> evidência forte
+    # p < 0,05   -> evidência moderada
+    # p >= 0,05  -> não estatisticamente significativa
+    if p_valor < 0.001:
+
+        return (
+            "Muito forte",
+            "#D1FAE5",
+            "#065F46",
+        )
+
+
+    if p_valor < 0.01:
+
+        return (
+            "Forte",
+            "#DCFCE7",
+            "#166534",
+        )
+
+
+    if p_valor < 0.05:
+
+        return (
+            "Moderada",
+            "#FEF3C7",
+            "#92400E",
+        )
+
+
+    return (
+        "Não significativa",
+        "#F3F4F6",
+        "#6B7280",
+    )
+
+
 def exibir_p_valores_agregados(
     resultados,
     indicador,
 ):
 
     st.markdown(
-        "##### Diferença de médias"
+        """
+        <div style="
+            text-align:center;
+            font-size:1rem;
+            font-weight:700;
+            margin-top:0.45rem;
+            margin-bottom:0.15rem;
+        ">
+            Diferença de médias
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -5876,33 +5859,14 @@ def exibir_p_valores_agregados(
             "p_valor"
         ]
 
-        tem_relevancia = (
-            pd.notna(
-                p_valor
-            )
-            and
-            float(
-                p_valor
-            ) < 0.05
-        )
 
-
-        if pd.isna(
+        (
+            relevancia,
+            cor_fundo_relevancia,
+            cor_texto_relevancia,
+        ) = classificar_relevancia_estatistica(
             p_valor
-        ):
-
-            relevancia = "—"
-            cor_p = "#374151"
-
-        elif tem_relevancia:
-
-            relevancia = "Sim"
-            cor_p = "#2E7D32"
-
-        else:
-
-            relevancia = "Não"
-            cor_p = "#374151"
+        )
 
 
         teste = resultado[
@@ -5922,7 +5886,7 @@ def exibir_p_valores_agregados(
             quote=True,
         )
 
-        rotulo = html.escape(
+        ano = html.escape(
             str(
                 resultado.get(
                     "rotulo",
@@ -5937,32 +5901,38 @@ def exibir_p_valores_agregados(
             )
         )
 
-        diferenca_formatada = html.escape(
-            formatar_diferenca_medias(
-                resultado.get(
-                    "diferenca_medias",
-                    np.nan,
-                ),
-                indicador,
-            )
-        )
-
         n_considerado = (
             f"{int(resultado['n_1'])} × "
             f"{int(resultado['n_2'])}"
         )
 
 
+        if pd.notna(
+            p_valor
+        ) and float(
+            p_valor
+        ) < 0.05:
+
+            cor_p = cor_texto_relevancia
+
+        else:
+
+            cor_p = "#374151"
+
+
         linhas_html.append(
             "<tr>"
+            f"<td>{ano}</td>"
             "<td>"
             f"<span style='font-weight:700;color:{cor_p};'>"
             f"{p_formatado}</span>"
-            f"<div style='font-size:0.68rem;color:#6B7280;"
-            f"margin-top:2px;'>{rotulo}</div>"
             "</td>"
-            f"<td>{diferenca_formatada}</td>"
-            f"<td>{relevancia}</td>"
+            "<td>"
+            f"<span style='display:inline-block;padding:4px 10px;"
+            f"border-radius:999px;background:{cor_fundo_relevancia};"
+            f"color:{cor_texto_relevancia};font-weight:700;"
+            f"white-space:nowrap;'>{html.escape(relevancia)}</span>"
+            "</td>"
             "<td>"
             f"<span title='{explicacao_teste}' "
             "style='cursor:help;text-decoration:underline dotted;"
@@ -5975,19 +5945,27 @@ def exibir_p_valores_agregados(
 
 
     tabela_html = (
-        "<div style='width:100%;overflow-x:auto;margin-top:0.25rem;'>"
+        "<div style='width:82%;max-width:880px;margin:0.25rem auto 0;"
+        "overflow-x:auto;'>"
         "<table style='width:100%;border-collapse:collapse;"
-        "font-size:0.76rem;text-align:center;'>"
+        "font-size:0.78rem;text-align:center;table-layout:fixed;'>"
+        "<colgroup>"
+        "<col style='width:14%;'>"
+        "<col style='width:16%;'>"
+        "<col style='width:27%;'>"
+        "<col style='width:23%;'>"
+        "<col style='width:20%;'>"
+        "</colgroup>"
         "<thead><tr>"
-        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "Ano</th>"
+        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
         "p-valor</th>"
-        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
-        "Diferença entre médias (2 − 1)</th>"
-        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
-        "Têm relevância</th>"
-        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "Relevância Estatística</th>"
+        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
         "Teste aplicado</th>"
-        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
         "N considerado</th>"
         "</tr></thead>"
         "<tbody>"
@@ -6002,7 +5980,6 @@ def exibir_p_valores_agregados(
         tabela_html,
         unsafe_allow_html=True,
     )
-
 
 def _rotulo_composicao_agregado(
     categorias,
@@ -8415,11 +8392,6 @@ if pagina == "DISTRIBUIÇÕES":
 
     def render_distribuicoes_todos():
 
-        same_schools_distrib = st.toggle(
-            "SAME SCHOOLS",
-            value=False,
-            key="same_schools_distrib",
-        )
 
 
         opcoes_distribuicoes = list(
@@ -8612,20 +8584,7 @@ if pagina == "DISTRIBUIÇÕES":
         )
 
 
-        # ====================================================
-        # SAME SCHOOLS
-        # ====================================================
-
         df_distribuicoes = df.copy()
-
-
-        if same_schools_distrib:
-
-            df_distribuicoes = filtrar_same_schools(
-                df_distribuicoes,
-                indicador_distribuicoes,
-                anos_distribuicoes,
-            )
 
 
         # ====================================================
@@ -8889,12 +8848,6 @@ if pagina == "DISTRIBUIÇÕES":
         )
 
 
-        if same_schools_distrib:
-
-            caption_valores += (
-                " SAME SCHOOLS ativo: são consideradas apenas escolas com "
-                "resultado válido em todos os anos selecionados."
-            )
 
 
         st.caption(
@@ -8986,11 +8939,6 @@ if pagina == "DISTRIBUIÇÕES":
 
     def render_distribuicoes_agregado():
 
-        same_schools_agregado = st.toggle(
-            "SAME SCHOOLS",
-            value=False,
-            key="same_schools_distrib_agregado",
-        )
 
 
         opcoes_agregado = list(
@@ -9329,20 +9277,7 @@ if pagina == "DISTRIBUIÇÕES":
         )
 
 
-        # ====================================================
-        # SAME SCHOOLS
-        # ====================================================
-
         df_agregado = df.copy()
-
-
-        if same_schools_agregado:
-
-            df_agregado = filtrar_same_schools(
-                df_agregado,
-                indicador_agregado,
-                anos_agregado,
-            )
 
 
         # ====================================================
@@ -9480,12 +9415,6 @@ if pagina == "DISTRIBUIÇÕES":
         )
 
 
-        if same_schools_agregado:
-
-            caption_agregado += (
-                " SAME SCHOOLS ativo: são consideradas apenas escolas com "
-                "resultado válido em todos os anos selecionados."
-            )
 
 
         st.caption(
@@ -10545,11 +10474,6 @@ if pagina == "PRINCIPAIS INDICADORES":
     )
 
 
-    same_schools_cruz = st.toggle(
-        "SAME SCHOOLS",
-        value=False,
-        key="same_schools_cruz",
-    )
 
 
     opcoes = list(
@@ -10711,15 +10635,6 @@ if pagina == "PRINCIPAIS INDICADORES":
 
 
     df_cruz = df.copy()
-
-
-    if same_schools_cruz:
-
-        df_cruz = filtrar_same_schools(
-            df_cruz,
-            indicador_cruz,
-            anos_cruz,
-        )
 
 
     consolidado_cruz = (
