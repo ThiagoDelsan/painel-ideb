@@ -4615,6 +4615,9 @@ if pagina == "CRUZAMENTOS":
     )
 
 
+    SEM_ESCOLHA = "Sem escolha"
+
+
     c1, c2, c3, c4 = st.columns(
         [
             1.25,
@@ -4659,28 +4662,41 @@ if pagina == "CRUZAMENTOS":
 
 
     opcoes_2 = [
-        item
-        for item
-        in opcoes
-        if item
-        != variavel_1
+        SEM_ESCOLHA,
+        *[
+            item
+            for item
+            in opcoes
+            if item
+            != variavel_1
+        ],
     ]
 
 
     with c3:
 
+        indice_padrao_var_2 = (
+            opcoes_2.index(
+                "PPI"
+            )
+            if "PPI"
+            in opcoes_2
+            else 0
+        )
+
+
         variavel_2 = st.selectbox(
             "2ª dimensão",
             opcoes_2,
-            index=(
-                opcoes_2.index(
-                    "PPI"
-                )
-                if "PPI"
-                in opcoes_2
-                else 0
+            index=indice_padrao_var_2,
+            format_func=(
+                lambda valor:
+                    SEM_ESCOLHA
+                    if valor == SEM_ESCOLHA
+                    else rotulo_dimensao(
+                        valor
+                    )
             ),
-            format_func=rotulo_dimensao,
             key="cruz_var_2",
         )
 
@@ -4770,20 +4786,6 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    resultado_cruz = (
-        media_ponderada_duas_dimensoes(
-            base=df_cruz,
-            indicador=indicador_cruz,
-            anos=anos_cruz,
-            variavel_1=variavel_1,
-            variavel_2=variavel_2,
-            incluir_integral_agregado=(
-                mostrar_integral_agregado
-            ),
-        )
-    )
-
-
     consolidado_cruz = (
         calcular_consolidado(
             df_cruz,
@@ -4791,15 +4793,6 @@ if pagina == "CRUZAMENTOS":
             anos_cruz,
         )
     )
-
-
-    if resultado_cruz.empty:
-
-        st.warning(
-            "Não há dados para essa combinação."
-        )
-
-        st.stop()
 
 
     anos_ord_cruz = sorted(
@@ -4822,150 +4815,288 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    ordem_nivel_1 = ordenar_dimensao(
-        resultado_cruz[
-            "Categoria_1"
-        ]
-        .dropna()
-        .unique(),
-        variavel_1,
-    )
+    # ========================================================
+    # UMA DIMENSÃO
+    #
+    # Quando a 2ª dimensão está como "Sem escolha", a aba
+    # Cruzamentos replica a lógica de Principais Indicadores.
+    # ========================================================
 
+    if variavel_2 == SEM_ESCOLHA:
 
-    ordem_nivel_2 = ordenar_dimensao(
-        resultado_cruz[
-            "Categoria_2"
-        ]
-        .dropna()
-        .unique(),
-        variavel_2,
-    )
-
-
-    if ordenacao_cruz == "Número absoluto":
-
-        ranking_n1 = (
-            resultado_cruz[
-                resultado_cruz[
-                    "Ano"
-                ]
-                == str(
-                    ano_final_cruz
-                )
-            ]
-            .groupby(
-                "Categoria_1",
-                as_index=False,
-            )[
-                "Média"
-            ]
-            .mean()
-            .sort_values(
-                "Média",
-                ascending=False,
+        resultado_cruz = (
+            media_ponderada_por_categoria(
+                df=df_cruz,
+                indicador=indicador_cruz,
+                anos=anos_cruz,
+                eixo_painel=variavel_1,
             )
-        )
-
-
-        ordem_temp = (
-            ranking_n1[
-                "Categoria_1"
-            ]
-            .astype(str)
-            .tolist()
-        )
-
-
-        ordem_nivel_1 = (
-            ordem_temp
-            +
-            [
-                x
-                for x
-                in ordem_nivel_1
-                if x
-                not in ordem_temp
-            ]
-        )
-
-
-    elif (
-        ordenacao_cruz
-        == "Delta"
-        and
-        ano_ini_cruz
-        is not None
-    ):
-
-        pivot_delta = (
-            resultado_cruz[
-                resultado_cruz[
-                    "Ano"
-                ].isin(
-                    [
-                        str(
-                            ano_ini_cruz
-                        ),
-                        str(
-                            ano_final_cruz
-                        ),
-                    ]
-                )
-            ]
-            .pivot(
-                index=[
-                    "Categoria_1",
-                    "Categoria_2",
-                ],
-                columns="Ano",
-                values="Média",
-            )
-            .reset_index()
-        )
-
-
-        col_ini = str(
-            ano_ini_cruz
-        )
-
-
-        col_fim = str(
-            ano_final_cruz
         )
 
 
         if (
-            col_ini
-            in pivot_delta.columns
+            variavel_1
+            == "Tipo de Escola"
             and
-            col_fim
-            in pivot_delta.columns
+            not mostrar_integral_agregado
         ):
 
-            pivot_delta[
-                "Delta"
-            ] = (
-                pivot_delta[
-                    col_fim
+            resultado_cruz = (
+                resultado_cruz[
+                    resultado_cruz[
+                        "Categoria"
+                    ]
+                    != CATEGORIA_INTEGRAL_AGREGADA
                 ]
-                -
-                pivot_delta[
-                    col_ini
-                ]
+                .copy()
             )
 
 
+        if resultado_cruz.empty:
+
+            st.warning(
+                "Não há resultados para a configuração selecionada."
+            )
+
+            st.stop()
+
+
+        categorias_cruz = (
+            resultado_cruz[
+                "Categoria"
+            ]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+
+        if ordenacao_cruz == "Número absoluto":
+
+            ordem_categorias_cruz = (
+                resultado_cruz[
+                    resultado_cruz[
+                        "Ano"
+                    ]
+                    == str(
+                        ano_final_cruz
+                    )
+                ]
+                .dropna(
+                    subset=[
+                        "Média"
+                    ]
+                )
+                .sort_values(
+                    "Média",
+                    ascending=False,
+                )[
+                    "Categoria"
+                ]
+                .astype(str)
+                .tolist()
+            )
+
+
+        else:
+
+            if ano_ini_cruz is None:
+
+                ordem_categorias_cruz = (
+                    categorias_cruz
+                )
+
+            else:
+
+                pivot_ord_cruz = (
+                    resultado_cruz[
+                        resultado_cruz[
+                            "Ano"
+                        ].isin(
+                            [
+                                str(
+                                    ano_ini_cruz
+                                ),
+                                str(
+                                    ano_final_cruz
+                                ),
+                            ]
+                        )
+                    ]
+                    .pivot(
+                        index="Categoria",
+                        columns="Ano",
+                        values="Média",
+                    )
+                    .reset_index()
+                )
+
+
+                if (
+                    str(
+                        ano_ini_cruz
+                    )
+                    in pivot_ord_cruz.columns
+                    and
+                    str(
+                        ano_final_cruz
+                    )
+                    in pivot_ord_cruz.columns
+                ):
+
+                    pivot_ord_cruz[
+                        "Delta"
+                    ] = (
+                        pivot_ord_cruz[
+                            str(
+                                ano_final_cruz
+                            )
+                        ]
+                        -
+                        pivot_ord_cruz[
+                            str(
+                                ano_ini_cruz
+                            )
+                        ]
+                    )
+
+
+                    ordem_categorias_cruz = (
+                        pivot_ord_cruz
+                        .sort_values(
+                            "Delta",
+                            ascending=False,
+                        )[
+                            "Categoria"
+                        ]
+                        .astype(str)
+                        .tolist()
+                    )
+
+                else:
+
+                    ordem_categorias_cruz = (
+                        categorias_cruz
+                    )
+
+
+        for categoria in categorias_cruz:
+
+            if (
+                categoria
+                not in ordem_categorias_cruz
+            ):
+
+                ordem_categorias_cruz.append(
+                    categoria
+                )
+
+
+        dados_cruz_uma_dimensao = pd.concat(
+            [
+                consolidado_cruz,
+                resultado_cruz,
+            ],
+            ignore_index=True,
+        )
+
+
+        (
+            plot_cruz,
+            labels_cruz,
+            labels_anos_cruz,
+            ordem_linhas_cruz,
+        ) = preparar_linhas_horizontais(
+            dados=dados_cruz_uma_dimensao,
+            anos=anos_cruz,
+            categorias=ordem_categorias_cruz,
+            ano_inicial=ano_ini_cruz,
+            ano_final=ano_final_cruz,
+        )
+
+
+        painel_cruz = criar_painel_horizontal(
+            plot=plot_cruz,
+            labels_categorias=labels_cruz,
+            labels_anos=labels_anos_cruz,
+            ordem_linhas=ordem_linhas_cruz,
+            indicador=indicador_cruz,
+            eixo_nome=variavel_1,
+            ano_inicial=ano_ini_cruz,
+            ano_final=ano_final_cruz,
+        )
+
+
+    # ========================================================
+    # DUAS DIMENSÕES
+    # ========================================================
+
+    else:
+
+        resultado_cruz = (
+            media_ponderada_duas_dimensoes(
+                base=df_cruz,
+                indicador=indicador_cruz,
+                anos=anos_cruz,
+                variavel_1=variavel_1,
+                variavel_2=variavel_2,
+                incluir_integral_agregado=(
+                    mostrar_integral_agregado
+                ),
+            )
+        )
+
+
+        if resultado_cruz.empty:
+
+            st.warning(
+                "Não há dados para essa combinação."
+            )
+
+            st.stop()
+
+
+        ordem_nivel_1 = ordenar_dimensao(
+            resultado_cruz[
+                "Categoria_1"
+            ]
+            .dropna()
+            .unique(),
+            variavel_1,
+        )
+
+
+        ordem_nivel_2 = ordenar_dimensao(
+            resultado_cruz[
+                "Categoria_2"
+            ]
+            .dropna()
+            .unique(),
+            variavel_2,
+        )
+
+
+        if ordenacao_cruz == "Número absoluto":
+
             ranking_n1 = (
-                pivot_delta
+                resultado_cruz[
+                    resultado_cruz[
+                        "Ano"
+                    ]
+                    == str(
+                        ano_final_cruz
+                    )
+                ]
                 .groupby(
                     "Categoria_1",
                     as_index=False,
                 )[
-                    "Delta"
+                    "Média"
                 ]
                 .mean()
                 .sort_values(
-                    "Delta",
+                    "Média",
                     ascending=False,
                 )
             )
@@ -4993,37 +5124,141 @@ if pagina == "CRUZAMENTOS":
             )
 
 
-    (
-        plot_cruz,
-        labels_n1,
-        labels_n2,
-        labels_anos_cruz,
-        ordem_linhas_cruz,
-    ) = preparar_linhas_cruzamentos(
-        resultado=resultado_cruz,
-        consolidado=consolidado_cruz,
-        anos=anos_cruz,
-        ordem_nivel_1=ordem_nivel_1,
-        ordem_nivel_2=ordem_nivel_2,
-        ano_inicial=ano_ini_cruz,
-        ano_final=ano_final_cruz,
-    )
+        elif (
+            ordenacao_cruz
+            == "Delta"
+            and
+            ano_ini_cruz
+            is not None
+        ):
+
+            pivot_delta = (
+                resultado_cruz[
+                    resultado_cruz[
+                        "Ano"
+                    ].isin(
+                        [
+                            str(
+                                ano_ini_cruz
+                            ),
+                            str(
+                                ano_final_cruz
+                            ),
+                        ]
+                    )
+                ]
+                .pivot(
+                    index=[
+                        "Categoria_1",
+                        "Categoria_2",
+                    ],
+                    columns="Ano",
+                    values="Média",
+                )
+                .reset_index()
+            )
 
 
-    painel_cruz = (
-        criar_painel_cruzamentos(
-            plot=plot_cruz,
-            labels_nivel_1=labels_n1,
-            labels_nivel_2=labels_n2,
-            labels_anos=labels_anos_cruz,
-            ordem_linhas=ordem_linhas_cruz,
-            indicador=indicador_cruz,
-            variavel_1=variavel_1,
-            variavel_2=variavel_2,
+            col_ini = str(
+                ano_ini_cruz
+            )
+
+
+            col_fim = str(
+                ano_final_cruz
+            )
+
+
+            if (
+                col_ini
+                in pivot_delta.columns
+                and
+                col_fim
+                in pivot_delta.columns
+            ):
+
+                pivot_delta[
+                    "Delta"
+                ] = (
+                    pivot_delta[
+                        col_fim
+                    ]
+                    -
+                    pivot_delta[
+                        col_ini
+                    ]
+                )
+
+
+                ranking_n1 = (
+                    pivot_delta
+                    .groupby(
+                        "Categoria_1",
+                        as_index=False,
+                    )[
+                        "Delta"
+                    ]
+                    .mean()
+                    .sort_values(
+                        "Delta",
+                        ascending=False,
+                    )
+                )
+
+
+                ordem_temp = (
+                    ranking_n1[
+                        "Categoria_1"
+                    ]
+                    .astype(str)
+                    .tolist()
+                )
+
+
+                ordem_nivel_1 = (
+                    ordem_temp
+                    +
+                    [
+                        x
+                        for x
+                        in ordem_nivel_1
+                        if x
+                        not in ordem_temp
+                    ]
+                )
+
+
+        (
+            plot_cruz,
+            labels_n1,
+            labels_n2,
+            labels_anos_cruz,
+            ordem_linhas_cruz,
+        ) = preparar_linhas_cruzamentos(
+            resultado=resultado_cruz,
+            consolidado=consolidado_cruz,
+            anos=anos_cruz,
+            ordem_nivel_1=ordem_nivel_1,
+            ordem_nivel_2=ordem_nivel_2,
             ano_inicial=ano_ini_cruz,
             ano_final=ano_final_cruz,
         )
-    )
+
+
+        painel_cruz = (
+            criar_painel_cruzamentos(
+                plot=plot_cruz,
+                labels_nivel_1=labels_n1,
+                labels_nivel_2=labels_n2,
+                labels_anos=labels_anos_cruz,
+                ordem_linhas=ordem_linhas_cruz,
+                indicador=indicador_cruz,
+                variavel_1=variavel_1,
+                variavel_2=variavel_2,
+                ano_inicial=ano_ini_cruz,
+                ano_final=ano_final_cruz,
+            )
+        )
 
 
     st.altair_chart(
