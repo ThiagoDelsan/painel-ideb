@@ -37,19 +37,32 @@ st.markdown(
     <style>
 
         .block-container {
-            padding-top: 1rem;
-            padding-bottom: 1rem;
+            padding-top: 2.15rem;
+            padding-bottom: 2rem;
         }
 
         .panel-main-title {
             display: block;
             font-size: 2.55rem;
             font-weight: 760;
-            line-height: 1.30;
+            line-height: 1.22;
             color: #2f313c;
-            margin: 0 0 0.65rem 0;
-            padding: 0.15rem 0 0.20rem 0;
+            margin: 0 0 0.90rem 0;
+            padding: 0.35rem 0 0.25rem 0;
             overflow: visible;
+        }
+
+        /* Botão exclusivo para limpar filtros. */
+        .st-key-limpar_todos_filtros button {
+            background-color: #F8D7DA !important;
+            border-color: #E8B4B8 !important;
+            color: #7A2E34 !important;
+        }
+
+        .st-key-limpar_todos_filtros button:hover {
+            background-color: #F3C7CB !important;
+            border-color: #DFA1A6 !important;
+            color: #642329 !important;
         }
 
         div[data-testid="stButton"] button p {
@@ -62,7 +75,7 @@ st.markdown(
            ==================================================== */
 
         section[data-testid="stSidebar"] .block-container {
-            padding-top: 0.55rem;
+            padding-top: 0.85rem;
             padding-left: 0.70rem;
             padding-right: 0.70rem;
         }
@@ -1650,12 +1663,487 @@ def grafico_barra_100_top(
         +
         textos
     ).properties(
-        height=105,
+        height=125,
         title=alt.TitleParams(
             text=titulo,
             anchor="middle",
             fontSize=14,
             fontWeight="bold",
+        ),
+    )
+
+
+# ============================================================
+# DISTRIBUIÇÕES — BOXPLOTS
+# ============================================================
+
+def preparar_dados_boxplot(
+    base,
+    indicador,
+    variavel,
+    ano=2025,
+    incluir_integral_agregado=False,
+):
+
+    recorte = (
+        base[
+            base[
+                "Ano"
+            ]
+            == ano
+        ]
+        .copy()
+    )
+
+
+    if recorte.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria",
+                    "Valor",
+                ]
+            ),
+            [],
+        )
+
+
+    recorte = (
+        recorte[
+            recorte[
+                indicador
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    recorte[
+        indicador
+    ] = pd.to_numeric(
+        recorte[
+            indicador
+        ],
+        errors="coerce",
+    )
+
+
+    recorte = (
+        recorte[
+            recorte[
+                indicador
+            ].notna()
+        ]
+        .drop_duplicates(
+            subset=[
+                "Cód. INEP"
+            ],
+            keep="first",
+        )
+        .copy()
+    )
+
+
+    if recorte.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria",
+                    "Valor",
+                ]
+            ),
+            [],
+        )
+
+
+    categorias = criar_variavel_eixo(
+        recorte,
+        variavel,
+    )
+
+
+    dados_categoria = recorte[
+        [
+            "Cód. INEP",
+            indicador,
+        ]
+    ].copy()
+
+
+    dados_categoria[
+        "Categoria"
+    ] = categorias[
+        "Categoria"
+    ].values
+
+
+    dados_categoria = (
+        dados_categoria[
+            dados_categoria[
+                "Categoria"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    dados_categoria[
+        "Categoria"
+    ] = (
+        dados_categoria[
+            "Categoria"
+        ]
+        .astype(str)
+    )
+
+
+    if (
+        incluir_integral_agregado
+        and
+        variavel == "Tipo de Escola"
+    ):
+
+        agregado = (
+            dados_categoria[
+                dados_categoria[
+                    "Categoria"
+                ].isin(
+                    [
+                        "Mista",
+                        "100% Integral",
+                    ]
+                )
+            ]
+            .copy()
+        )
+
+
+        agregado[
+            "Categoria"
+        ] = CATEGORIA_INTEGRAL_AGREGADA
+
+
+        dados_categoria = pd.concat(
+            [
+                dados_categoria,
+                agregado,
+            ],
+            ignore_index=True,
+        )
+
+
+    ordem_categorias = ordenar_dimensao(
+        dados_categoria[
+            "Categoria"
+        ]
+        .dropna()
+        .unique(),
+        variavel,
+    )
+
+
+    dados_categoria = dados_categoria.rename(
+        columns={
+            indicador: "Valor"
+        }
+    )
+
+
+    # O consolidado usa a base original do ano, sem duplicar as escolas
+    # eventualmente replicadas para a categoria Integral (Mista + 100%).
+    consolidado = recorte[
+        [
+            "Cód. INEP",
+            indicador,
+        ]
+    ].copy()
+
+
+    consolidado = consolidado.rename(
+        columns={
+            indicador: "Valor"
+        }
+    )
+
+
+    consolidado[
+        "Categoria"
+    ] = "Consolidado"
+
+
+    dados = pd.concat(
+        [
+            dados_categoria[
+                [
+                    "Cód. INEP",
+                    "Categoria",
+                    "Valor",
+                ]
+            ],
+            consolidado[
+                [
+                    "Cód. INEP",
+                    "Categoria",
+                    "Valor",
+                ]
+            ],
+        ],
+        ignore_index=True,
+    )
+
+
+    ordem = (
+        ordem_categorias
+        +
+        [
+            "Consolidado"
+        ]
+    )
+
+
+    return (
+        dados,
+        ordem,
+    )
+
+
+def criar_grafico_boxplots(
+    dados,
+    ordem,
+    indicador,
+    variavel,
+    ano,
+):
+
+    if dados.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "Mensagem": [
+                            "Sem dados"
+                        ]
+                    }
+                )
+            )
+            .mark_text(
+                fontSize=15,
+            )
+            .encode(
+                text="Mensagem:N"
+            )
+            .properties(
+                height=360,
+            )
+        )
+
+
+    medias = (
+        dados
+        .groupby(
+            "Categoria",
+            as_index=False,
+        )
+        .agg(
+            Média=(
+                "Valor",
+                "mean",
+            ),
+            **{
+                "N escolas": (
+                    "Cód. INEP",
+                    "nunique",
+                )
+            },
+        )
+    )
+
+
+    if indicador == "Rendimento":
+
+        formato_eixo = ".0%"
+        formato_tooltip = ".1%"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor) * 100:.1f}%"
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+    else:
+
+        formato_eixo = ".1f"
+        formato_tooltip = ".2f"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor):.2f}"
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+
+    eixo_x = alt.X(
+        "Categoria:N",
+        sort=ordem,
+        title=rotulo_dimensao(
+            variavel
+        ),
+        axis=alt.Axis(
+            labelAngle=-20,
+            labelFontSize=11,
+            titleFontSize=12,
+            labelLimit=180,
+            labelPadding=8,
+        ),
+    )
+
+
+    eixo_y = alt.Y(
+        "Valor:Q",
+        title=indicador,
+        scale=alt.Scale(
+            zero=False,
+        ),
+        axis=alt.Axis(
+            format=formato_eixo,
+            labelFontSize=11,
+            titleFontSize=12,
+        ),
+    )
+
+
+    caixas = (
+        alt.Chart(
+            dados
+        )
+        .mark_boxplot(
+            extent=1.5,
+            size=44,
+        )
+        .encode(
+            x=eixo_x,
+            y=eixo_y,
+            color=alt.condition(
+                alt.datum.Categoria
+                == "Consolidado",
+                alt.value(
+                    "#A67C68"
+                ),
+                alt.value(
+                    "#6C9FCC"
+                ),
+            ),
+        )
+    )
+
+
+    pontos_media = (
+        alt.Chart(
+            medias
+        )
+        .mark_point(
+            shape="diamond",
+            filled=True,
+            size=95,
+            color="#2F313C",
+            stroke="white",
+            strokeWidth=0.8,
+        )
+        .encode(
+            x=alt.X(
+                "Categoria:N",
+                sort=ordem,
+            ),
+            y=alt.Y(
+                "Média:Q",
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categoria",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title="Média",
+                    format=formato_tooltip,
+                ),
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="N escolas",
+                    format="d",
+                ),
+            ],
+        )
+    )
+
+
+    rotulos_media = (
+        alt.Chart(
+            medias
+        )
+        .mark_text(
+            dy=-13,
+            fontSize=10.5,
+            fontWeight="bold",
+            color="#2F313C",
+        )
+        .encode(
+            x=alt.X(
+                "Categoria:N",
+                sort=ordem,
+            ),
+            y=alt.Y(
+                "Média:Q",
+            ),
+            text=alt.Text(
+                "Rótulo média:N"
+            ),
+        )
+    )
+
+
+    return (
+        caixas
+        +
+        pontos_media
+        +
+        rotulos_media
+    ).properties(
+        height=430,
+        title=alt.TitleParams(
+            text=(
+                f"Distribuição de {indicador} por "
+                f"{rotulo_dimensao(variavel)} — {ano}"
+            ),
+            subtitle=(
+                "O losango e o rótulo indicam a média de cada distribuição. "
+                "O Consolidado reúne todas as escolas elegíveis."
+            ),
+            anchor="middle",
+            fontSize=16,
+            subtitleFontSize=11,
+            subtitlePadding=8,
         ),
     )
 
@@ -3616,6 +4104,7 @@ st.sidebar.button(
     "Limpar todos os filtros",
     width="stretch",
     on_click=limpar_todos_os_filtros,
+    key="limpar_todos_filtros",
 )
 
 
@@ -3863,6 +4352,118 @@ if pagina == "DISTRIBUIÇÕES":
         """,
         unsafe_allow_html=True,
     )
+
+
+    # A aba usa a edição mais recente disponível no painel. Mantemos
+    # apenas os dois controles solicitados: Indicador e Dimensão.
+    ano_distribuicoes = max(
+        ANOS_PAINEL
+    )
+
+
+    _, dist_1, dist_2, __ = st.columns(
+        [
+            1.15,
+            1.20,
+            1.70,
+            1.15,
+        ]
+    )
+
+
+    with dist_1:
+
+        indicador_distribuicoes = st.selectbox(
+            "Indicador",
+            [
+                "IDEB",
+                "N(LP)",
+                "N(M)",
+                "N",
+                "Rendimento",
+            ],
+            key="indicador_distribuicoes",
+        )
+
+
+    with dist_2:
+
+        opcoes_distribuicoes = list(
+            EIXOS_DISPONIVEIS.keys()
+        )
+
+
+        variavel_distribuicoes = st.selectbox(
+            "Dimensão",
+            options=opcoes_distribuicoes,
+            index=(
+                opcoes_distribuicoes.index(
+                    "Tipo de Escola"
+                )
+                if "Tipo de Escola"
+                in opcoes_distribuicoes
+                else 0
+            ),
+            format_func=rotulo_dimensao,
+            key="variavel_distribuicoes",
+        )
+
+
+    st.caption(
+        f"Distribuições por escola para a edição {ano_distribuicoes}. "
+        "Os filtros laterais também são aplicados a esta visualização."
+    )
+
+
+    try:
+
+        dados_boxplot, ordem_boxplot = preparar_dados_boxplot(
+            base=df,
+            indicador=indicador_distribuicoes,
+            variavel=variavel_distribuicoes,
+            ano=ano_distribuicoes,
+            incluir_integral_agregado=(
+                mostrar_integral_agregado
+            ),
+        )
+
+
+    except Exception as erro:
+
+        st.error(
+            "Não foi possível preparar as distribuições."
+        )
+
+        st.exception(
+            erro
+        )
+
+        st.stop()
+
+
+    if dados_boxplot.empty:
+
+        st.info(
+            "Não há dados disponíveis para a combinação selecionada."
+        )
+
+        st.stop()
+
+
+    grafico_boxplots = criar_grafico_boxplots(
+        dados=dados_boxplot,
+        ordem=ordem_boxplot,
+        indicador=indicador_distribuicoes,
+        variavel=variavel_distribuicoes,
+        ano=ano_distribuicoes,
+    )
+
+
+    st.altair_chart(
+        grafico_boxplots,
+        width="stretch",
+    )
+
 
     st.stop()
 
@@ -4363,6 +4964,13 @@ if pagina == "MELHORES ESCOLAS":
         )
 
 
+    # Respiro entre as legendas dos gráficos e a tabela.
+    st.markdown(
+        "<div style='height:18px'></div>",
+        unsafe_allow_html=True,
+    )
+
+
     # ========================================================
     # DIMENSÕES DA TABELA
     # ========================================================
@@ -4520,8 +5128,22 @@ if pagina == "MELHORES ESCOLAS":
 
 
     # ========================================================
-    # TABELA COM FONTE MENOR E CENTRALIZADA
+    # TABELA COMPACTA, CENTRALIZADA E SEM LINHAS VAZIAS
     # ========================================================
+
+    # Remove apenas registros realmente vazios. A altura do componente
+    # passa a acompanhar a quantidade de escolas existente no ranking,
+    # evitando linhas visuais em branco no final da tabela.
+    tabela = (
+        tabela
+        .dropna(
+            how="all"
+        )
+        .reset_index(
+            drop=True
+        )
+    )
+
 
     tabela_estilizada = (
         tabela
@@ -4529,8 +5151,8 @@ if pagina == "MELHORES ESCOLAS":
         .set_properties(
             **{
                 "text-align": "center",
-                "font-size": "10px",
-                "padding": "3px 5px",
+                "font-size": "9px",
+                "padding": "2px 3px",
             }
         )
         .set_table_styles(
@@ -4544,25 +5166,70 @@ if pagina == "MELHORES ESCOLAS":
                         ),
                         (
                             "font-size",
-                            "10px",
+                            "9px",
                         ),
                         (
                             "padding",
-                            "3px 5px",
+                            "2px 3px",
                         ),
                     ],
-                }
+                },
+                {
+                    "selector": "td",
+                    "props": [
+                        (
+                            "text-align",
+                            "center",
+                        ),
+                    ],
+                },
             ]
         )
     )
+
+
+    ALTURA_LINHA_TABELA = 24
+    ALTURA_CABECALHO_TABELA = 38
+
+
+    altura_tabela = (
+        ALTURA_CABECALHO_TABELA
+        +
+        len(
+            tabela
+        )
+        * ALTURA_LINHA_TABELA
+        + 4
+    )
+
+
+    # Limita a altura apenas quando houver muitas escolas.
+    altura_tabela = min(
+        altura_tabela,
+        720,
+    )
+
+
+    configuracao_colunas = {
+        coluna: st.column_config.TextColumn(
+            coluna,
+            width=(
+                "medium"
+                if coluna == "Nome"
+                else "small"
+            ),
+        )
+        for coluna in tabela.columns
+    }
 
 
     st.dataframe(
         tabela_estilizada,
         width="stretch",
         hide_index=True,
-        height=720,
-        row_height=28,
+        height=altura_tabela,
+        row_height=ALTURA_LINHA_TABELA,
+        column_config=configuracao_colunas,
     )
 
 
@@ -5602,7 +6269,9 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    # Dummy para obrigar o espaço a existir na escala.
+    # Linha dummy exclusiva após o Consolidado. Como as demais categorias
+    # ficam em posições consecutivas, somente o Consolidado recebe o
+    # afastamento adicional.
     espaco_resumo = pd.DataFrame(
         {
             "Composição": [
@@ -5658,7 +6327,7 @@ if pagina == "DEMOGRAFIA":
             ]
         )
         .mark_bar(
-            height=28,
+            height=24,
         )
         .encode(
 
@@ -5810,7 +6479,7 @@ if pagina == "DEMOGRAFIA":
     # uma categoria dummy (GRUPO_ESPACO) logo após ele.
     # ========================================================
 
-    ALTURA_LINHA_DEMO = 38
+    ALTURA_LINHA_DEMO = 34
 
 
     altura_demo = max(
@@ -5899,7 +6568,7 @@ if pagina == "DEMOGRAFIA":
             ]
         )
         .mark_bar(
-            height=28,
+            height=24,
             color="#6C9FCC",
         )
         .encode(
