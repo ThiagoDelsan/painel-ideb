@@ -19,6 +19,7 @@ SPREADSHEET_ID = (
 
 ABA_IDEB = "IDEB_Escolas (ENSINO MÉDIO)"
 ABA_INFO = "Info_Escolas_Consolidado"
+ABA_ESCOLAS_2025 = "Escolas_2025"
 
 
 ANOS_DISPONIVEIS = [
@@ -94,18 +95,18 @@ EIXOS_DISPONIVEIS = {
         "coluna": "Região",
     },
 
-    "1ª IDEB 100% integral": {
+    "1º IDEB 100% integral": {
         "tipo": "coluna",
-        "coluna": "1ª edição 100% integral",
+        "coluna": "1º IDEB 100% integral",
     },
 
     "Carga horária": {
         "tipo": "carga_horaria",
     },
 
-    "Tipo de integral": {
+    "Transição": {
         "tipo": "coluna",
-        "coluna": "Tipo de integral",
+        "coluna": "Transição",
     },
 
     "Faixa IDEB 2017": {
@@ -781,6 +782,235 @@ def carregar_info_escolas():
 
 
 # ============================================================
+# LEITURA DA ABA ESCOLAS_2025
+# ============================================================
+
+@st.cache_data(
+    ttl=300
+)
+def carregar_escolas_2025():
+
+    planilha = (
+        conectar_google_sheets()
+    )
+
+    aba = planilha.worksheet(
+        ABA_ESCOLAS_2025
+    )
+
+    dados = (
+        aba.get_all_values()
+    )
+
+
+    if not dados:
+
+        return pd.DataFrame(
+            columns=[
+                "Cód. INEP",
+                "Transição",
+                "1º IDEB 100% integral",
+            ]
+        )
+
+
+    cabecalho = [
+        str(coluna).strip()
+        for coluna
+        in dados[0]
+    ]
+
+
+    indices_validos = [
+        i
+        for i, coluna
+        in enumerate(
+            cabecalho
+        )
+        if coluna
+    ]
+
+
+    if not indices_validos:
+
+        raise ValueError(
+            "Não foi possível identificar "
+            "as colunas da aba Escolas_2025."
+        )
+
+
+    ultima_coluna = max(
+        indices_validos
+    )
+
+
+    cabecalho = cabecalho[
+        :ultima_coluna + 1
+    ]
+
+
+    linhas = [
+        linha[
+            :ultima_coluna + 1
+        ]
+        for linha
+        in dados[1:]
+    ]
+
+
+    df = pd.DataFrame(
+        linhas,
+        columns=cabecalho,
+    )
+
+
+    df = remover_linhas_vazias(
+        df
+    )
+
+
+    # ========================================================
+    # COLUNAS NECESSÁRIAS
+    # ========================================================
+
+    if "Codigo_INEP" not in df.columns:
+
+        raise ValueError(
+            "A coluna 'Codigo_INEP' não foi encontrada "
+            "na aba Escolas_2025."
+        )
+
+
+    # A especificação da aba usa 'Transicao'. Mantemos também
+    # compatibilidade com 'Destino_2025Transicao', caso esse seja
+    # o nome efetivamente utilizado na planilha.
+    if "Transicao" in df.columns:
+
+        coluna_transicao = "Transicao"
+
+    elif "Destino_2025Transicao" in df.columns:
+
+        coluna_transicao = "Destino_2025Transicao"
+
+    else:
+
+        raise ValueError(
+            "A coluna 'Transicao' não foi encontrada "
+            "na aba Escolas_2025."
+        )
+
+
+    if "1a_edicao_IDEB_100" not in df.columns:
+
+        raise ValueError(
+            "A coluna '1a_edicao_IDEB_100' não foi encontrada "
+            "na aba Escolas_2025."
+        )
+
+
+    df = df[
+        [
+            "Codigo_INEP",
+            coluna_transicao,
+            "1a_edicao_IDEB_100",
+        ]
+    ].copy()
+
+
+    # ========================================================
+    # CÓDIGO INEP
+    # ========================================================
+
+    df[
+        "Codigo_INEP"
+    ] = (
+        padronizar_codigo_escola(
+            df[
+                "Codigo_INEP"
+            ]
+        )
+    )
+
+
+    df = (
+        df[
+            df[
+                "Codigo_INEP"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    # ========================================================
+    # CHAVE ÚNICA
+    # ========================================================
+
+    duplicados = (
+        df[
+            df[
+                "Codigo_INEP"
+            ].duplicated(
+                keep=False
+            )
+        ][
+            "Codigo_INEP"
+        ]
+        .drop_duplicates()
+        .tolist()
+    )
+
+
+    if duplicados:
+
+        raise ValueError(
+            "A coluna Codigo_INEP da aba Escolas_2025 "
+            "deve ser uma chave única. Códigos duplicados: "
+            f"{duplicados[:10]}"
+        )
+
+
+    # ========================================================
+    # PADRONIZA NOMES PARA O PAINEL
+    # ========================================================
+
+    df = df.rename(
+        columns={
+            "Codigo_INEP": "Cód. INEP",
+            coluna_transicao: "Transição",
+            "1a_edicao_IDEB_100": "1º IDEB 100% integral",
+        }
+    )
+
+
+    # Remove espaços excedentes sem alterar a redação das categorias.
+    for coluna in [
+        "Transição",
+        "1º IDEB 100% integral",
+    ]:
+
+        df[
+            coluna
+        ] = (
+            df[
+                coluna
+            ]
+            .astype(str)
+            .str.strip()
+            .replace(
+                {
+                    "": np.nan,
+                    "nan": np.nan,
+                    "None": np.nan,
+                }
+            )
+        )
+
+
+    return df
+
+
+# ============================================================
 # NOMES DAS COLUNAS IDEB POR ANO
 # ============================================================
 
@@ -1059,6 +1289,10 @@ def preparar_base():
         carregar_info_escolas()
     )
 
+    df_escolas_2025 = (
+        carregar_escolas_2025()
+    )
+
 
     # ========================================================
     # REGRA GERAL DO PAINEL
@@ -1180,6 +1414,35 @@ def preparar_base():
             ignore_index=True,
         )
     )
+
+
+    # ========================================================
+    # ATRIBUTOS DA ABA ESCOLAS_2025
+    #
+    # São atributos no nível da escola e, portanto, ficam
+    # disponíveis em todas as linhas escola × ano do painel.
+    # ========================================================
+
+    if not df_escolas_2025.empty:
+
+        base_final = (
+            base_final.merge(
+                df_escolas_2025,
+                on="Cód. INEP",
+                how="left",
+                validate="many_to_one",
+            )
+        )
+
+    else:
+
+        base_final[
+            "Transição"
+        ] = np.nan
+
+        base_final[
+            "1º IDEB 100% integral"
+        ] = np.nan
 
 
     # ========================================================
@@ -1585,6 +1848,83 @@ def obter_opcoes_filtro(
             if valor
             in opcoes
         ]
+
+
+    # ========================================================
+    # PRIMEIRO IDEB 100% INTEGRAL
+    # ========================================================
+
+    if (
+        nome_filtro
+        == "1º IDEB 100% integral"
+    ):
+
+        ordem = [
+            "2017 ou antes",
+            "2019",
+            "2021",
+            "2023",
+            "2025",
+            "Não informado",
+        ]
+
+
+        return [
+            valor
+            for valor
+            in ordem
+            if valor
+            in opcoes
+        ]
+
+
+    # ========================================================
+    # TRANSIÇÃO
+    # ========================================================
+
+    if (
+        nome_filtro
+        == "Transição"
+    ):
+
+        ordem = [
+            "Parcial/Regular → Parcial/Regular",
+            "100% Integral → 100% Integral",
+            "Mista → Parcial/Regular",
+            "100% Integral → Parcial/Regular",
+            "100% Integral → Mista",
+            "Parcial/Regular → 100% Integral",
+            "Parcial/Regular → Mista",
+            "Mista → Mista",
+            "Mista → 100% Integral",
+            "Não informado",
+        ]
+
+
+        existentes_ordenados = [
+            valor
+            for valor
+            in ordem
+            if valor
+            in opcoes
+        ]
+
+        extras = sorted(
+            [
+                valor
+                for valor
+                in opcoes
+                if valor
+                not in ordem
+            ],
+            key=lambda x: str(x),
+        )
+
+
+        return (
+            existentes_ordenados
+            + extras
+        )
 
 
     # ========================================================
