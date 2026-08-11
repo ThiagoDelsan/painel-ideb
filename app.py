@@ -220,13 +220,7 @@ PALETA_DISTRIBUICOES = [
 # RÓTULOS
 # ============================================================
 
-ROTULOS_DIMENSOES = {
-    "1ª IDEB 100% integral":
-        "1º IDEB 100% integral (em construção)",
-
-    "Tipo de integral":
-        "Tipo de integral (em construção)",
-}
+ROTULOS_DIMENSOES = {}
 
 
 def rotulo_dimensao(nome):
@@ -8165,9 +8159,9 @@ nomes_filtros = [
     "Colégio com Seleção",
     "Estado",
     "Região do Brasil",
-    "1ª IDEB 100% integral",
+    "1º IDEB 100% integral",
     "Carga horária",
-    "Tipo de integral",
+    "Transição",
 ]
 
 
