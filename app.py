@@ -8514,16 +8514,23 @@ if pagina == "DISTRIBUIÇÕES":
             )
 
 
-            col_grafico_agregado, col_p_agregado = st.columns(
+            # ====================================================
+            # BLOCO 1 — VALORES ABSOLUTOS
+            #
+            # Boxplot e gráfico de médias ficam lado a lado.
+            # A tabela de testes aparece abaixo dos dois gráficos.
+            # ====================================================
+
+            col_boxplot_agregado, col_medias_agregado = st.columns(
                 [
-                    4.0,
-                    2.0,
+                    1.55,
+                    1.00,
                 ],
                 gap="medium",
             )
 
 
-            with col_grafico_agregado:
+            with col_boxplot_agregado:
 
                 grafico_agregado = criar_grafico_boxplots(
                     dados=dados_agregado_plot,
@@ -8563,6 +8570,8 @@ if pagina == "DISTRIBUIÇÕES":
                 )
 
 
+            with col_medias_agregado:
+
                 grafico_medias_agregado = (
                     criar_grafico_barras_medias_agregado(
                         dados=dados_agregado_plot,
@@ -8581,11 +8590,9 @@ if pagina == "DISTRIBUIÇÕES":
                 )
 
 
-            with col_p_agregado:
-
-                exibir_p_valores_agregados(
-                    testes_agregado_valores
-                )
+            exibir_p_valores_agregados(
+                testes_agregado_valores
+            )
 
 
         # ====================================================
@@ -8649,16 +8656,23 @@ if pagina == "DISTRIBUIÇÕES":
             )
 
 
-            col_grafico_delta_ag, col_p_delta_ag = st.columns(
+            # ====================================================
+            # BLOCO 2 — DELTAS
+            #
+            # Boxplot e gráfico de médias ficam lado a lado.
+            # A tabela de testes aparece abaixo dos dois gráficos.
+            # ====================================================
+
+            col_boxplot_delta_ag, col_medias_delta_ag = st.columns(
                 [
-                    4.0,
-                    2.0,
+                    1.55,
+                    1.00,
                 ],
                 gap="medium",
             )
 
 
-            with col_grafico_delta_ag:
+            with col_boxplot_delta_ag:
 
                 grafico_delta_agregado = criar_grafico_delta_boxplots(
                     dados=dados_delta_agregado_plot,
@@ -8700,6 +8714,8 @@ if pagina == "DISTRIBUIÇÕES":
                 )
 
 
+            with col_medias_delta_ag:
+
                 grafico_medias_delta_agregado = (
                     criar_grafico_barras_medias_delta_agregado(
                         dados=dados_delta_agregado_plot,
@@ -8719,11 +8735,9 @@ if pagina == "DISTRIBUIÇÕES":
                 )
 
 
-            with col_p_delta_ag:
-
-                exibir_p_valores_agregados(
-                    testes_agregado_delta
-                )
+            exibir_p_valores_agregados(
+                testes_agregado_delta
+            )
 
 
     with tab_todos_distrib:
