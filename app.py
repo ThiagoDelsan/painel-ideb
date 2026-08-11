@@ -3850,6 +3850,716 @@ def criar_grafico_barras_medias_delta_agregado(
     )
 
 
+
+# ============================================================
+# DISTRIBUIÇÕES — AGREGADOS ORGANIZADOS POR ANO
+# ============================================================
+
+def _rotulo_grupo_agregado(categorias):
+
+    categorias = [
+        str(categoria)
+        for categoria
+        in categorias
+    ]
+
+
+    if not categorias:
+
+        return "Sem categorias"
+
+
+    return " + ".join(
+        categorias
+    )
+
+
+def criar_grafico_boxplots_agregados_por_ano(
+    dados,
+    indicador,
+    variavel,
+    anos,
+    categorias_grupo_1,
+    categorias_grupo_2,
+    dominio_y=None,
+    altura=430,
+):
+
+    if dados.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "Mensagem": [
+                            "Sem dados"
+                        ]
+                    }
+                )
+            )
+            .mark_text(
+                fontSize=15,
+            )
+            .encode(
+                text="Mensagem:N"
+            )
+            .properties(
+                height=360,
+            )
+        )
+
+
+    plot = dados.copy()
+
+
+    rotulo_1 = _rotulo_grupo_agregado(
+        categorias_grupo_1
+    )
+
+    rotulo_2 = _rotulo_grupo_agregado(
+        categorias_grupo_2
+    )
+
+
+    mapa_grupos = {
+        "Agregado 1": rotulo_1,
+        "Agregado 2": rotulo_2,
+    }
+
+
+    plot[
+        "Grupo"
+    ] = (
+        plot[
+            "Categoria"
+        ]
+        .map(
+            mapa_grupos
+        )
+    )
+
+
+    plot = (
+        plot[
+            plot[
+                "Grupo"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    anos_str = [
+        str(ano)
+        for ano
+        in sorted(
+            anos
+        )
+    ]
+
+
+    ordem_grupos = [
+        rotulo
+        for rotulo
+        in [
+            rotulo_1,
+            rotulo_2,
+        ]
+        if rotulo
+        in set(
+            plot[
+                "Grupo"
+            ].dropna()
+        )
+    ]
+
+
+    medias = (
+        plot
+        .groupby(
+            [
+                "Ano",
+                "Grupo",
+            ],
+            as_index=False,
+        )
+        .agg(
+            Média=(
+                "Valor",
+                "mean",
+            ),
+            **{
+                "N escolas": (
+                    "Cód. INEP",
+                    "nunique",
+                )
+            },
+        )
+    )
+
+
+    if indicador == "Rendimento":
+
+        formato_eixo = ".0%"
+        formato_tooltip = ".1%"
+
+        medias[
+            "Rótulo média"
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']) * 100:.1f}% "
+                f"(N={int(linha['N escolas'])})"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
+        )
+
+    else:
+
+        formato_eixo = ".1f"
+        formato_tooltip = ".1f"
+
+        medias[
+            "Rótulo média"
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']):.1f} "
+                f"(N={int(linha['N escolas'])})"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
+        )
+
+
+    escala_y = (
+        alt.Scale(
+            domain=dominio_y,
+            zero=False,
+            nice=False,
+        )
+        if dominio_y is not None
+        else alt.Scale(
+            zero=False,
+        )
+    )
+
+
+    eixo_x = alt.X(
+        "Ano:N",
+        sort=anos_str,
+        title="Ano",
+        axis=alt.Axis(
+            labelAngle=0,
+            labelFontSize=11,
+            titleFontSize=12,
+            labelPadding=8,
+        ),
+    )
+
+
+    deslocamento_grupo = alt.XOffset(
+        "Grupo:N",
+        sort=ordem_grupos,
+    )
+
+
+    escala_grupos = alt.Scale(
+        domain=ordem_grupos,
+        range=[
+            "#6C9FCC",
+            "#A67C68",
+        ][
+            :len(
+                ordem_grupos
+            )
+        ],
+    )
+
+
+    cor_grupo = alt.Color(
+        "Grupo:N",
+        title=None,
+        sort=ordem_grupos,
+        scale=escala_grupos,
+        legend=alt.Legend(
+            orient="top",
+            direction="vertical",
+            columns=1,
+            labelLimit=600,
+            symbolSize=90,
+            title=None,
+        ),
+    )
+
+
+    caixas = (
+        alt.Chart(
+            plot
+        )
+        .mark_boxplot(
+            extent=1.5,
+            size=38,
+        )
+        .encode(
+            x=eixo_x,
+            xOffset=deslocamento_grupo,
+            y=alt.Y(
+                "Valor:Q",
+                title=indicador,
+                scale=escala_y,
+                axis=alt.Axis(
+                    format=formato_eixo,
+                    labelFontSize=11,
+                    titleFontSize=12,
+                    tickCount=6,
+                ),
+            ),
+            color=cor_grupo,
+            tooltip=[
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+                alt.Tooltip(
+                    "Grupo:N",
+                    title="Categorias",
+                ),
+            ],
+        )
+    )
+
+
+    pontos_media = (
+        alt.Chart(
+            medias
+        )
+        .mark_point(
+            shape="diamond",
+            filled=True,
+            size=80,
+            color="#2F313C",
+            stroke="white",
+            strokeWidth=0.8,
+        )
+        .encode(
+            x=alt.X(
+                "Ano:N",
+                sort=anos_str,
+            ),
+            xOffset=alt.XOffset(
+                "Grupo:N",
+                sort=ordem_grupos,
+            ),
+            y=alt.Y(
+                "Média:Q",
+                scale=escala_y,
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+                alt.Tooltip(
+                    "Grupo:N",
+                    title="Categorias",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title="Média",
+                    format=formato_tooltip,
+                ),
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="N escolas",
+                    format="d",
+                ),
+            ],
+        )
+    )
+
+
+    rotulos_media = (
+        alt.Chart(
+            medias
+        )
+        .mark_text(
+            dy=-13,
+            fontSize=9,
+            fontWeight="bold",
+            color="#2F313C",
+        )
+        .encode(
+            x=alt.X(
+                "Ano:N",
+                sort=anos_str,
+            ),
+            xOffset=alt.XOffset(
+                "Grupo:N",
+                sort=ordem_grupos,
+            ),
+            y=alt.Y(
+                "Média:Q",
+                scale=escala_y,
+            ),
+            text=alt.Text(
+                "Rótulo média:N"
+            ),
+        )
+    )
+
+
+    return (
+        caixas
+        +
+        pontos_media
+        +
+        rotulos_media
+    ).properties(
+        height=altura,
+        title=alt.TitleParams(
+            text=(
+                f"Distribuição de {indicador} — categorias agregadas de "
+                f"{rotulo_dimensao(variavel)}"
+            ),
+            subtitle=(
+                "Dentro de cada ano, a 1ª seleção aparece ao lado da 2ª seleção. "
+                "O losango e o rótulo indicam a média; o N aparece junto à média."
+            ),
+            anchor="middle",
+            fontSize=16,
+            subtitleFontSize=11,
+            subtitlePadding=8,
+        ),
+    )
+
+
+def criar_grafico_barras_medias_agregados_por_ano(
+    dados,
+    indicador,
+    variavel,
+    anos,
+    categorias_grupo_1,
+    categorias_grupo_2,
+    dominio_y=None,
+    altura=430,
+):
+
+    if dados.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "Mensagem": [
+                            "Sem dados"
+                        ]
+                    }
+                )
+            )
+            .mark_text(
+                fontSize=15,
+            )
+            .encode(
+                text="Mensagem:N"
+            )
+            .properties(
+                height=360,
+            )
+        )
+
+
+    plot = dados.copy()
+
+
+    rotulo_1 = _rotulo_grupo_agregado(
+        categorias_grupo_1
+    )
+
+    rotulo_2 = _rotulo_grupo_agregado(
+        categorias_grupo_2
+    )
+
+
+    mapa_grupos = {
+        "Agregado 1": rotulo_1,
+        "Agregado 2": rotulo_2,
+    }
+
+
+    plot[
+        "Grupo"
+    ] = (
+        plot[
+            "Categoria"
+        ]
+        .map(
+            mapa_grupos
+        )
+    )
+
+
+    plot = (
+        plot[
+            plot[
+                "Grupo"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    anos_str = [
+        str(ano)
+        for ano
+        in sorted(
+            anos
+        )
+    ]
+
+
+    ordem_grupos = [
+        rotulo
+        for rotulo
+        in [
+            rotulo_1,
+            rotulo_2,
+        ]
+        if rotulo
+        in set(
+            plot[
+                "Grupo"
+            ].dropna()
+        )
+    ]
+
+
+    medias = (
+        plot
+        .groupby(
+            [
+                "Ano",
+                "Grupo",
+            ],
+            as_index=False,
+        )
+        .agg(
+            Média=(
+                "Valor",
+                "mean",
+            ),
+            **{
+                "N escolas": (
+                    "Cód. INEP",
+                    "nunique",
+                )
+            },
+        )
+    )
+
+
+    if indicador == "Rendimento":
+
+        formato_eixo = ".0%"
+        formato_tooltip = ".1%"
+
+        medias[
+            "Rótulo média"
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']) * 100:.1f}% "
+                f"(N={int(linha['N escolas'])})"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
+        )
+
+    else:
+
+        formato_eixo = ".1f"
+        formato_tooltip = ".1f"
+
+        medias[
+            "Rótulo média"
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']):.1f} "
+                f"(N={int(linha['N escolas'])})"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
+        )
+
+
+    escala_y = (
+        alt.Scale(
+            domain=dominio_y,
+            zero=False,
+            nice=False,
+        )
+        if dominio_y is not None
+        else alt.Scale(
+            zero=True,
+        )
+    )
+
+
+    eixo_x = alt.X(
+        "Ano:N",
+        sort=anos_str,
+        title="Ano",
+        axis=alt.Axis(
+            labelAngle=0,
+            labelFontSize=11,
+            titleFontSize=12,
+            labelPadding=8,
+        ),
+    )
+
+
+    deslocamento_grupo = alt.XOffset(
+        "Grupo:N",
+        sort=ordem_grupos,
+    )
+
+
+    escala_grupos = alt.Scale(
+        domain=ordem_grupos,
+        range=[
+            "#6C9FCC",
+            "#A67C68",
+        ][
+            :len(
+                ordem_grupos
+            )
+        ],
+    )
+
+
+    cor_grupo = alt.Color(
+        "Grupo:N",
+        title=None,
+        sort=ordem_grupos,
+        scale=escala_grupos,
+        legend=alt.Legend(
+            orient="top",
+            direction="vertical",
+            columns=1,
+            labelLimit=600,
+            symbolSize=90,
+            title=None,
+        ),
+    )
+
+
+    barras = (
+        alt.Chart(
+            medias
+        )
+        .mark_bar(
+            size=44,
+            cornerRadiusTopLeft=2,
+            cornerRadiusTopRight=2,
+        )
+        .encode(
+            x=eixo_x,
+            xOffset=deslocamento_grupo,
+            y=alt.Y(
+                "Média:Q",
+                title=f"Média de {indicador}",
+                scale=escala_y,
+                axis=alt.Axis(
+                    format=formato_eixo,
+                    labelFontSize=11,
+                    titleFontSize=12,
+                    tickCount=6,
+                ),
+            ),
+            color=cor_grupo,
+            tooltip=[
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+                alt.Tooltip(
+                    "Grupo:N",
+                    title="Categorias",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title="Média",
+                    format=formato_tooltip,
+                ),
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="N escolas",
+                    format="d",
+                ),
+            ],
+        )
+    )
+
+
+    rotulos = (
+        alt.Chart(
+            medias
+        )
+        .mark_text(
+            dy=-10,
+            fontSize=9,
+            fontWeight="bold",
+            color="#2F313C",
+        )
+        .encode(
+            x=alt.X(
+                "Ano:N",
+                sort=anos_str,
+            ),
+            xOffset=alt.XOffset(
+                "Grupo:N",
+                sort=ordem_grupos,
+            ),
+            y=alt.Y(
+                "Média:Q",
+                scale=escala_y,
+            ),
+            text=alt.Text(
+                "Rótulo média:N"
+            ),
+        )
+    )
+
+
+    return (
+        barras
+        +
+        rotulos
+    ).properties(
+        height=altura,
+        title=alt.TitleParams(
+            text=(
+                f"Médias de {indicador} — categorias agregadas de "
+                f"{rotulo_dimensao(variavel)}"
+            ),
+            subtitle=(
+                "As duas seleções aparecem lado a lado dentro de cada ano, "
+                "na mesma ordem do boxplot."
+            ),
+            anchor="middle",
+            fontSize=15,
+            subtitleFontSize=10.5,
+            subtitlePadding=7,
+        ),
+    )
+
+
 # ============================================================
 # DISTRIBUIÇÕES — AGREGAÇÃO DE CATEGORIAS
 # ============================================================
@@ -4852,6 +5562,42 @@ def calcular_teste_media_agregados(
     )
 
 
+    media_1 = (
+        float(
+            np.mean(
+                amostra_1
+            )
+        )
+        if n_1 > 0
+        else np.nan
+    )
+
+    media_2 = (
+        float(
+            np.mean(
+                amostra_2
+            )
+        )
+        if n_2 > 0
+        else np.nan
+    )
+
+    diferenca_medias = (
+        media_2
+        - media_1
+        if (
+            pd.notna(
+                media_1
+            )
+            and
+            pd.notna(
+                media_2
+            )
+        )
+        else np.nan
+    )
+
+
     if n_1 < 2 or n_2 < 2:
 
         return {
@@ -4859,6 +5605,9 @@ def calcular_teste_media_agregados(
             "teste": "Amostra insuficiente",
             "n_1": n_1,
             "n_2": n_2,
+            "media_1": media_1,
+            "media_2": media_2,
+            "diferenca_medias": diferenca_medias,
         }
 
 
@@ -4891,6 +5640,9 @@ def calcular_teste_media_agregados(
         "teste": teste,
         "n_1": n_1,
         "n_2": n_2,
+        "media_1": media_1,
+        "media_2": media_2,
+        "diferenca_medias": diferenca_medias,
     }
 
 
@@ -5064,8 +5816,46 @@ def nome_curto_teste_media(
     )
 
 
+def formatar_diferenca_medias(
+    valor,
+    indicador,
+):
+
+    if pd.isna(
+        valor
+    ):
+
+        return "—"
+
+
+    valor = float(
+        valor
+    )
+
+
+    if indicador == "Rendimento":
+
+        return (
+            f"{valor * 100:+.1f} p.p."
+            .replace(
+                ".",
+                ",",
+            )
+        )
+
+
+    return (
+        f"{valor:+.1f}"
+        .replace(
+            ".",
+            ",",
+        )
+    )
+
+
 def exibir_p_valores_agregados(
     resultados,
+    indicador,
 ):
 
     st.markdown(
@@ -5152,6 +5942,16 @@ def exibir_p_valores_agregados(
             )
         )
 
+        diferenca_formatada = html.escape(
+            formatar_diferenca_medias(
+                resultado.get(
+                    "diferenca_medias",
+                    np.nan,
+                ),
+                indicador,
+            )
+        )
+
         n_considerado = (
             f"{int(resultado['n_1'])} × "
             f"{int(resultado['n_2'])}"
@@ -5166,6 +5966,7 @@ def exibir_p_valores_agregados(
             f"<div style='font-size:0.68rem;color:#6B7280;"
             f"margin-top:2px;'>{rotulo}</div>"
             "</td>"
+            f"<td>{diferenca_formatada}</td>"
             f"<td>{relevancia}</td>"
             "<td>"
             f"<span title='{explicacao_teste}' "
@@ -5185,6 +5986,8 @@ def exibir_p_valores_agregados(
         "<thead><tr>"
         "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
         "p-valor</th>"
+        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "Diferença entre médias (2 − 1)</th>"
         "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
         "Têm relevância</th>"
         "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
@@ -8675,10 +9478,9 @@ if pagina == "DISTRIBUIÇÕES":
 
 
         caption_agregado = (
-            "Cada posição do eixo representa um dos dois agregados definidos "
-            "acima. Para cada ano selecionado, o boxplot usa todas as escolas "
-            "que pertencem a qualquer categoria incluída naquele agregado. "
-            "A ordem é fixa: Agregado 1 antes de Agregado 2."
+            "Para cada ano selecionado, a 1ª seleção aparece imediatamente ao "
+            "lado da 2ª seleção. Cada boxplot usa todas as escolas que pertencem "
+            "a qualquer categoria incluída no respectivo agregado."
         )
 
 
@@ -8703,24 +9505,6 @@ if pagina == "DISTRIBUIÇÕES":
 
         else:
 
-            mapa_rotulos_agregado = rotulos_n_agregados_valores(
-                dados_agregado,
-                ano_final_agregado,
-                categorias_grupo_1,
-                categorias_grupo_2,
-            )
-
-
-            (
-                dados_agregado_plot,
-                ordem_agregado_plot,
-            ) = aplicar_rotulos_n_agregados(
-                dados_agregado,
-                ordem_agregado,
-                mapa_rotulos_agregado,
-            )
-
-
             testes_agregado_valores = (
                 calcular_p_valores_agregados_por_ano(
                     dados_agregado,
@@ -8732,12 +9516,13 @@ if pagina == "DISTRIBUIÇÕES":
             # ====================================================
             # BLOCO 1 — VALORES ABSOLUTOS
             #
-            # Boxplot e gráfico de médias ficam lado a lado.
-            # A tabela de testes aparece abaixo dos dois gráficos.
+            # A organização é ano → 1ª seleção → 2ª seleção.
+            # Assim, os dois grupos ficam lado a lado dentro de cada
+            # ano, facilitando a comparação direta ano a ano.
             # ====================================================
 
             dominio_y_agregado = calcular_dominio_y_compartilhado(
-                dados_agregado_plot[
+                dados_agregado[
                     "Valor"
                 ],
                 indicador_agregado,
@@ -8756,36 +9541,16 @@ if pagina == "DISTRIBUIÇÕES":
 
             with col_boxplot_agregado:
 
-                grafico_agregado = criar_grafico_boxplots(
-                    dados=dados_agregado_plot,
-                    ordem=ordem_agregado_plot,
-                    indicador=indicador_agregado,
-                    variavel_1=variavel_agregado,
-                    variavel_2=None,
-                    anos=anos_agregado,
-                    rotulos_multilinha=True,
-                    dominio_y=dominio_y_agregado,
-                    altura=430,
-                )
-
-
-                grafico_agregado = grafico_agregado.properties(
-                    title=alt.TitleParams(
-                        text=(
-                            f"Distribuição de {indicador_agregado} — "
-                            f"categorias agregadas de "
-                            f"{rotulo_dimensao(variavel_agregado)}"
-                        ),
-                        subtitle=(
-                            "O eixo mostra diretamente as categorias que compõem "
-                            "cada agregado, uma por linha. O N entre parênteses "
-                            f"refere-se a {ano_final_agregado}. O losango e o "
-                            "rótulo indicam a média de cada distribuição."
-                        ),
-                        anchor="middle",
-                        fontSize=16,
-                        subtitleFontSize=11,
-                        subtitlePadding=8,
+                grafico_agregado = (
+                    criar_grafico_boxplots_agregados_por_ano(
+                        dados=dados_agregado,
+                        indicador=indicador_agregado,
+                        variavel=variavel_agregado,
+                        anos=anos_agregado,
+                        categorias_grupo_1=categorias_grupo_1,
+                        categorias_grupo_2=categorias_grupo_2,
+                        dominio_y=dominio_y_agregado,
+                        altura=430,
                     )
                 )
 
@@ -8799,13 +9564,13 @@ if pagina == "DISTRIBUIÇÕES":
             with col_medias_agregado:
 
                 grafico_medias_agregado = (
-                    criar_grafico_barras_medias_agregado(
-                        dados=dados_agregado_plot,
-                        ordem=ordem_agregado_plot,
+                    criar_grafico_barras_medias_agregados_por_ano(
+                        dados=dados_agregado,
                         indicador=indicador_agregado,
                         variavel=variavel_agregado,
                         anos=anos_agregado,
-                        rotulos_multilinha=True,
+                        categorias_grupo_1=categorias_grupo_1,
+                        categorias_grupo_2=categorias_grupo_2,
                         dominio_y=dominio_y_agregado,
                         altura=430,
                     )
@@ -8819,7 +9584,8 @@ if pagina == "DISTRIBUIÇÕES":
 
 
             exibir_p_valores_agregados(
-                testes_agregado_valores
+                testes_agregado_valores,
+                indicador=indicador_agregado,
             )
 
 
@@ -8977,7 +9743,8 @@ if pagina == "DISTRIBUIÇÕES":
 
 
             exibir_p_valores_agregados(
-                testes_agregado_delta
+                testes_agregado_delta,
+                indicador=indicador_agregado,
             )
 
 
