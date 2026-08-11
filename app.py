@@ -4043,6 +4043,7 @@ with nav_1:
     if st.button(
         "PRINCIPAIS INDICADORES",
         width="stretch",
+        key="nav_principais",
     ):
 
         st.session_state.pagina = (
@@ -4055,6 +4056,7 @@ with nav_2:
     if st.button(
         "DEMOGRAFIA",
         width="stretch",
+        key="nav_demografia",
     ):
 
         st.session_state.pagina = (
@@ -4067,6 +4069,7 @@ with nav_3:
     if st.button(
         "DISTRIBUIÇÕES",
         width="stretch",
+        key="nav_distribuicoes",
     ):
 
         st.session_state.pagina = (
@@ -4079,6 +4082,7 @@ with nav_4:
     if st.button(
         "MELHORES ESCOLAS",
         width="stretch",
+        key="nav_melhores",
     ):
 
         st.session_state.pagina = (
@@ -4089,6 +4093,43 @@ with nav_4:
 pagina = (
     st.session_state.pagina
 )
+
+
+# ============================================================
+# DESTAQUE DA PÁGINA ATIVA NA NAVEGAÇÃO
+# ============================================================
+
+chave_nav_ativa = {
+    "PRINCIPAIS INDICADORES": "nav_principais",
+    "DEMOGRAFIA": "nav_demografia",
+    "DISTRIBUIÇÕES": "nav_distribuicoes",
+    "MELHORES ESCOLAS": "nav_melhores",
+}.get(
+    pagina
+)
+
+
+if chave_nav_ativa:
+
+    st.markdown(
+        f"""
+        <style>
+            .st-key-{chave_nav_ativa} button {{
+                background-color: #DFF1E2 !important;
+                border-color: #A9D5B0 !important;
+                color: #245C2D !important;
+                font-weight: 700 !important;
+            }}
+
+            .st-key-{chave_nav_ativa} button:hover {{
+                background-color: #D3EBD7 !important;
+                border-color: #91C99B !important;
+                color: #1F5127 !important;
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================
@@ -5131,9 +5172,7 @@ if pagina == "MELHORES ESCOLAS":
     # TABELA COMPACTA, CENTRALIZADA E SEM LINHAS VAZIAS
     # ========================================================
 
-    # Remove apenas registros realmente vazios. A altura do componente
-    # passa a acompanhar a quantidade de escolas existente no ranking,
-    # evitando linhas visuais em branco no final da tabela.
+    # Mantém apenas as linhas efetivamente existentes no ranking.
     tabela = (
         tabela
         .dropna(
@@ -5145,91 +5184,86 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
-    tabela_estilizada = (
-        tabela
-        .style
-        .set_properties(
-            **{
-                "text-align": "center",
-                "font-size": "9px",
-                "padding": "2px 3px",
-            }
-        )
-        .set_table_styles(
-            [
-                {
-                    "selector": "th",
-                    "props": [
-                        (
-                            "text-align",
-                            "center",
-                        ),
-                        (
-                            "font-size",
-                            "9px",
-                        ),
-                        (
-                            "padding",
-                            "2px 3px",
-                        ),
-                    ],
-                },
-                {
-                    "selector": "td",
-                    "props": [
-                        (
-                            "text-align",
-                            "center",
-                        ),
-                    ],
-                },
-            ]
-        )
+    # st.dataframe não oferece controle consistente de alinhamento e
+    # tamanho de fonte entre versões do Streamlit. Para esta tabela,
+    # usamos HTML responsivo: todas as células ficam centralizadas,
+    # a fonte é menor e a largura total é comprimida para caber na tela
+    # sem rolagem horizontal.
+    tabela_html = tabela.to_html(
+        index=False,
+        escape=True,
+        classes="tabela-melhores-escolas",
+        border=0,
     )
 
 
-    ALTURA_LINHA_TABELA = 24
-    ALTURA_CABECALHO_TABELA = 38
+    st.markdown(
+        f"""
+        <style>
+            .melhores-tabela-wrap {{
+                width: 100%;
+                max-height: 720px;
+                overflow-y: auto;
+                overflow-x: hidden;
+                border: 1px solid #E5E7EB;
+                border-radius: 6px;
+                margin-top: 0.25rem;
+                margin-bottom: 0.75rem;
+            }}
 
+            table.tabela-melhores-escolas {{
+                width: 100% !important;
+                max-width: 100% !important;
+                border-collapse: collapse;
+                table-layout: fixed;
+                font-size: 8.2px !important;
+                line-height: 1.08;
+                margin: 0 !important;
+            }}
 
-    altura_tabela = (
-        ALTURA_CABECALHO_TABELA
-        +
-        len(
-            tabela
-        )
-        * ALTURA_LINHA_TABELA
-        + 4
-    )
+            table.tabela-melhores-escolas th,
+            table.tabela-melhores-escolas td {{
+                text-align: center !important;
+                vertical-align: middle !important;
+                padding: 3px 2px !important;
+                border-bottom: 1px solid #ECEFF2;
+                white-space: normal !important;
+                overflow-wrap: anywhere;
+                word-break: normal;
+            }}
 
+            table.tabela-melhores-escolas th {{
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: #F6F7F9;
+                font-size: 8.0px !important;
+                font-weight: 700;
+                color: #343741;
+            }}
 
-    # Limita a altura apenas quando houver muitas escolas.
-    altura_tabela = min(
-        altura_tabela,
-        720,
-    )
+            /* Nome da escola recebe mais espaço; posição e código, menos. */
+            table.tabela-melhores-escolas th:nth-child(1),
+            table.tabela-melhores-escolas td:nth-child(1) {{
+                width: 4.5%;
+            }}
 
+            table.tabela-melhores-escolas th:nth-child(2),
+            table.tabela-melhores-escolas td:nth-child(2) {{
+                width: 15%;
+            }}
 
-    configuracao_colunas = {
-        coluna: st.column_config.TextColumn(
-            coluna,
-            width=(
-                "medium"
-                if coluna == "Nome"
-                else "small"
-            ),
-        )
-        for coluna in tabela.columns
-    }
+            table.tabela-melhores-escolas th:nth-child(3),
+            table.tabela-melhores-escolas td:nth-child(3) {{
+                width: 7%;
+            }}
+        </style>
 
-
-    st.dataframe(
-        tabela_estilizada,
-        width="stretch",
-        hide_index=True,
-        height=altura_tabela,
-        row_height=ALTURA_LINHA_TABELA,
-        column_config=configuracao_colunas,
+        <div class="melhores-tabela-wrap">
+            {tabela_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -6319,17 +6353,22 @@ if pagina == "DEMOGRAFIA":
 
     barras_pct = (
         alt.Chart(
-            resumo_plot[
-                resumo_plot[
-                    "Grupo"
-                ]
-                != GRUPO_ESPACO
-            ]
+            resumo_plot
         )
         .mark_bar(
             height=24,
         )
         .encode(
+
+            # A linha dummy permanece no domínio do eixo Y, mas fica
+            # invisível. Isso cria um afastamento exclusivamente depois
+            # do Consolidado, sem aumentar o espaço entre as demais barras.
+            opacity=alt.condition(
+                alt.datum.Grupo
+                == GRUPO_ESPACO,
+                alt.value(0),
+                alt.value(1),
+            ),
 
             y=alt.Y(
                 "Grupo:N",
@@ -6479,7 +6518,7 @@ if pagina == "DEMOGRAFIA":
     # uma categoria dummy (GRUPO_ESPACO) logo após ele.
     # ========================================================
 
-    ALTURA_LINHA_DEMO = 34
+    ALTURA_LINHA_DEMO = 30
 
 
     altura_demo = max(
@@ -6560,18 +6599,20 @@ if pagina == "DEMOGRAFIA":
 
     barras_n = (
         alt.Chart(
-            totais_demo[
-                totais_demo[
-                    "Grupo"
-                ]
-                != GRUPO_ESPACO
-            ]
+            totais_demo
         )
         .mark_bar(
             height=24,
             color="#6C9FCC",
         )
         .encode(
+
+            opacity=alt.condition(
+                alt.datum.Grupo
+                == GRUPO_ESPACO,
+                alt.value(0),
+                alt.value(1),
+            ),
 
             y=alt.Y(
                 "Grupo:N",
