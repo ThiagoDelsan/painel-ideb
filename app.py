@@ -37,13 +37,29 @@ st.markdown(
     <style>
 
         .block-container {
-            padding-top: 0.55rem;
+            padding-top: 0.70rem;
             padding-bottom: 1rem;
         }
 
+        /*
+        Evita corte do título "Painel IDEB".
+        */
         h1 {
             margin-top: 0 !important;
-            margin-bottom: 0.10rem !important;
+            margin-bottom: 0.20rem !important;
+            padding-top: 0.10rem !important;
+            padding-bottom: 0.18rem !important;
+            line-height: 1.18 !important;
+            overflow: visible !important;
+        }
+
+        /*
+        Botões um pouco mais compactos.
+        Ajuda principalmente a navegação superior.
+        */
+        div[data-testid="stButton"] button p {
+            font-size: 0.74rem !important;
+            white-space: nowrap !important;
         }
 
         /* ====================================================
@@ -110,6 +126,7 @@ st.markdown(
             font-weight: 750;
             margin-top: 10vh;
             margin-bottom: 4px;
+            line-height: 1.2;
         }
 
         .login-subtitle {
@@ -124,13 +141,6 @@ st.markdown(
             font-size: 11px;
             color: #9ca3af;
             margin-top: 18px;
-        }
-
-        .soft-divider {
-            border: none;
-            border-top: 1px solid rgba(120, 130, 140, 0.23);
-            margin-top: 0.40rem;
-            margin-bottom: 0.60rem;
         }
 
     </style>
@@ -1848,7 +1858,29 @@ def criar_painel_horizontal(
     )
 
 
-    graf_categorias = (
+    # ========================================================
+    # SEPARADORES
+    # ========================================================
+
+    dados_separadores = (
+        plot[
+            plot[
+                "TipoLinha"
+            ].isin(
+                [
+                    "separador_pequeno",
+                    "separador_grande",
+                ]
+            )
+        ]
+    )
+
+
+    # ========================================================
+    # COLUNA DE CATEGORIAS
+    # ========================================================
+
+    textos_categoria = (
         alt.Chart(
             labels_categorias
         )
@@ -1875,12 +1907,40 @@ def criar_painel_horizontal(
                 "CategoriaLabel:N"
             ),
         )
-        .properties(
-            width=largura_categoria,
-            height=altura,
+    )
+
+
+    # Linha também atravessa a área à esquerda das barras.
+    regras_categoria = (
+        alt.Chart(
+            dados_separadores
+        )
+        .mark_rule(
+            strokeWidth=0.7,
+            color="#D9DDE3",
+        )
+        .encode(
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            )
         )
     )
 
+
+    graf_categorias = (
+        textos_categoria
+        +
+        regras_categoria
+    ).properties(
+        width=largura_categoria,
+        height=altura,
+    )
+
+
+    # ========================================================
+    # DADOS DOS ANOS
+    # ========================================================
 
     dados_anos = (
         plot[
@@ -1891,6 +1951,10 @@ def criar_painel_horizontal(
         ]
     )
 
+
+    # ========================================================
+    # BARRAS ABSOLUTAS
+    # ========================================================
 
     barras_abs = (
         alt.Chart(
@@ -2000,20 +2064,6 @@ def criar_painel_horizontal(
     )
 
 
-    dados_separadores = (
-        plot[
-            plot[
-                "TipoLinha"
-            ].isin(
-                [
-                    "separador_pequeno",
-                    "separador_grande",
-                ]
-            )
-        ]
-    )
-
-
     regras_abs = (
         alt.Chart(
             dados_separadores
@@ -2052,6 +2102,10 @@ def criar_painel_horizontal(
         ),
     )
 
+
+    # ========================================================
+    # DELTA
+    # ========================================================
 
     dados_delta = (
         plot[
@@ -2231,13 +2285,7 @@ def criar_painel_horizontal(
 
 # ============================================================
 # CRUZAMENTOS
-#
-# NOVA ESTRUTURA EM TRÊS NÍVEIS:
-#
-# Categoria 1
-#     Categoria 2
-#         Ano
-#
+# PREPARAÇÃO EM TRÊS NÍVEIS
 # ============================================================
 
 def preparar_linhas_cruzamentos(
@@ -2266,10 +2314,6 @@ def preparar_linhas_cruzamentos(
 
     contador = 0
 
-
-    # ========================================================
-    # AUXILIAR — ADICIONA UM ANO
-    # ========================================================
 
     def adicionar_ano(
         nivel_1,
@@ -2340,10 +2384,6 @@ def preparar_linhas_cruzamentos(
         return row_id
 
 
-    # ========================================================
-    # AUXILIAR — SEPARADOR
-    # ========================================================
-
     def adicionar_separador(
         tipo,
     ):
@@ -2395,8 +2435,6 @@ def preparar_linhas_cruzamentos(
 
     # ========================================================
     # CONSOLIDADO
-    #
-    # Trata como um bloco especial no topo.
     # ========================================================
 
     if (
@@ -2449,17 +2487,10 @@ def preparar_linhas_cruzamentos(
                 )
 
 
-                rec_fim = rec
-
-
-                if (
-                    not rec_ini.empty
-                    and
-                    not rec_fim.empty
-                ):
+                if not rec_ini.empty:
 
                     delta = (
-                        rec_fim[
+                        rec[
                             "Média"
                         ].iloc[0]
                         -
@@ -2490,14 +2521,19 @@ def preparar_linhas_cruzamentos(
 
         if linhas_cons:
 
+            centro = (
+                len(
+                    linhas_cons
+                )
+                // 2
+            )
+
+
             labels_nivel_1.append(
                 {
                     "RowID":
                         linhas_cons[
-                            len(
-                                linhas_cons
-                            )
-                            // 2
+                            centro
                         ],
 
                     "Label":
@@ -2510,10 +2546,7 @@ def preparar_linhas_cruzamentos(
                 {
                     "RowID":
                         linhas_cons[
-                            len(
-                                linhas_cons
-                            )
-                            // 2
+                            centro
                         ],
 
                     "Label":
@@ -2522,7 +2555,6 @@ def preparar_linhas_cruzamentos(
             )
 
 
-            # Espaço maior depois do consolidado
             adicionar_separador(
                 "separador_nivel_1"
             )
@@ -2558,10 +2590,6 @@ def preparar_linhas_cruzamentos(
 
         linhas_nivel_1 = []
 
-
-        # ====================================================
-        # SEGUNDA DIMENSÃO
-        # ====================================================
 
         niveis_2_presentes = (
             base_n1[
@@ -2617,10 +2645,6 @@ def preparar_linhas_cruzamentos(
             linhas_nivel_2 = []
 
 
-            # ================================================
-            # DELTA DESTE CRUZAMENTO
-            # ================================================
-
             delta_grupo = np.nan
 
 
@@ -2666,10 +2690,6 @@ def preparar_linhas_cruzamentos(
                         ].iloc[0]
                     )
 
-
-            # ================================================
-            # ANOS
-            # ================================================
 
             for ano in anos_ord:
 
@@ -2721,10 +2741,6 @@ def preparar_linhas_cruzamentos(
                 )
 
 
-            # ================================================
-            # LABEL DA SEGUNDA DIMENSÃO
-            # ================================================
-
             if linhas_nivel_2:
 
                 labels_nivel_2.append(
@@ -2745,10 +2761,6 @@ def preparar_linhas_cruzamentos(
                 )
 
 
-            # ================================================
-            # SEPARAÇÃO ENTRE SUBNÍVEIS
-            # ================================================
-
             if idx_n2 < (
                 len(
                     ordem_n2_local
@@ -2760,10 +2772,6 @@ def preparar_linhas_cruzamentos(
                     "separador_nivel_2"
                 )
 
-
-        # ====================================================
-        # LABEL DO NÍVEL 1
-        # ====================================================
 
         if linhas_nivel_1:
 
@@ -2785,18 +2793,10 @@ def preparar_linhas_cruzamentos(
             )
 
 
-        # ====================================================
-        # LINHA MAIS FORTE ENTRE NÍVEIS 1
-        # ====================================================
-
         adicionar_separador(
             "separador_nivel_1"
         )
 
-
-    # ========================================================
-    # REMOVE SEPARADORES FINAIS
-    # ========================================================
 
     while (
         registros
@@ -2832,7 +2832,7 @@ def preparar_linhas_cruzamentos(
 
 # ============================================================
 # CRUZAMENTOS
-# PAINEL HORIZONTAL EM TRÊS NÍVEIS
+# PAINEL HORIZONTAL
 # ============================================================
 
 def criar_painel_cruzamentos(
@@ -2870,10 +2870,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # ESCALA Y
-    # ========================================================
-
     eixo_y_anos = alt.Y(
         "RowID:N",
         title=None,
@@ -2900,10 +2896,34 @@ def criar_painel_cruzamentos(
 
 
     # ========================================================
-    # COLUNA DA PRIMEIRA DIMENSÃO
+    # SEPARADORES
     # ========================================================
 
-    graf_nivel_1 = (
+    separadores_n2 = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_nivel_2"
+        ]
+    )
+
+
+    separadores_n1 = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_nivel_1"
+        ]
+    )
+
+
+    # ========================================================
+    # NÍVEL 1
+    # ========================================================
+
+    textos_nivel_1 = (
         alt.Chart(
             labels_nivel_1
         )
@@ -2930,18 +2950,42 @@ def criar_painel_cruzamentos(
                 "Label:N"
             ),
         )
-        .properties(
-            width=largura_nivel_1,
-            height=altura,
+    )
+
+
+    # Linhas grossas chegam até a extrema esquerda.
+    linhas_n1_coluna_1 = (
+        alt.Chart(
+            separadores_n1
+        )
+        .mark_rule(
+            strokeWidth=1.6,
+            color="#BFC5CC",
+        )
+        .encode(
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            )
         )
     )
 
 
+    graf_nivel_1 = (
+        textos_nivel_1
+        +
+        linhas_n1_coluna_1
+    ).properties(
+        width=largura_nivel_1,
+        height=altura,
+    )
+
+
     # ========================================================
-    # COLUNA DA SEGUNDA DIMENSÃO
+    # NÍVEL 2
     # ========================================================
 
-    graf_nivel_2 = (
+    textos_nivel_2 = (
         alt.Chart(
             labels_nivel_2
         )
@@ -2968,15 +3012,57 @@ def criar_painel_cruzamentos(
                 "Label:N"
             ),
         )
-        .properties(
-            width=largura_nivel_2,
-            height=altura,
+    )
+
+
+    linhas_n2_coluna_2 = (
+        alt.Chart(
+            separadores_n2
+        )
+        .mark_rule(
+            strokeWidth=0.65,
+            color="#D9DDE3",
+        )
+        .encode(
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            )
         )
     )
 
 
+    linhas_n1_coluna_2 = (
+        alt.Chart(
+            separadores_n1
+        )
+        .mark_rule(
+            strokeWidth=1.6,
+            color="#BFC5CC",
+        )
+        .encode(
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            )
+        )
+    )
+
+
+    graf_nivel_2 = (
+        textos_nivel_2
+        +
+        linhas_n2_coluna_2
+        +
+        linhas_n1_coluna_2
+    ).properties(
+        width=largura_nivel_2,
+        height=altura,
+    )
+
+
     # ========================================================
-    # DADOS DAS BARRAS
+    # BARRAS
     # ========================================================
 
     dados_anos = (
@@ -2989,10 +3075,6 @@ def criar_painel_cruzamentos(
         .copy()
     )
 
-
-    # ========================================================
-    # BARRAS ABSOLUTAS
-    # ========================================================
 
     barras_abs = (
         alt.Chart(
@@ -3081,10 +3163,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # RÓTULOS ABSOLUTOS
-    # ========================================================
-
     textos_abs = (
         alt.Chart(
             dados_anos
@@ -3113,20 +3191,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # SEPARADORES FINOS
-    # ========================================================
-
-    separadores_n2 = (
-        plot[
-            plot[
-                "TipoLinha"
-            ]
-            == "separador_nivel_2"
-        ]
-    )
-
-
     regras_n2_abs = (
         alt.Chart(
             separadores_n2
@@ -3142,20 +3206,6 @@ def criar_painel_cruzamentos(
                 sort=ordem_linhas,
             ),
         )
-    )
-
-
-    # ========================================================
-    # SEPARADORES GROSSOS
-    # ========================================================
-
-    separadores_n1 = (
-        plot[
-            plot[
-                "TipoLinha"
-            ]
-            == "separador_nivel_1"
-        ]
     )
 
 
@@ -3269,10 +3319,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # DELTA COM 2 CASAS DECIMAIS
-    # ========================================================
-
     textos_delta = (
         alt.Chart(
             dados_delta
@@ -3307,10 +3353,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # ZERO
-    # ========================================================
-
     linha_zero = (
         alt.Chart(
             pd.DataFrame(
@@ -3330,10 +3372,6 @@ def criar_painel_cruzamentos(
         )
     )
 
-
-    # ========================================================
-    # SEPARADORES NO DELTA
-    # ========================================================
 
     regras_n2_delta = (
         alt.Chart(
@@ -3406,12 +3444,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # VISÃO FINAL
-    #
-    # Nível 1 | Nível 2 | Ano | Valor | Delta
-    # ========================================================
-
     return (
         alt.hconcat(
             graf_nivel_1,
@@ -3468,20 +3500,16 @@ if "pagina" not in st.session_state:
     )
 
 
-(
-    nav_1,
-    nav_2,
-    nav_3,
-    nav_4,
-    _,
-) = st.columns(
+# Cinco botões mais espalhados pela largura da tela.
+nav_1, nav_2, nav_3, nav_4, nav_5 = st.columns(
     [
         1.55,
-        1.05,
-        1.0,
-        1.25,
-        3.2,
-    ]
+        1.15,
+        1.00,
+        1.15,
+        1.35,
+    ],
+    gap="medium",
 )
 
 
@@ -3522,6 +3550,18 @@ with nav_3:
 
 
 with nav_4:
+
+    if st.button(
+        "DISTRIBUIÇÕES",
+        width="stretch",
+    ):
+
+        st.session_state.pagina = (
+            "DISTRIBUIÇÕES"
+        )
+
+
+with nav_5:
 
     if st.button(
         "MELHORES ESCOLAS",
@@ -3775,6 +3815,31 @@ except Exception as erro:
         erro
     )
 
+    st.stop()
+
+
+# ============================================================
+# DISTRIBUIÇÕES
+# ============================================================
+
+if pagina == "DISTRIBUIÇÕES":
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:25px;
+            font-weight:700;
+            margin-top:8px;
+            margin-bottom:8px;
+        ">
+            DISTRIBUIÇÕES
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Página intencionalmente vazia por enquanto.
     st.stop()
 
 
@@ -4555,13 +4620,8 @@ if pagina == "CRUZAMENTOS":
 
     # ========================================================
     # DIMENSÕES
+    # Sem linha divisória
     # ========================================================
-
-    st.markdown(
-        '<hr class="soft-divider">',
-        unsafe_allow_html=True,
-    )
-
 
     opcoes = list(
         EIXOS_DISPONIVEIS.keys()
@@ -4616,10 +4676,6 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    # ========================================================
-    # RESULTADO
-    # ========================================================
-
     resultado_cruz = (
         media_ponderada_duas_dimensoes(
             base=df,
@@ -4652,10 +4708,6 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
-    # ========================================================
-    # ANOS DE REFERÊNCIA
-    # ========================================================
-
     anos_ord_cruz = sorted(
         anos_cruz
     )
@@ -4676,10 +4728,6 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    # ========================================================
-    # ORDEM NATURAL DOS DOIS NÍVEIS
-    # ========================================================
-
     ordem_nivel_1 = ordenar_dimensao(
         resultado_cruz[
             "Categoria_1"
@@ -4699,13 +4747,6 @@ if pagina == "CRUZAMENTOS":
         variavel_2,
     )
 
-
-    # ========================================================
-    # ORDENAÇÃO POR VALOR ABSOLUTO OU DELTA
-    #
-    # A ordenação afeta o primeiro nível.
-    # Dentro dele, o segundo nível mantém ordem natural.
-    # ========================================================
 
     if ordenacao_cruz == "Número absoluto":
 
@@ -4858,10 +4899,6 @@ if pagina == "CRUZAMENTOS":
             )
 
 
-    # ========================================================
-    # PREPARA MALHA DE TRÊS NÍVEIS
-    # ========================================================
-
     (
         plot_cruz,
         labels_n1,
@@ -4877,10 +4914,6 @@ if pagina == "CRUZAMENTOS":
         ano_final=ano_final_cruz,
     )
 
-
-    # ========================================================
-    # GRÁFICO
-    # ========================================================
 
     painel_cruz = (
         criar_painel_cruzamentos(
@@ -5526,12 +5559,6 @@ if not anos:
     )
 
     st.stop()
-
-
-st.markdown(
-    '<hr class="soft-divider">',
-    unsafe_allow_html=True,
-)
 
 
 # ============================================================
