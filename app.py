@@ -68,10 +68,6 @@ st.markdown(
             margin-bottom: 0.08rem !important;
         }
 
-        /*
-        Espaçamento compacto, mas sem margens negativas.
-        Isso evita a sobreposição entre os filtros.
-        */
         section[data-testid="stSidebar"]
         div[data-testid="stVerticalBlock"] {
             gap: 0.20rem !important;
@@ -129,10 +125,6 @@ st.markdown(
             color: #9ca3af;
             margin-top: 18px;
         }
-
-        /* ====================================================
-           DIVISOR
-           ==================================================== */
 
         .soft-divider {
             border: none;
@@ -1434,24 +1426,22 @@ def grafico_distribuicao_top(
 # ============================================================
 # PREPARAÇÃO DA VISÃO HORIZONTAL
 #
-# Estrutura:
+# NOVA ESTRUTURA:
 #
-# Consolidado
-#   2021 (...)
-#   2023 (...)
-#   2025 (...)
+# Consolidado     2025 (...)
+#                 2023 (...)
+#                 2021 (...)
 #
-#   ESPAÇO GRANDE
+# ---------------------------
 #
-# Categoria A
-#   2021 (...)
-#   2023 (...)
-#   2025 (...)
+# Categoria A     2025 (...)
+#                 2023 (...)
+#                 2021 (...)
 #
-#   ESPAÇO PEQUENO
+# ---------------------------
 #
-# Categoria B
-# ...
+# Categoria B ...
+#
 # ============================================================
 
 def preparar_linhas_horizontais(
@@ -1462,21 +1452,24 @@ def preparar_linhas_horizontais(
     ano_final,
 ):
 
+    # ========================================================
+    # ANOS MAIS RECENTES PRIMEIRO
+    # ========================================================
+
     anos_ord = sorted(
-        anos
+        anos,
+        reverse=True,
     )
 
 
     registros = []
 
+    categorias_labels = []
+
     ordem = []
 
     contador = 0
 
-
-    # ========================================================
-    # FUNÇÃO INTERNA PARA CRIAR UM BLOCO
-    # ========================================================
 
     def adicionar_bloco(
         categoria,
@@ -1487,57 +1480,12 @@ def preparar_linhas_horizontais(
         nonlocal contador
 
 
-        # ----------------------------------------------------
-        # Cabeçalho centralizado da categoria
-        # ----------------------------------------------------
-
-        row_header = (
-            f"{contador:04d}|"
-        )
-
-        contador += 1
+        linhas_categoria = []
 
 
-        registros.append(
-            {
-                "RowID":
-                    row_header,
-
-                "TipoLinha":
-                    "cabecalho",
-
-                "Categoria":
-                    categoria,
-
-                "Ano":
-                    None,
-
-                "Média":
-                    np.nan,
-
-                "N escolas":
-                    np.nan,
-
-                "Variação":
-                    np.nan,
-
-                "TextoCategoria":
-                    categoria,
-
-                "TextoEixo":
-                    "",
-            }
-        )
-
-
-        ordem.append(
-            row_header
-        )
-
-
-        # ----------------------------------------------------
-        # Anos
-        # ----------------------------------------------------
+        # ====================================================
+        # ANOS
+        # ====================================================
 
         for ano in anos_ord:
 
@@ -1574,10 +1522,11 @@ def preparar_linhas_horizontais(
             )
 
 
-            row_ano = (
+            row_id = (
                 f"{contador:04d}|"
                 f"{texto_ano}"
             )
+
 
             contador += 1
 
@@ -1585,7 +1534,7 @@ def preparar_linhas_horizontais(
             registros.append(
                 {
                     "RowID":
-                        row_ano,
+                        row_id,
 
                     "TipoLinha":
                         "ano",
@@ -1609,9 +1558,6 @@ def preparar_linhas_horizontais(
                     "Variação":
                         np.nan,
 
-                    "TextoCategoria":
-                        "",
-
                     "TextoEixo":
                         texto_ano,
                 }
@@ -1619,13 +1565,55 @@ def preparar_linhas_horizontais(
 
 
             ordem.append(
-                row_ano
+                row_id
             )
 
 
-        # ----------------------------------------------------
-        # Delta
-        # ----------------------------------------------------
+            linhas_categoria.append(
+                row_id
+            )
+
+
+        if not linhas_categoria:
+
+            return
+
+
+        # ====================================================
+        # POSIÇÃO VERTICAL DO NOME DA CATEGORIA
+        #
+        # Usa a linha central do conjunto de anos.
+        # ====================================================
+
+        indice_central = (
+            len(
+                linhas_categoria
+            )
+            // 2
+        )
+
+
+        row_categoria = (
+            linhas_categoria[
+                indice_central
+            ]
+        )
+
+
+        categorias_labels.append(
+            {
+                "RowID":
+                    row_categoria,
+
+                "CategoriaLabel":
+                    categoria,
+            }
+        )
+
+
+        # ====================================================
+        # DELTA NA LINHA DO ANO MAIS RECENTE
+        # ====================================================
 
         if (
             ano_inicial is not None
@@ -1674,9 +1662,7 @@ def preparar_linhas_horizontais(
                 )
 
 
-                for registro in reversed(
-                    registros
-                ):
+                for registro in registros:
 
                     if (
                         registro[
@@ -1699,23 +1685,25 @@ def preparar_linhas_horizontais(
                         break
 
 
-        # ----------------------------------------------------
-        # Separador
-        # ----------------------------------------------------
+        # ====================================================
+        # ESPAÇAMENTO ENTRE CATEGORIAS
+        #
+        # Consolidado = maior
+        # Demais = menor
+        # ====================================================
 
-        if consolidado:
+        quantidade_espacos = (
+            2
+            if consolidado
+            else 1
+        )
 
-            quantidade_espacos = 2
-            tipo_sep = (
-                "separador_grande"
-            )
 
-        else:
-
-            quantidade_espacos = 1
-            tipo_sep = (
-                "separador_pequeno"
-            )
+        tipo_sep = (
+            "separador_grande"
+            if consolidado
+            else "separador_pequeno"
+        )
 
 
         for _ in range(
@@ -1725,6 +1713,7 @@ def preparar_linhas_horizontais(
             row_sep = (
                 f"{contador:04d}|"
             )
+
 
             contador += 1
 
@@ -1752,9 +1741,6 @@ def preparar_linhas_horizontais(
                     "Variação":
                         np.nan,
 
-                    "TextoCategoria":
-                        "",
-
                     "TextoEixo":
                         "",
                 }
@@ -1767,7 +1753,7 @@ def preparar_linhas_horizontais(
 
 
     # ========================================================
-    # CONSOLIDADO SEMPRE PRIMEIRO
+    # CONSOLIDADO PRIMEIRO
     # ========================================================
 
     rec_consolidado = (
@@ -1827,7 +1813,7 @@ def preparar_linhas_horizontais(
 
 
     # ========================================================
-    # REMOVE ÚLTIMO SEPARADOR
+    # RETIRA SEPARADORES DO FINAL
     # ========================================================
 
     while (
@@ -1849,23 +1835,28 @@ def preparar_linhas_horizontais(
         pd.DataFrame(
             registros
         ),
+        pd.DataFrame(
+            categorias_labels
+        ),
         ordem,
     )
 
 
 # ============================================================
-# CONSTRÓI OS DOIS GRÁFICOS HORIZONTAIS
+# PAINEL HORIZONTAL
 # ============================================================
 
 def criar_painel_horizontal(
     plot,
+    labels_categorias,
     ordem_linhas,
     indicador,
     eixo_nome,
     ano_inicial,
     ano_final,
-    largura_esquerda=425,
-    largura_direita=235,
+    largura_categoria=135,
+    largura_esquerda=380,
+    largura_direita=215,
 ):
 
     formatos = formatos_indicador(
@@ -1888,10 +1879,7 @@ def criar_painel_horizontal(
 
 
     # ========================================================
-    # EIXO Y
-    #
-    # RowID é único.
-    # Depois do "|" vem o texto que deve ser exibido.
+    # EIXO Y PRINCIPAL
     # ========================================================
 
     eixo_y_esquerdo = alt.Y(
@@ -1902,7 +1890,7 @@ def criar_painel_horizontal(
             labelExpr=(
                 "split(datum.label, '|')[1]"
             ),
-            labelLimit=130,
+            labelLimit=105,
             labelFontSize=10,
             labelPadding=5,
             ticks=False,
@@ -1911,7 +1899,7 @@ def criar_painel_horizontal(
     )
 
 
-    eixo_y_direito = alt.Y(
+    eixo_y_oculto = alt.Y(
         "RowID:N",
         title=None,
         sort=ordem_linhas,
@@ -1920,7 +1908,45 @@ def criar_painel_horizontal(
 
 
     # ========================================================
-    # BARRAS ABSOLUTAS
+    # COLUNA DOS NOMES DAS CATEGORIAS
+    # ========================================================
+
+    graf_categorias = (
+        alt.Chart(
+            labels_categorias
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=10,
+            fontWeight="bold",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+                axis=None,
+            ),
+
+            x=alt.value(
+                largura_categoria
+                - 5
+            ),
+
+            text=alt.Text(
+                "CategoriaLabel:N"
+            ),
+        )
+        .properties(
+            width=largura_categoria,
+            height=altura,
+        )
+    )
+
+
+    # ========================================================
+    # DADOS DE ANOS
     # ========================================================
 
     dados_anos = (
@@ -1932,6 +1958,10 @@ def criar_painel_horizontal(
         ]
     )
 
+
+    # ========================================================
+    # BARRAS ABSOLUTAS
+    # ========================================================
 
     barras_abs = (
         alt.Chart(
@@ -1968,7 +1998,7 @@ def criar_painel_horizontal(
 
             color=alt.Color(
                 "Ano:N",
-                title="Ano",
+                title=None,
                 scale=alt.Scale(
                     domain=ORDEM_ANOS_STR,
                     range=ESCALA_CORES_ANOS,
@@ -1978,6 +2008,7 @@ def criar_painel_horizontal(
                     orient="top",
                     direction="horizontal",
                     title=None,
+                    columns=5,
                 ),
             ),
 
@@ -2013,7 +2044,7 @@ def criar_painel_horizontal(
 
 
     # ========================================================
-    # RÓTULOS DO VALOR
+    # RÓTULOS DOS VALORES
     # ========================================================
 
     textos_abs = (
@@ -2045,49 +2076,7 @@ def criar_painel_horizontal(
 
 
     # ========================================================
-    # CABEÇALHO DAS CATEGORIAS
-    #
-    # Centralizado no espaço horizontal do gráfico.
-    # ========================================================
-
-    dados_cabecalho = (
-        plot[
-            plot[
-                "TipoLinha"
-            ]
-            == "cabecalho"
-        ]
-    )
-
-
-    textos_categoria = (
-        alt.Chart(
-            dados_cabecalho
-        )
-        .mark_text(
-            fontSize=11,
-            fontWeight="bold",
-            align="center",
-        )
-        .encode(
-
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            ),
-
-            x=alt.value(
-                largura_esquerda
-                / 2
-            ),
-
-            text="TextoCategoria:N",
-        )
-    )
-
-
-    # ========================================================
-    # LINHAS FINAS ENTRE AS CATEGORIAS
+    # SEPARADORES
     # ========================================================
 
     dados_separadores = (
@@ -2126,8 +2115,6 @@ def criar_painel_horizontal(
         barras_abs
         +
         textos_abs
-        +
-        textos_categoria
         +
         regras_abs
     ).properties(
@@ -2169,7 +2156,7 @@ def criar_painel_horizontal(
         )
         .encode(
 
-            y=eixo_y_direito,
+            y=eixo_y_oculto,
 
             x=alt.X(
                 "Variação:Q",
@@ -2207,10 +2194,6 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # RÓTULOS DELTA
-    # ========================================================
-
     textos_delta = (
         alt.Chart(
             dados_delta
@@ -2246,7 +2229,7 @@ def criar_painel_horizontal(
 
 
     # ========================================================
-    # ZERO DO DELTA
+    # LINHA ZERO
     # ========================================================
 
     linha_zero = (
@@ -2268,10 +2251,6 @@ def criar_painel_horizontal(
         )
     )
 
-
-    # ========================================================
-    # SEPARADORES TAMBÉM NO DELTA
-    # ========================================================
 
     regras_delta = (
         alt.Chart(
@@ -2324,11 +2303,18 @@ def criar_painel_horizontal(
     )
 
 
+    # ========================================================
+    # VISÃO ÚNICA
+    #
+    # Categoria | Ano/N + absoluto | Delta
+    # ========================================================
+
     return (
         alt.hconcat(
+            graf_categorias,
             graf_abs,
             graf_delta,
-            spacing=16,
+            spacing=8,
         )
         .resolve_scale(
             y="shared"
@@ -3101,10 +3087,6 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
-    # ========================================================
-    # PERFIL DO TOP
-    # ========================================================
-
     dist_tipo = preparar_distribuicao_top(
         base_dim,
         "Tipo de Escola",
@@ -3180,10 +3162,6 @@ if pagina == "MELHORES ESCOLAS":
             width="stretch",
         )
 
-
-    # ========================================================
-    # DIMENSÕES
-    # ========================================================
 
     for dimensao in EIXOS_DISPONIVEIS:
 
@@ -3406,10 +3384,6 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    # ========================================================
-    # ANOS
-    # ========================================================
-
     _, bloco_cruz_anos, __ = st.columns(
         [
             1.4,
@@ -3471,10 +3445,6 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
-    # ========================================================
-    # DIMENSÕES
-    # ========================================================
-
     st.markdown(
         '<hr class="soft-divider">',
         unsafe_allow_html=True,
@@ -3534,10 +3504,6 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    # ========================================================
-    # RESULTADO
-    # ========================================================
-
     resultado_cruz = (
         media_ponderada_duas_dimensoes(
             base=df,
@@ -3590,10 +3556,6 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    # ========================================================
-    # CRIA IDENTIFICADOR DA COMBINAÇÃO
-    # ========================================================
-
     resultado_cruz[
         "Categoria"
     ] = (
@@ -3622,10 +3584,6 @@ if pagina == "CRUZAMENTOS":
         .copy()
     )
 
-
-    # ========================================================
-    # ORDENAÇÃO
-    # ========================================================
 
     categorias_cruz = (
         base_cruz_simples[
@@ -3756,20 +3714,23 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    plot_cruz, ordem_linhas_cruz = (
-        preparar_linhas_horizontais(
-            dados=dados_cruz,
-            anos=anos_cruz,
-            categorias=ordem_cruz,
-            ano_inicial=ano_ini_cruz,
-            ano_final=ano_final_cruz,
-        )
+    (
+        plot_cruz,
+        labels_cruz,
+        ordem_linhas_cruz,
+    ) = preparar_linhas_horizontais(
+        dados=dados_cruz,
+        anos=anos_cruz,
+        categorias=ordem_cruz,
+        ano_inicial=ano_ini_cruz,
+        ano_final=ano_final_cruz,
     )
 
 
     painel_cruz = (
         criar_painel_horizontal(
             plot=plot_cruz,
+            labels_categorias=labels_cruz,
             ordem_linhas=ordem_linhas_cruz,
             indicador=indicador_cruz,
             eixo_nome=(
@@ -3779,8 +3740,9 @@ if pagina == "CRUZAMENTOS":
             ),
             ano_inicial=ano_ini_cruz,
             ano_final=ano_final_cruz,
-            largura_esquerda=425,
-            largura_direita=235,
+            largura_categoria=150,
+            largura_esquerda=365,
+            largura_direita=205,
         )
     )
 
@@ -4109,12 +4071,13 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # Consolidado também no topo
     ordem_barras = (
-        ordem_grupos
-        +
         [
             "Consolidado"
         ]
+        +
+        ordem_grupos
     )
 
 
@@ -4188,9 +4151,27 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    totais_demo = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "Grupo": [
+                        "Consolidado"
+                    ],
+                    "Total": [
+                        total_cons
+                    ],
+                }
+            ),
+            totais,
+        ],
+        ignore_index=True,
+    )
+
+
     graf_n = (
         alt.Chart(
-            totais
+            totais_demo
         )
         .mark_bar(
             color="#6C93B8"
@@ -4289,7 +4270,7 @@ with c3:
 
 
 # ============================================================
-# ANOS + VARIÁVEL NA MESMA LINHA
+# ANOS + VARIÁVEL
 # ============================================================
 
 col_anos_area, col_variavel_area = st.columns(
@@ -4394,10 +4375,6 @@ if not anos:
     st.stop()
 
 
-# ============================================================
-# DIVISOR SUAVE
-# ============================================================
-
 st.markdown(
     '<hr class="soft-divider">',
     unsafe_allow_html=True,
@@ -4446,7 +4423,7 @@ consolidado = (
 
 
 # ============================================================
-# INTEGRAL AGREGADO
+# REGRA INTEGRAL AGREGADO
 # ============================================================
 
 if (
@@ -4477,7 +4454,7 @@ if resultado.empty:
 
 
 # ============================================================
-# ANOS MAIS RECENTES
+# ANOS DE COMPARAÇÃO
 # ============================================================
 
 anos_ord = sorted(
@@ -4632,7 +4609,7 @@ for categoria in categorias:
 
 
 # ============================================================
-# CONSOLIDADO + DEMAIS
+# CONSOLIDADO + CATEGORIAS
 # ============================================================
 
 dados_principal = pd.concat(
@@ -4644,14 +4621,16 @@ dados_principal = pd.concat(
 )
 
 
-plot_principal, ordem_linhas = (
-    preparar_linhas_horizontais(
-        dados=dados_principal,
-        anos=anos,
-        categorias=ordem_categorias,
-        ano_inicial=ano_inicial,
-        ano_final=ano_final,
-    )
+(
+    plot_principal,
+    labels_principal,
+    ordem_linhas,
+) = preparar_linhas_horizontais(
+    dados=dados_principal,
+    anos=anos,
+    categorias=ordem_categorias,
+    ano_inicial=ano_inicial,
+    ano_final=ano_final,
 )
 
 
@@ -4661,13 +4640,15 @@ plot_principal, ordem_linhas = (
 
 painel = criar_painel_horizontal(
     plot=plot_principal,
+    labels_categorias=labels_principal,
     ordem_linhas=ordem_linhas,
     indicador=indicador,
     eixo_nome=eixo_x,
     ano_inicial=ano_inicial,
     ano_final=ano_final,
-    largura_esquerda=425,
-    largura_direita=235,
+    largura_categoria=135,
+    largura_esquerda=380,
+    largura_direita=215,
 )
 
 
