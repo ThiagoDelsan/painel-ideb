@@ -41,10 +41,6 @@ st.markdown(
             padding-bottom: 1rem;
         }
 
-        /* ====================================================
-           TÍTULO PRINCIPAL
-           ==================================================== */
-
         .panel-main-title {
             display: block;
             font-size: 2.55rem;
@@ -55,10 +51,6 @@ st.markdown(
             padding: 0.15rem 0 0.20rem 0;
             overflow: visible;
         }
-
-        /* ====================================================
-           BOTÕES DE NAVEGAÇÃO
-           ==================================================== */
 
         div[data-testid="stButton"] button p {
             font-size: 0.72rem !important;
@@ -190,6 +182,20 @@ ORDEM_FAIXA_IDEB = [
     "Entre 5 e 6",
     "Maior que 6",
     "Sem resultado",
+]
+
+
+PALETA_DISTRIBUICOES = [
+    "#4E79A7",
+    "#F28E2B",
+    "#59A14F",
+    "#EDC948",
+    "#B07AA1",
+    "#76B7B2",
+    "#E15759",
+    "#9C755F",
+    "#7F7F7F",
+    "#86BCB6",
 ]
 
 
@@ -437,7 +443,7 @@ def categorizar_selecao(valor):
 
 
 # ============================================================
-# WRAPPERS DO DATA.PY
+# WRAPPERS DO DATA
 # ============================================================
 
 def criar_variavel_eixo(
@@ -736,6 +742,100 @@ def ordenar_dimensao(
 
 
 # ============================================================
+# POSIÇÕES DE SEGMENTOS EMPILHADOS
+# ============================================================
+
+def calcular_posicoes_empilhadas(
+    dados,
+    grupo,
+    categoria,
+    valor,
+    ordem_categorias,
+):
+
+    resultado = dados.copy()
+
+
+    mapa_ordem = {
+        categoria_nome: indice
+        for indice, categoria_nome
+        in enumerate(
+            ordem_categorias
+        )
+    }
+
+
+    resultado[
+        "_ordem_categoria"
+    ] = (
+        resultado[
+            categoria
+        ]
+        .map(
+            mapa_ordem
+        )
+        .fillna(
+            999
+        )
+    )
+
+
+    resultado = (
+        resultado
+        .sort_values(
+            [
+                grupo,
+                "_ordem_categoria",
+            ]
+        )
+        .copy()
+    )
+
+
+    resultado[
+        "Fim"
+    ] = (
+        resultado
+        .groupby(
+            grupo
+        )[
+            valor
+        ]
+        .cumsum()
+    )
+
+
+    resultado[
+        "Inicio"
+    ] = (
+        resultado[
+            "Fim"
+        ]
+        -
+        resultado[
+            valor
+        ]
+    )
+
+
+    resultado[
+        "Centro"
+    ] = (
+        resultado[
+            "Inicio"
+        ]
+        +
+        resultado[
+            valor
+        ]
+        / 2
+    )
+
+
+    return resultado
+
+
+# ============================================================
 # CONSOLIDADO
 # ============================================================
 
@@ -945,20 +1045,16 @@ def criar_duas_dimensoes(
 
     resultado[
         "Categoria_1"
-    ] = (
-        temp_1[
-            "Categoria"
-        ].values
-    )
+    ] = temp_1[
+        "Categoria"
+    ].values
 
 
     resultado[
         "Categoria_2"
-    ] = (
-        temp_2[
-            "Categoria"
-        ].values
-    )
+    ] = temp_2[
+        "Categoria"
+    ].values
 
 
     if (
@@ -1241,11 +1337,9 @@ def preparar_distribuicao_top(
 
     dados[
         "Categoria"
-    ] = (
-        temp[
-            "Categoria"
-        ].values
-    )
+    ] = temp[
+        "Categoria"
+    ].values
 
 
     dados = (
@@ -1289,11 +1383,9 @@ def preparar_distribuicao_top(
     )
 
 
-    total = (
-        resumo[
-            "Escolas"
-        ].sum()
-    )
+    total = resumo[
+        "Escolas"
+    ].sum()
 
 
     resumo[
@@ -1311,11 +1403,37 @@ def preparar_distribuicao_top(
     return resumo
 
 
-def grafico_distribuicao_top(
+# ============================================================
+# MELHORES ESCOLAS — BARRA ÚNICA 100%
+# ============================================================
+
+def grafico_barra_100_top(
     distribuicao,
     titulo,
     ordem=None,
 ):
+
+    if distribuicao.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "x": [
+                            0
+                        ]
+                    }
+                )
+            )
+            .mark_text(
+                text="Sem dados"
+            )
+            .properties(
+                height=130,
+                title=titulo,
+            )
+        )
+
 
     if ordem is None:
 
@@ -1331,45 +1449,149 @@ def grafico_distribuicao_top(
         )
 
 
+    dados = distribuicao.copy()
+
+
+    mapa_ordem = {
+        cat: i
+        for i, cat
+        in enumerate(
+            ordem
+        )
+    }
+
+
+    dados[
+        "_ordem"
+    ] = (
+        dados[
+            "Categoria"
+        ]
+        .map(
+            mapa_ordem
+        )
+        .fillna(
+            999
+        )
+    )
+
+
+    dados = (
+        dados
+        .sort_values(
+            "_ordem"
+        )
+        .copy()
+    )
+
+
+    dados[
+        "Fim"
+    ] = dados[
+        "Percentual"
+    ].cumsum()
+
+
+    dados[
+        "Inicio"
+    ] = (
+        dados[
+            "Fim"
+        ]
+        -
+        dados[
+            "Percentual"
+        ]
+    )
+
+
+    dados[
+        "Centro"
+    ] = (
+        dados[
+            "Inicio"
+        ]
+        +
+        dados[
+            "Percentual"
+        ]
+        / 2
+    )
+
+
+    dados[
+        "Barra"
+    ] = ""
+
+
     barras = (
         alt.Chart(
-            distribuicao
+            dados
         )
         .mark_bar(
-            color="#5D91BF"
+            height=36,
         )
         .encode(
 
-            x=alt.X(
-                "Categoria:N",
+            y=alt.Y(
+                "Barra:N",
+                axis=None,
                 title=None,
-                sort=ordem,
-                axis=alt.Axis(
-                    labelAngle=-30,
-                    labelLimit=120,
+            ),
+
+            x=alt.X(
+                "Percentual:Q",
+                stack="zero",
+                title=None,
+                axis=None,
+                scale=alt.Scale(
+                    domain=[
+                        0,
+                        1,
+                    ]
                 ),
             ),
 
-            y=alt.Y(
-                "Percentual:Q",
+            color=alt.Color(
+                "Categoria:N",
                 title=None,
-                axis=alt.Axis(
-                    format=".0%",
+                scale=alt.Scale(
+                    domain=ordem,
+                    range=PALETA_DISTRIBUICOES[
+                        :len(
+                            ordem
+                        )
+                    ],
                 ),
+                legend=alt.Legend(
+                    orient="bottom",
+                    direction="horizontal",
+                    columns=3,
+                    labelFontSize=9,
+                    symbolSize=80,
+                    title=None,
+                ),
+            ),
+
+            order=alt.Order(
+                "_ordem:Q"
             ),
 
             tooltip=[
                 alt.Tooltip(
                     "Categoria:N",
+                    title="Categoria",
                 ),
 
                 alt.Tooltip(
                     "Escolas:Q",
-                    format=",",
+                    title="Escolas",
+                    format="d",
                 ),
 
                 alt.Tooltip(
                     "Percentual:Q",
+                    title="Percentual",
                     format=".1%",
                 ),
             ],
@@ -1377,22 +1599,43 @@ def grafico_distribuicao_top(
     )
 
 
+    # Não mostra rótulos muito pequenos.
+    dados_texto = (
+        dados[
+            dados[
+                "Percentual"
+            ]
+            >= 0.05
+        ]
+        .copy()
+    )
+
+
     textos = (
         alt.Chart(
-            distribuicao
+            dados_texto
         )
         .mark_text(
-            dy=-6,
-            fontSize=10,
+            baseline="middle",
+            align="center",
+            fontSize=9.5,
         )
         .encode(
 
-            x=alt.X(
-                "Categoria:N",
-                sort=ordem,
+            y=alt.Y(
+                "Barra:N",
+                axis=None,
             ),
 
-            y="Percentual:Q",
+            x=alt.X(
+                "Centro:Q",
+                scale=alt.Scale(
+                    domain=[
+                        0,
+                        1,
+                    ]
+                ),
+            ),
 
             text=alt.Text(
                 "Percentual:Q",
@@ -1407,11 +1650,12 @@ def grafico_distribuicao_top(
         +
         textos
     ).properties(
-        height=220,
+        height=105,
         title=alt.TitleParams(
             text=titulo,
             anchor="middle",
-            fontSize=15,
+            fontSize=14,
+            fontWeight="bold",
         ),
     )
 
@@ -1437,8 +1681,7 @@ def escala_y(
 
 
 # ============================================================
-# PRINCIPAIS INDICADORES
-# PREPARAÇÃO DAS LINHAS
+# PRINCIPAIS INDICADORES — PREPARAÇÃO
 # ============================================================
 
 def preparar_linhas_horizontais(
@@ -1725,7 +1968,6 @@ def preparar_linhas_horizontais(
             )
 
 
-    # Consolidado primeiro
     rec_consolidado = (
         dados[
             dados[
@@ -1748,7 +1990,6 @@ def preparar_linhas_horizontais(
         )
 
 
-    # Categorias
     for categoria in categorias:
 
         if categoria == "Consolidado":
@@ -1809,8 +2050,7 @@ def preparar_linhas_horizontais(
 
 
 # ============================================================
-# PRINCIPAIS INDICADORES
-# PAINEL
+# PRINCIPAIS INDICADORES — GRÁFICO
 # ============================================================
 
 def criar_painel_horizontal(
@@ -1903,10 +2143,6 @@ def criar_painel_horizontal(
         )
 
 
-    # ========================================================
-    # COLUNA CATEGORIA
-    # ========================================================
-
     texto_categoria = (
         alt.Chart(
             labels_categorias
@@ -1945,10 +2181,6 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # COLUNA ANO + N
-    # ========================================================
-
     texto_anos = (
         alt.Chart(
             labels_anos
@@ -1986,10 +2218,6 @@ def criar_painel_horizontal(
         height=altura,
     )
 
-
-    # ========================================================
-    # BARRAS
-    # ========================================================
 
     dados_anos = (
         plot[
@@ -2066,7 +2294,7 @@ def criar_painel_horizontal(
                 alt.Tooltip(
                     "N escolas:Q",
                     title="Escolas",
-                    format=",",
+                    format="d",
                 ),
 
                 alt.Tooltip(
@@ -2131,10 +2359,6 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # DELTA
-    # ========================================================
-
     dados_delta = (
         plot[
             plot[
@@ -2173,23 +2397,6 @@ def criar_painel_horizontal(
             x2=alt.datum(
                 0
             ),
-
-            tooltip=[
-                alt.Tooltip(
-                    "Categoria:N",
-                    title=rotulo_dimensao(
-                        eixo_nome
-                    ),
-                ),
-
-                alt.Tooltip(
-                    "Variação:Q",
-                    title="Variação",
-                    format=formatos[
-                        "delta"
-                    ],
-                ),
-            ],
         )
     )
 
@@ -2200,12 +2407,10 @@ def criar_painel_horizontal(
         )
         .mark_text(
             dx=alt.expr(
-                "datum.Variação >= 0 "
-                "? 4 : -4"
+                "datum.Variação >= 0 ? 4 : -4"
             ),
             align=alt.expr(
-                "datum.Variação >= 0 "
-                "? 'left' : 'right'"
+                "datum.Variação >= 0 ? 'left' : 'right'"
             ),
             fontSize=9.5,
         )
@@ -2320,13 +2525,9 @@ def preparar_linhas_cruzamentos(
 
 
     registros = []
-
     labels_nivel_1 = []
-
     labels_nivel_2 = []
-
     labels_anos = []
-
     ordem_linhas = []
 
     contador = 0
@@ -2363,42 +2564,22 @@ def preparar_linhas_cruzamentos(
 
         registros.append(
             {
-                "RowID":
-                    row_id,
-
-                "TipoLinha":
-                    "ano",
-
-                "Nivel1":
-                    nivel_1,
-
-                "Nivel2":
-                    nivel_2,
-
-                "Ano":
-                    str(
-                        ano
-                    ),
-
-                "Média":
-                    media,
-
-                "N escolas":
-                    n_escolas,
-
-                "Variação":
-                    delta,
+                "RowID": row_id,
+                "TipoLinha": "ano",
+                "Nivel1": nivel_1,
+                "Nivel2": nivel_2,
+                "Ano": str(ano),
+                "Média": media,
+                "N escolas": n_escolas,
+                "Variação": delta,
             }
         )
 
 
         labels_anos.append(
             {
-                "RowID":
-                    row_id,
-
-                "AnoLabel":
-                    texto_ano,
+                "RowID": row_id,
+                "AnoLabel": texto_ano,
             }
         )
 
@@ -2428,29 +2609,14 @@ def preparar_linhas_cruzamentos(
 
         registros.append(
             {
-                "RowID":
-                    row_id,
-
-                "TipoLinha":
-                    tipo,
-
-                "Nivel1":
-                    None,
-
-                "Nivel2":
-                    None,
-
-                "Ano":
-                    None,
-
-                "Média":
-                    np.nan,
-
-                "N escolas":
-                    np.nan,
-
-                "Variação":
-                    np.nan,
+                "RowID": row_id,
+                "TipoLinha": tipo,
+                "Nivel1": None,
+                "Nivel2": None,
+                "Ano": None,
+                "Média": np.nan,
+                "N escolas": np.nan,
+                "Variação": np.nan,
             }
         )
 
@@ -2839,7 +3005,6 @@ def preparar_linhas_cruzamentos(
     ):
 
         registros.pop()
-
         ordem_linhas.pop()
 
 
@@ -2957,10 +3122,6 @@ def criar_painel_cruzamentos(
         )
 
 
-    # ========================================================
-    # NÍVEL 1
-    # ========================================================
-
     texto_n1 = (
         alt.Chart(
             labels_nivel_1
@@ -2996,10 +3157,6 @@ def criar_painel_cruzamentos(
         height=altura,
     )
 
-
-    # ========================================================
-    # NÍVEL 2
-    # ========================================================
 
     texto_n2 = (
         alt.Chart(
@@ -3038,10 +3195,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # ANO + N
-    # ========================================================
-
     texto_anos = (
         alt.Chart(
             labels_anos
@@ -3079,10 +3232,6 @@ def criar_painel_cruzamentos(
         height=altura,
     )
 
-
-    # ========================================================
-    # BARRAS
-    # ========================================================
 
     dados_anos = (
         plot[
@@ -3143,41 +3292,6 @@ def criar_painel_cruzamentos(
                     columns=5,
                 ),
             ),
-
-            tooltip=[
-                alt.Tooltip(
-                    "Nivel1:N",
-                    title=rotulo_dimensao(
-                        variavel_1
-                    ),
-                ),
-
-                alt.Tooltip(
-                    "Nivel2:N",
-                    title=rotulo_dimensao(
-                        variavel_2
-                    ),
-                ),
-
-                alt.Tooltip(
-                    "Ano:N",
-                    title="Ano",
-                ),
-
-                alt.Tooltip(
-                    "N escolas:Q",
-                    title="Escolas",
-                    format=",",
-                ),
-
-                alt.Tooltip(
-                    "Média:Q",
-                    title=indicador,
-                    format=formatos[
-                        "tooltip"
-                    ],
-                ),
-            ],
         )
     )
 
@@ -3232,10 +3346,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # DELTA
-    # ========================================================
-
     dados_delta = (
         plot[
             plot[
@@ -3274,30 +3384,6 @@ def criar_painel_cruzamentos(
             x2=alt.datum(
                 0
             ),
-
-            tooltip=[
-                alt.Tooltip(
-                    "Nivel1:N",
-                    title=rotulo_dimensao(
-                        variavel_1
-                    ),
-                ),
-
-                alt.Tooltip(
-                    "Nivel2:N",
-                    title=rotulo_dimensao(
-                        variavel_2
-                    ),
-                ),
-
-                alt.Tooltip(
-                    "Variação:Q",
-                    title="Variação",
-                    format=formatos[
-                        "delta_cruz"
-                    ],
-                ),
-            ],
         )
     )
 
@@ -3308,12 +3394,10 @@ def criar_painel_cruzamentos(
         )
         .mark_text(
             dx=alt.expr(
-                "datum.Variação >= 0 "
-                "? 4 : -4"
+                "datum.Variação >= 0 ? 4 : -4"
             ),
             align=alt.expr(
-                "datum.Variação >= 0 "
-                "? 'left' : 'right'"
+                "datum.Variação >= 0 ? 'left' : 'right'"
             ),
             fontSize=9.2,
         )
@@ -4209,6 +4293,10 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
+    # ========================================================
+    # DISTRIBUIÇÕES TOP
+    # ========================================================
+
     dist_tipo = preparar_distribuicao_top(
         base_dim,
         "Tipo de Escola",
@@ -4232,15 +4320,18 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
-    g1, g2, g3 = st.columns(3)
+    g1, g2, g3 = st.columns(
+        3,
+        gap="medium",
+    )
 
 
     with g1:
 
         st.altair_chart(
-            grafico_distribuicao_top(
+            grafico_barra_100_top(
                 dist_tipo,
-                "Distribuição por Tipo de Escola",
+                "Tipo de Escola",
                 [
                     "100% Integral",
                     "Mista",
@@ -4254,9 +4345,9 @@ if pagina == "MELHORES ESCOLAS":
     with g2:
 
         st.altair_chart(
-            grafico_distribuicao_top(
+            grafico_barra_100_top(
                 dist_inse,
-                "Distribuição de INSE",
+                "INSE",
                 ordenar_dimensao(
                     dist_inse[
                         "Categoria"
@@ -4271,9 +4362,9 @@ if pagina == "MELHORES ESCOLAS":
     with g3:
 
         st.altair_chart(
-            grafico_distribuicao_top(
+            grafico_barra_100_top(
                 dist_ppi,
-                "Distribuição de PPI",
+                "PPI",
                 ordenar_dimensao(
                     dist_ppi[
                         "Categoria"
@@ -4284,6 +4375,10 @@ if pagina == "MELHORES ESCOLAS":
             width="stretch",
         )
 
+
+    # ========================================================
+    # DIMENSÕES DA TABELA
+    # ========================================================
 
     for dimensao in EIXOS_DISPONIVEIS:
 
@@ -4297,11 +4392,9 @@ if pagina == "MELHORES ESCOLAS":
 
             base_dim[
                 dimensao
-            ] = (
-                temp[
-                    "Categoria"
-                ].values
-            )
+            ] = temp[
+                "Categoria"
+            ].values
 
         except Exception:
 
@@ -4331,7 +4424,7 @@ if pagina == "MELHORES ESCOLAS":
             text-align:center;
             font-size:22px;
             font-weight:700;
-            margin-top:12px;
+            margin-top:10px;
             margin-bottom:8px;
         ">
             {titulo_rank}
@@ -4439,11 +4532,50 @@ if pagina == "MELHORES ESCOLAS":
             ]
 
 
+    # ========================================================
+    # TABELA COM FONTE MENOR E CENTRALIZADA
+    # ========================================================
+
+    tabela_estilizada = (
+        tabela
+        .style
+        .set_properties(
+            **{
+                "text-align": "center",
+                "font-size": "10px",
+                "padding": "3px 5px",
+            }
+        )
+        .set_table_styles(
+            [
+                {
+                    "selector": "th",
+                    "props": [
+                        (
+                            "text-align",
+                            "center",
+                        ),
+                        (
+                            "font-size",
+                            "10px",
+                        ),
+                        (
+                            "padding",
+                            "3px 5px",
+                        ),
+                    ],
+                }
+            ]
+        )
+    )
+
+
     st.dataframe(
-        tabela,
+        tabela_estilizada,
         width="stretch",
         hide_index=True,
-        height=750,
+        height=720,
+        row_height=28,
     )
 
 
@@ -4471,20 +4603,12 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    # ========================================================
-    # SAME SCHOOLS ACIMA
-    # ========================================================
-
     same_schools_cruz = st.toggle(
         "SAME SCHOOLS",
         value=False,
         key="same_schools_cruz",
     )
 
-
-    # ========================================================
-    # INDICADOR → 1ª DIMENSÃO → 2ª DIMENSÃO → ORDENAÇÃO
-    # ========================================================
 
     opcoes = list(
         EIXOS_DISPONIVEIS.keys()
@@ -4573,10 +4697,6 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    # ========================================================
-    # ANOS
-    # ========================================================
-
     _, bloco_cruz_anos, __ = st.columns(
         [
             1.3,
@@ -4637,10 +4757,6 @@ if pagina == "CRUZAMENTOS":
 
         st.stop()
 
-
-    # ========================================================
-    # SAME SCHOOLS TAMBÉM NO CRUZAMENTO
-    # ========================================================
 
     df_cruz = df.copy()
 
@@ -4940,10 +5056,6 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    # ========================================================
-    # CONTROLES EM LISTAS DE SELEÇÃO
-    # ========================================================
-
     d1, d2, d3 = st.columns(
         [
             1,
@@ -5052,10 +5164,6 @@ if pagina == "DEMOGRAFIA":
         "Categoria"
     ].values
 
-
-    # ========================================================
-    # INTEGRAL AGREGADO
-    # ========================================================
 
     if (
         variavel_demo
@@ -5197,11 +5305,9 @@ if pagina == "DEMOGRAFIA":
 
     base_consolidado[
         "Composição"
-    ] = (
-        temp_cons[
-            "Categoria"
-        ].values
-    )
+    ] = temp_cons[
+        "Categoria"
+    ].values
 
 
     cons = (
@@ -5219,7 +5325,7 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    total_cons = (
+    total_cons = int(
         cons[
             "Escolas"
         ].sum()
@@ -5257,39 +5363,80 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # ESPAÇO APÓS CONSOLIDADO
+    # ========================================================
+
+    GRUPO_ESPACO = "__espaco__"
+
+
     ordem_barras = (
         [
-            "Consolidado"
+            "Consolidado",
+            GRUPO_ESPACO,
         ]
         +
         ordem_grupos
     )
 
 
-    paleta = [
-        "#4E79A7",
-        "#F28E2B",
-        "#59A14F",
-        "#EDC948",
-        "#B07AA1",
-        "#76B7B2",
-        "#E15759",
-        "#9C755F",
-        "#7F7F7F",
-        "#86BCB6",
-    ]
+    # Dummy para obrigar o espaço a existir na escala.
+    espaco_resumo = pd.DataFrame(
+        {
+            "Composição": [
+                ordem_comp[0]
+                if ordem_comp
+                else ""
+            ],
+            "Escolas": [
+                0
+            ],
+            "Percentual": [
+                0
+            ],
+            "Grupo": [
+                GRUPO_ESPACO
+            ],
+            "Total": [
+                0
+            ],
+        }
+    )
+
+
+    resumo_plot = pd.concat(
+        [
+            resumo,
+            espaco_resumo,
+        ],
+        ignore_index=True,
+    )
+
+
+    resumo_plot = calcular_posicoes_empilhadas(
+        dados=resumo_plot,
+        grupo="Grupo",
+        categoria="Composição",
+        valor="Percentual",
+        ordem_categorias=ordem_comp,
+    )
 
 
     # ========================================================
-    # GRÁFICO %
+    # PERCENTUAIS
     # ========================================================
 
     barras_pct = (
         alt.Chart(
-            resumo
+            resumo_plot[
+                resumo_plot[
+                    "Grupo"
+                ]
+                != GRUPO_ESPACO
+            ]
         )
         .mark_bar(
-            height=26,
+            height=28,
         )
         .encode(
 
@@ -5298,28 +5445,29 @@ if pagina == "DEMOGRAFIA":
                 sort=ordem_barras,
                 title=None,
                 axis=alt.Axis(
+                    labelExpr=(
+                        f"datum.label == "
+                        f"'{GRUPO_ESPACO}' "
+                        f"? '' : datum.label"
+                    ),
                     labelFontSize=11,
-                    labelLimit=170,
-                    domain=False,
+                    labelLimit=175,
                     ticks=False,
+                    domain=False,
                 ),
             ),
 
             x=alt.X(
                 "Percentual:Q",
                 stack="zero",
+                title=None,
+                axis=None,
                 scale=alt.Scale(
                     domain=[
                         0,
                         1,
                     ]
                 ),
-                axis=alt.Axis(
-                    format=".0%",
-                    grid=False,
-                    domain=False,
-                ),
-                title=None,
             ),
 
             color=alt.Color(
@@ -5329,7 +5477,7 @@ if pagina == "DEMOGRAFIA":
                 ),
                 scale=alt.Scale(
                     domain=ordem_comp,
-                    range=paleta[
+                    range=PALETA_DISTRIBUICOES[
                         :len(
                             ordem_comp
                         )
@@ -5338,8 +5486,7 @@ if pagina == "DEMOGRAFIA":
             ),
 
             order=alt.Order(
-                "Composição:N",
-                sort="ascending",
+                "_ordem_categoria:Q"
             ),
 
             tooltip=[
@@ -5360,7 +5507,7 @@ if pagina == "DEMOGRAFIA":
                 alt.Tooltip(
                     "Escolas:Q",
                     title="Escolas",
-                    format=",",
+                    format="d",
                 ),
 
                 alt.Tooltip(
@@ -5373,17 +5520,38 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    # Rótulo dentro das barras.
-    texto_pct = (
-        alt.Chart(
-            resumo[
-                resumo[
+    # ========================================================
+    # RÓTULOS CENTRALIZADOS
+    #
+    # 5% foi usado como corte visual.
+    # ========================================================
+
+    dados_texto_pct = (
+        resumo_plot[
+            (
+                resumo_plot[
+                    "Grupo"
+                ]
+                != GRUPO_ESPACO
+            )
+            &
+            (
+                resumo_plot[
                     "Percentual"
                 ]
-                >= 0.035
-            ]
+                >= 0.05
+            )
+        ]
+        .copy()
+    )
+
+
+    texto_pct = (
+        alt.Chart(
+            dados_texto_pct
         )
         .mark_text(
+            align="center",
             baseline="middle",
             fontSize=9.5,
         )
@@ -5395,22 +5563,29 @@ if pagina == "DEMOGRAFIA":
             ),
 
             x=alt.X(
-                "Percentual:Q",
-                stack="center",
+                "Centro:Q",
+                scale=alt.Scale(
+                    domain=[
+                        0,
+                        1,
+                    ]
+                ),
             ),
-
-            detail="Composição:N",
 
             text=alt.Text(
                 "Percentual:Q",
                 format=".0%",
             ),
-
-            order=alt.Order(
-                "Composição:N",
-                sort="ascending",
-            ),
         )
+    )
+
+
+    altura_demo = max(
+        275,
+        len(
+            ordem_barras
+        )
+        * 48,
     )
 
 
@@ -5420,13 +5595,7 @@ if pagina == "DEMOGRAFIA":
         texto_pct
     ).properties(
         width=520,
-        height=max(
-            260,
-            len(
-                ordem_barras
-            )
-            * 45,
-        ),
+        height=altura_demo,
         title=alt.TitleParams(
             text=(
                 f"Distribuição de "
@@ -5440,7 +5609,7 @@ if pagina == "DEMOGRAFIA":
 
 
     # ========================================================
-    # NÚMERO DE ESCOLAS
+    # TOTAL DE ESCOLAS
     # ========================================================
 
     totais_demo = pd.concat(
@@ -5450,9 +5619,18 @@ if pagina == "DEMOGRAFIA":
                     "Grupo": [
                         "Consolidado"
                     ],
-
                     "Total": [
                         total_cons
+                    ],
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "Grupo": [
+                        GRUPO_ESPACO
+                    ],
+                    "Total": [
+                        0
                     ],
                 }
             ),
@@ -5462,12 +5640,33 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    totais_demo[
+        "Total"
+    ] = (
+        pd.to_numeric(
+            totais_demo[
+                "Total"
+            ],
+            errors="coerce",
+        )
+        .fillna(
+            0
+        )
+        .astype(int)
+    )
+
+
     barras_n = (
         alt.Chart(
-            totais_demo
+            totais_demo[
+                totais_demo[
+                    "Grupo"
+                ]
+                != GRUPO_ESPACO
+            ]
         )
         .mark_bar(
-            height=26,
+            height=28,
             color="#6C9FCC",
         )
         .encode(
@@ -5481,12 +5680,7 @@ if pagina == "DEMOGRAFIA":
             x=alt.X(
                 "Total:Q",
                 title=None,
-                axis=alt.Axis(
-                    labels=False,
-                    ticks=False,
-                    grid=False,
-                    domain=False,
-                ),
+                axis=None,
             ),
 
             tooltip=[
@@ -5500,7 +5694,7 @@ if pagina == "DEMOGRAFIA":
                 alt.Tooltip(
                     "Total:Q",
                     title="Escolas",
-                    format=",",
+                    format="d",
                 ),
             ],
         )
@@ -5509,7 +5703,12 @@ if pagina == "DEMOGRAFIA":
 
     texto_n = (
         alt.Chart(
-            totais_demo
+            totais_demo[
+                totais_demo[
+                    "Grupo"
+                ]
+                != GRUPO_ESPACO
+            ]
         )
         .mark_text(
             align="left",
@@ -5526,9 +5725,10 @@ if pagina == "DEMOGRAFIA":
 
             x="Total:Q",
 
+            # Sem separador de milhar.
             text=alt.Text(
                 "Total:Q",
-                format=",",
+                format="d",
             ),
         )
     )
@@ -5540,13 +5740,7 @@ if pagina == "DEMOGRAFIA":
         texto_n
     ).properties(
         width=210,
-        height=max(
-            260,
-            len(
-                ordem_barras
-            )
-            * 45,
-        ),
+        height=altura_demo,
         title=alt.TitleParams(
             text="Número de escolas",
             anchor="middle",
@@ -5564,6 +5758,9 @@ if pagina == "DEMOGRAFIA":
         )
         .resolve_scale(
             y="shared"
+        )
+        .configure_view(
+            stroke=None
         ),
         width="stretch",
     )
@@ -5582,20 +5779,12 @@ st.caption(
 )
 
 
-# ============================================================
-# SAME SCHOOLS ACIMA
-# ============================================================
-
 same_schools = st.toggle(
     "SAME SCHOOLS",
     value=False,
     key="same_schools_principal",
 )
 
-
-# ============================================================
-# INDICADOR → VARIÁVEL → ORDENAÇÃO
-# ============================================================
 
 c1, c2, c3 = st.columns(
     [
@@ -5652,11 +5841,9 @@ with c3:
     )
 
 
-eixo_x = (
-    st.session_state[
-        "eixo_x"
-    ]
-)
+eixo_x = st.session_state[
+    "eixo_x"
+]
 
 
 # ============================================================
@@ -5733,12 +5920,10 @@ df_principal = df.copy()
 
 if same_schools:
 
-    df_principal = (
-        filtrar_same_schools(
-            df_principal,
-            indicador,
-            anos,
-        )
+    df_principal = filtrar_same_schools(
+        df_principal,
+        indicador,
+        anos,
     )
 
 
@@ -5756,18 +5941,12 @@ resultado = (
 )
 
 
-consolidado = (
-    calcular_consolidado(
-        df_principal,
-        indicador,
-        anos,
-    )
+consolidado = calcular_consolidado(
+    df_principal,
+    indicador,
+    anos,
 )
 
-
-# ============================================================
-# INTEGRAL AGREGADO
-# ============================================================
 
 if (
     eixo_x
@@ -5805,9 +5984,7 @@ anos_ord = sorted(
 )
 
 
-ano_final = (
-    anos_ord[-1]
-)
+ano_final = anos_ord[-1]
 
 
 ano_inicial = (
@@ -5821,7 +5998,7 @@ ano_inicial = (
 
 
 # ============================================================
-# ORDEM DAS CATEGORIAS
+# ORDEM
 # ============================================================
 
 categorias = (
@@ -5867,7 +6044,6 @@ else:
     if ano_inicial is None:
 
         ordem_categorias = categorias
-
 
     else:
 
@@ -5936,7 +6112,6 @@ else:
                 .tolist()
             )
 
-
         else:
 
             ordem_categorias = categorias
@@ -5952,7 +6127,7 @@ for categoria in categorias:
 
 
 # ============================================================
-# CONSOLIDADO + RESULTADOS
+# PLOT PRINCIPAL
 # ============================================================
 
 dados_principal = pd.concat(
@@ -5977,10 +6152,6 @@ dados_principal = pd.concat(
     ano_final=ano_final,
 )
 
-
-# ============================================================
-# GRÁFICO
-# ============================================================
 
 painel = criar_painel_horizontal(
     plot=plot_principal,
