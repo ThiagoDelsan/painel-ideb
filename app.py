@@ -19,7 +19,7 @@ from src.data import (
 
 
 # ============================================================
-# CONFIGURAÇÃO
+# CONFIGURAÇÃO DA PÁGINA
 # ============================================================
 
 st.set_page_config(
@@ -36,86 +36,86 @@ st.markdown(
     """
     <style>
 
-    .block-container {
-        padding-top: 0.65rem;
-        padding-bottom: 1rem;
-    }
+        .block-container {
+            padding-top: 0.65rem;
+            padding-bottom: 1rem;
+        }
 
-    h1 {
-        margin-top: 0 !important;
-        margin-bottom: 0.10rem !important;
-    }
+        h1 {
+            margin-top: 0 !important;
+            margin-bottom: 0.10rem !important;
+        }
 
-    section[data-testid="stSidebar"] .block-container {
-        padding-top: 0.55rem;
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-    }
+        section[data-testid="stSidebar"] .block-container {
+            padding-top: 0.55rem;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
 
-    section[data-testid="stSidebar"] h3 {
-        font-size: 0.90rem !important;
-        margin-top: 0 !important;
-        margin-bottom: 0.20rem !important;
-    }
+        section[data-testid="stSidebar"] h3 {
+            font-size: 0.90rem !important;
+            margin-top: 0 !important;
+            margin-bottom: 0.20rem !important;
+        }
 
-    section[data-testid="stSidebar"] label {
-        font-size: 0.68rem !important;
-        line-height: 0.85rem !important;
-    }
+        section[data-testid="stSidebar"] label {
+            font-size: 0.68rem !important;
+            line-height: 0.85rem !important;
+        }
 
-    section[data-testid="stSidebar"]
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.08rem !important;
-    }
+        section[data-testid="stSidebar"]
+        div[data-testid="stVerticalBlock"] {
+            gap: 0.08rem !important;
+        }
 
-    section[data-testid="stSidebar"] .stMultiSelect {
-        margin-top: -0.10rem !important;
-        margin-bottom: -0.38rem !important;
-    }
+        section[data-testid="stSidebar"] .stMultiSelect {
+            margin-top: -0.10rem !important;
+            margin-bottom: -0.38rem !important;
+        }
 
-    section[data-testid="stSidebar"]
-    div[data-baseweb="select"] {
-        font-size: 0.74rem !important;
-        min-height: 31px !important;
-    }
+        section[data-testid="stSidebar"]
+        div[data-baseweb="select"] {
+            font-size: 0.74rem !important;
+            min-height: 31px !important;
+        }
 
-    section[data-testid="stSidebar"] input {
-        font-size: 0.73rem !important;
-    }
+        section[data-testid="stSidebar"] input {
+            font-size: 0.73rem !important;
+        }
 
-    section[data-testid="stSidebar"]
-    span[data-baseweb="tag"] {
-        font-size: 0.68rem !important;
-    }
+        section[data-testid="stSidebar"]
+        span[data-baseweb="tag"] {
+            font-size: 0.68rem !important;
+        }
 
-    .demo-variable-title {
-        font-size: 0.80rem;
-        font-weight: 700;
-        margin-top: 4px;
-        margin-bottom: 2px;
-    }
+        .demo-variable-title {
+            font-size: 0.80rem;
+            font-weight: 700;
+            margin-top: 4px;
+            margin-bottom: 2px;
+        }
 
-    .login-title {
-        text-align: center;
-        font-size: 34px;
-        font-weight: 750;
-        margin-top: 10vh;
-        margin-bottom: 4px;
-    }
+        .login-title {
+            text-align: center;
+            font-size: 34px;
+            font-weight: 750;
+            margin-top: 10vh;
+            margin-bottom: 4px;
+        }
 
-    .login-subtitle {
-        text-align: center;
-        font-size: 14px;
-        color: #6b7280;
-        margin-bottom: 22px;
-    }
+        .login-subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 22px;
+        }
 
-    .login-footer {
-        text-align: center;
-        font-size: 11px;
-        color: #9ca3af;
-        margin-top: 18px;
-    }
+        .login-footer {
+            text-align: center;
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 18px;
+        }
 
     </style>
     """,
@@ -135,6 +135,7 @@ ANOS_PAINEL = [
     2025,
 ]
 
+
 ORDEM_ANOS_STR = [
     "2017",
     "2019",
@@ -142,6 +143,7 @@ ORDEM_ANOS_STR = [
     "2023",
     "2025",
 ]
+
 
 CORES_ANOS = {
     "2017": "#D9DDE2",
@@ -151,10 +153,12 @@ CORES_ANOS = {
     "2025": "#1F5A96",
 }
 
+
 ESCALA_CORES_ANOS = [
     CORES_ANOS[ano]
     for ano in ORDEM_ANOS_STR
 ]
+
 
 ORDEM_FAIXA_IDEB = [
     "Menor que 3",
@@ -165,16 +169,18 @@ ORDEM_FAIXA_IDEB = [
     "Sem resultado",
 ]
 
+
 CATEGORIA_INTEGRAL_AGREGADA = (
     "Integral (Mista + 100%)"
 )
 
 
 # ============================================================
-# RÓTULOS
+# RÓTULOS DAS DIMENSÕES
 # ============================================================
 
 ROTULOS_DIMENSOES = {
+
     "1ª IDEB 100% integral":
         "1º IDEB 100% integral (em construção)",
 
@@ -192,7 +198,7 @@ def rotulo_dimensao(nome):
 
 
 # ============================================================
-# LOGIN
+# AUTENTICAÇÃO
 # ============================================================
 
 def autenticar_usuario(
@@ -323,10 +329,7 @@ def exibir_tela_login():
         )
 
 
-if (
-    "autenticado"
-    not in st.session_state
-):
+if "autenticado" not in st.session_state:
 
     st.session_state[
         "autenticado"
@@ -368,8 +371,8 @@ with st.sidebar:
 
         if st.button(
             "Sair",
-            width="stretch",
             key="logout",
+            width="stretch",
         ):
 
             st.session_state[
@@ -403,7 +406,9 @@ def calcular_consolidado(
 
         recorte = (
             base[
-                base["Ano"]
+                base[
+                    "Ano"
+                ]
                 == ano
             ]
             .copy()
@@ -479,6 +484,7 @@ def chave_natural(valor):
 
     texto = str(valor)
 
+
     numeros = re.findall(
         r"-?\d+(?:[.,]\d+)?",
         texto,
@@ -496,11 +502,13 @@ def chave_natural(valor):
                 )
             )
 
+
             return (
                 0,
                 numero,
                 texto,
             )
+
 
         except ValueError:
 
@@ -569,6 +577,64 @@ def ordenar_dimensao(
             )
         ),
         key=chave_natural,
+    )
+
+
+# ============================================================
+# FORMATOS DOS INDICADORES
+# ============================================================
+
+def formatos_indicador(
+    indicador,
+):
+
+    if indicador == "Rendimento":
+
+        return {
+            "rotulo": ".1%",
+            "tooltip": ".1%",
+            "eixo": ".0%",
+            "delta": "+.1%",
+        }
+
+
+    return {
+        "rotulo": ".1f",
+        "tooltip": ".1f",
+        "eixo": ".1f",
+        "delta": "+.1f",
+    }
+
+
+def formatar_valor_tabela(
+    valor,
+    indicador,
+):
+
+    if pd.isna(
+        valor
+    ):
+
+        return "—"
+
+
+    if indicador == "Rendimento":
+
+        return (
+            f"{float(valor) * 100:.1f}%"
+            .replace(
+                ".",
+                ",",
+            )
+        )
+
+
+    return (
+        f"{float(valor):.1f}"
+        .replace(
+            ".",
+            ",",
+        )
     )
 
 
@@ -678,6 +744,7 @@ def criar_duas_dimensoes(
         variavel_1,
     )
 
+
     temp_2 = criar_variavel_eixo(
         base,
         variavel_2,
@@ -707,9 +774,6 @@ def criar_duas_dimensoes(
 
     # ========================================================
     # INTEGRAL AGREGADO
-    #
-    # Só é criado quando o filtro específico foi
-    # explicitamente selecionado pelo usuário.
     # ========================================================
 
     if (
@@ -1230,10 +1294,6 @@ def renderizar_tabela_cruzamentos(
     )
 
 
-    # ========================================================
-    # Combinações realmente existentes
-    # ========================================================
-
     combinacoes_existentes = set(
         zip(
             resultado[
@@ -1338,10 +1398,6 @@ def renderizar_tabela_cruzamentos(
     """
 
 
-    # ========================================================
-    # Primeira dimensão
-    # ========================================================
-
     for cat_1, subcats in estrutura:
 
         colspan = (
@@ -1374,10 +1430,6 @@ def renderizar_tabela_cruzamentos(
     """
 
 
-    # ========================================================
-    # Segunda dimensão
-    # ========================================================
-
     for cat_1, subcats in estrutura:
 
         for cat_2 in subcats:
@@ -1396,10 +1448,6 @@ def renderizar_tabela_cruzamentos(
     <tr>
     """
 
-
-    # ========================================================
-    # Escolas / Matrículas
-    # ========================================================
 
     for cat_1, subcats in estrutura:
 
@@ -1429,10 +1477,6 @@ def renderizar_tabela_cruzamentos(
     <tbody>
     """
 
-
-    # ========================================================
-    # Linhas dos anos
-    # ========================================================
 
     for ano in anos:
 
@@ -1572,6 +1616,288 @@ def renderizar_tabela_cruzamentos(
 
 
 # ============================================================
+# GRÁFICO DE DISTRIBUIÇÃO DO TOP N
+# ============================================================
+
+def preparar_distribuicao_top(
+    base,
+    variavel,
+    categorias_permitidas=None,
+):
+
+    temp = criar_variavel_eixo(
+        base,
+        variavel,
+    )
+
+
+    dados = base[
+        [
+            "Cód. INEP"
+        ]
+    ].copy()
+
+
+    dados[
+        "Categoria"
+    ] = temp[
+        "Categoria"
+    ].values
+
+
+    dados = (
+        dados[
+            dados[
+                "Categoria"
+            ].notna()
+        ]
+        .drop_duplicates(
+            subset=[
+                "Cód. INEP"
+            ]
+        )
+    )
+
+
+    if categorias_permitidas is not None:
+
+        dados = (
+            dados[
+                dados[
+                    "Categoria"
+                ].isin(
+                    categorias_permitidas
+                )
+            ]
+            .copy()
+        )
+
+
+    distribuicao = (
+        dados
+        .groupby(
+            "Categoria",
+            as_index=False,
+        )
+        .agg(
+            Escolas=(
+                "Cód. INEP",
+                "nunique",
+            )
+        )
+    )
+
+
+    total = (
+        distribuicao[
+            "Escolas"
+        ].sum()
+    )
+
+
+    if total > 0:
+
+        distribuicao[
+            "Percentual"
+        ] = (
+            distribuicao[
+                "Escolas"
+            ]
+            /
+            total
+        )
+
+
+    else:
+
+        distribuicao[
+            "Percentual"
+        ] = 0
+
+
+    return distribuicao
+
+
+def grafico_distribuicao_top(
+    distribuicao,
+    titulo,
+    ordem=None,
+):
+
+    if distribuicao.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "x": [],
+                        "y": [],
+                    }
+                )
+            )
+            .mark_bar()
+        )
+
+
+    if ordem is None:
+
+        ordem = (
+            distribuicao
+            .sort_values(
+                "Percentual",
+                ascending=False,
+            )[
+                "Categoria"
+            ]
+            .tolist()
+        )
+
+
+    barras = (
+        alt.Chart(
+            distribuicao
+        )
+        .mark_bar(
+            color="#5D91BF"
+        )
+        .encode(
+
+            x=alt.X(
+                "Categoria:N",
+                title=None,
+                sort=ordem,
+                axis=alt.Axis(
+                    labelAngle=-35,
+                    labelLimit=120,
+                    labelFontSize=10,
+                ),
+            ),
+
+            y=alt.Y(
+                "Percentual:Q",
+                title=None,
+                axis=alt.Axis(
+                    format=".0%",
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categoria",
+                ),
+
+                alt.Tooltip(
+                    "Escolas:Q",
+                    title="Escolas",
+                    format=",",
+                ),
+
+                alt.Tooltip(
+                    "Percentual:Q",
+                    title="Percentual",
+                    format=".1%",
+                ),
+            ],
+        )
+    )
+
+
+    textos = (
+        alt.Chart(
+            distribuicao
+        )
+        .mark_text(
+            dy=-7,
+            fontSize=10,
+        )
+        .encode(
+
+            x=alt.X(
+                "Categoria:N",
+                sort=ordem,
+            ),
+
+            y="Percentual:Q",
+
+            text=alt.Text(
+                "Percentual:Q",
+                format=".0%",
+            ),
+        )
+    )
+
+
+    return (
+        barras
+        +
+        textos
+    ).properties(
+        height=220,
+        title=alt.TitleParams(
+            text=titulo,
+            anchor="middle",
+            fontSize=16,
+            fontWeight="bold",
+        ),
+    )
+
+
+# ============================================================
+# LIMPAR TODOS OS FILTROS
+# ============================================================
+
+def limpar_todos_os_filtros():
+
+    chaves = []
+
+
+    nomes_filtros_limpeza = [
+        "Tipo de Escola",
+        "PPI",
+        "INSE",
+        "Colégio Militar",
+        "Colégio com Seleção",
+        "Estado",
+        "Região do Brasil",
+        "1ª IDEB 100% integral",
+        "Carga horária",
+        "Tipo de integral",
+    ]
+
+
+    for nome in nomes_filtros_limpeza:
+
+        chaves.append(
+            f"filtro_{nome}"
+        )
+
+
+    for ano in ANOS_PAINEL:
+
+        chaves.append(
+            f"filtro_ideb_{ano}"
+        )
+
+
+    chaves.extend(
+        [
+            "filtro_proped",
+            "filtro_ept",
+        ]
+    )
+
+
+    for chave in chaves:
+
+        if chave in st.session_state:
+
+            del st.session_state[
+                chave
+            ]
+
+
+# ============================================================
 # CARREGAMENTO DA BASE
 # ============================================================
 
@@ -1684,11 +2010,23 @@ pagina = (
 
 
 # ============================================================
-# FILTROS
+# SIDEBAR
 # ============================================================
 
 st.sidebar.markdown(
     "### Filtros"
+)
+
+
+# ============================================================
+# BOTÃO LIMPAR FILTROS
+# ============================================================
+
+st.sidebar.button(
+    "Limpar todos os filtros",
+    width="stretch",
+    on_click=limpar_todos_os_filtros,
+    key="botao_limpar_filtros",
 )
 
 
@@ -1737,23 +2075,37 @@ for nome in nomes_filtros:
 
 
 # ============================================================
-# A REGRA NOVA
+# NOVA REGRA — INTEGRAL AGREGADO
 #
-# Só mostrar Integral (Mista + 100%) quando a própria
-# categoria agregada estiver selecionada no filtro.
+# 1. Nenhum filtro em Tipo de Escola:
+#    mostrar Integral (Mista + 100%)
+#
+# 2. Existe filtro:
+#    mostrar somente se a categoria agregada tiver sido
+#    explicitamente selecionada.
 # ============================================================
 
-mostrar_integral_agregado = (
-    CATEGORIA_INTEGRAL_AGREGADA
-    in filtros.get(
+filtro_tipo_escola = (
+    filtros.get(
         "Tipo de Escola",
         [],
     )
 )
 
 
+mostrar_integral_agregado = (
+    len(
+        filtro_tipo_escola
+    )
+    == 0
+    or
+    CATEGORIA_INTEGRAL_AGREGADA
+    in filtro_tipo_escola
+)
+
+
 # ============================================================
-# PARTICIPAÇÃO IDEB
+# PARTICIPAÇÃO NO IDEB
 # ============================================================
 
 st.sidebar.markdown(
@@ -1776,7 +2128,9 @@ filtro_ideb = {}
 
 for ano in ANOS_PAINEL:
 
-    filtro_ideb[ano] = (
+    filtro_ideb[
+        ano
+    ] = (
         st.sidebar.multiselect(
             f"IDEB {ano}",
             options=[
@@ -1926,10 +2280,12 @@ if pagina == "MELHORES ESCOLAS":
     (
         col_indicador_rank,
         col_criterio_rank,
+        col_quantidade_rank,
     ) = st.columns(
         [
-            2,
-            1,
+            1.8,
+            1.1,
+            1.1,
         ]
     )
 
@@ -1963,12 +2319,33 @@ if pagina == "MELHORES ESCOLAS":
         )
 
 
+    with col_quantidade_rank:
+
+        quantidade_rank = st.selectbox(
+            "Quantidade de escolas",
+            options=list(
+                range(
+                    10,
+                    101,
+                    10,
+                )
+            ),
+            index=1,
+            format_func=lambda x: (
+                f"{x} melhores escolas"
+            ),
+            key="quantidade_melhores",
+        )
+
+
     st.markdown(
         """
         <div style="
             text-align:center;
             font-size:0.80rem;
             font-weight:600;
+            margin-top:4px;
+            margin-bottom:2px;
         ">
             Anos considerados
         </div>
@@ -2028,7 +2405,8 @@ if pagina == "MELHORES ESCOLAS":
         anos_rank[0]
         if len(
             anos_rank
-        ) == 2
+        )
+        == 2
         else None
     )
 
@@ -2051,6 +2429,10 @@ if pagina == "MELHORES ESCOLAS":
         st.stop()
 
 
+    # ========================================================
+    # NOME DA ESCOLA
+    # ========================================================
+
     candidatos_nome_escola = [
         "Nome da Escola",
         "Nome da escola",
@@ -2070,7 +2452,9 @@ if pagina == "MELHORES ESCOLAS":
 
         if candidato in df.columns:
 
-            coluna_nome_escola = candidato
+            coluna_nome_escola = (
+                candidato
+            )
 
             break
 
@@ -2129,7 +2513,6 @@ if pagina == "MELHORES ESCOLAS":
             .str.strip()
         )
 
-
     else:
 
         base_rank[
@@ -2141,6 +2524,10 @@ if pagina == "MELHORES ESCOLAS":
             .astype(str)
         )
 
+
+    # ========================================================
+    # RANKING — ABSOLUTO
+    # ========================================================
 
     if criterio_rank == "Valor absoluto":
 
@@ -2166,7 +2553,9 @@ if pagina == "MELHORES ESCOLAS":
                 indicador_rank,
                 ascending=False,
             )
-            .head(20)
+            .head(
+                quantidade_rank
+            )
             .reset_index(
                 drop=True
             )
@@ -2174,10 +2563,15 @@ if pagina == "MELHORES ESCOLAS":
 
 
         titulo_ranking = (
-            f"Top 20 — {indicador_rank} "
-            f"em {ano_rank_final}"
+            f"Top {quantidade_rank} — "
+            f"{indicador_rank} em "
+            f"{ano_rank_final}"
         )
 
+
+    # ========================================================
+    # RANKING — VARIAÇÃO
+    # ========================================================
 
     else:
 
@@ -2266,7 +2660,8 @@ if pagina == "MELHORES ESCOLAS":
 
 
         ranking = (
-            ranking.merge(
+            ranking
+            .merge(
                 identificacao,
                 on="Cód. INEP",
                 how="left",
@@ -2275,7 +2670,9 @@ if pagina == "MELHORES ESCOLAS":
                 "Variação",
                 ascending=False,
             )
-            .head(20)
+            .head(
+                quantidade_rank
+            )
             .reset_index(
                 drop=True
             )
@@ -2283,8 +2680,8 @@ if pagina == "MELHORES ESCOLAS":
 
 
         titulo_ranking = (
-            f"Top 20 — Variação de "
-            f"{indicador_rank}: "
+            f"Top {quantidade_rank} — "
+            f"Variação de {indicador_rank}: "
             f"{ano_rank_final} − "
             f"{ano_rank_inicial}"
         )
@@ -2311,6 +2708,10 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
+    # ========================================================
+    # BASE DO ANO MAIS RECENTE PARA DIMENSÕES
+    # ========================================================
+
     base_dimensoes = (
         df[
             (
@@ -2336,6 +2737,126 @@ if pagina == "MELHORES ESCOLAS":
         .copy()
     )
 
+
+    # ========================================================
+    # GRÁFICOS DA COMPOSIÇÃO DO TOP N
+    #
+    # Aqui NÃO entra Integral (Mista + 100%).
+    # ========================================================
+
+    dist_tipo = preparar_distribuicao_top(
+        base=base_dimensoes,
+        variavel="Tipo de Escola",
+        categorias_permitidas=[
+            "100% Integral",
+            "Parcial/Regular",
+            "Mista",
+        ],
+    )
+
+
+    dist_inse = preparar_distribuicao_top(
+        base=base_dimensoes,
+        variavel="INSE",
+    )
+
+
+    dist_ppi = preparar_distribuicao_top(
+        base=base_dimensoes,
+        variavel="PPI",
+    )
+
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:20px;
+            font-weight:700;
+            margin-top:14px;
+            margin-bottom:4px;
+        ">
+            Perfil das escolas selecionadas
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    (
+        col_graf_tipo,
+        col_graf_inse,
+        col_graf_ppi,
+    ) = st.columns(3)
+
+
+    with col_graf_tipo:
+
+        graf_tipo = grafico_distribuicao_top(
+            distribuicao=dist_tipo,
+            titulo="Distribuição por Tipo de Escola",
+            ordem=[
+                "100% Integral",
+                "Mista",
+                "Parcial/Regular",
+            ],
+        )
+
+        st.altair_chart(
+            graf_tipo,
+            width="stretch",
+        )
+
+
+    with col_graf_inse:
+
+        ordem_inse = ordenar_dimensao(
+            dist_inse[
+                "Categoria"
+            ].tolist(),
+            "INSE",
+        )
+
+
+        graf_inse = grafico_distribuicao_top(
+            distribuicao=dist_inse,
+            titulo="Distribuição de INSE",
+            ordem=ordem_inse,
+        )
+
+
+        st.altair_chart(
+            graf_inse,
+            width="stretch",
+        )
+
+
+    with col_graf_ppi:
+
+        ordem_ppi = ordenar_dimensao(
+            dist_ppi[
+                "Categoria"
+            ].tolist(),
+            "PPI",
+        )
+
+
+        graf_ppi = grafico_distribuicao_top(
+            distribuicao=dist_ppi,
+            titulo="Distribuição de PPI",
+            ordem=ordem_ppi,
+        )
+
+
+        st.altair_chart(
+            graf_ppi,
+            width="stretch",
+        )
+
+
+    # ========================================================
+    # DIMENSÕES DA TABELA
+    # ========================================================
 
     for dimensao in EIXOS_DISPONIVEIS:
 
@@ -2371,7 +2892,8 @@ if pagina == "MELHORES ESCOLAS":
 
 
     ranking = (
-        ranking.merge(
+        ranking
+        .merge(
             base_dimensoes[
                 colunas_dims
             ],
@@ -2396,6 +2918,10 @@ if pagina == "MELHORES ESCOLAS":
         unsafe_allow_html=True,
     )
 
+
+    # ========================================================
+    # TABELA DO RANKING
+    # ========================================================
 
     tabela_rank = pd.DataFrame()
 
@@ -2429,7 +2955,12 @@ if pagina == "MELHORES ESCOLAS":
             )
         ] = ranking[
             indicador_rank
-        ]
+        ].apply(
+            lambda x: formatar_valor_tabela(
+                x,
+                indicador_rank,
+            )
+        )
 
 
     else:
@@ -2440,7 +2971,12 @@ if pagina == "MELHORES ESCOLAS":
             )
         ] = ranking[
             ano_rank_inicial
-        ]
+        ].apply(
+            lambda x: formatar_valor_tabela(
+                x,
+                indicador_rank,
+            )
+        )
 
 
         tabela_rank[
@@ -2449,14 +2985,24 @@ if pagina == "MELHORES ESCOLAS":
             )
         ] = ranking[
             ano_rank_final
-        ]
+        ].apply(
+            lambda x: formatar_valor_tabela(
+                x,
+                indicador_rank,
+            )
+        )
 
 
         tabela_rank[
             "Variação"
         ] = ranking[
             "Variação"
-        ]
+        ].apply(
+            lambda x: formatar_valor_tabela(
+                x,
+                indicador_rank,
+            )
+        )
 
 
     for dimensao in EIXOS_DISPONIVEIS:
@@ -2560,7 +3106,9 @@ if pagina == "CRUZAMENTOS":
 
         cols_anos_cruz = st.columns(5)
 
+
         selecao_cruz = {}
+
 
         padrao_cruz = {
             2017: False,
@@ -2723,7 +3271,7 @@ if pagina == "CRUZAMENTOS":
 
 
     # ========================================================
-    # ORDEM
+    # ORDENS
     # ========================================================
 
     ordem_1 = ordenar_dimensao(
@@ -2763,7 +3311,7 @@ if pagina == "CRUZAMENTOS":
 
 
     # ========================================================
-    # ORDENAR FACETAS
+    # ORDENAR PELO NÚMERO ABSOLUTO
     # ========================================================
 
     if ordenacao_cruz == "Número absoluto":
@@ -2814,7 +3362,7 @@ if pagina == "CRUZAMENTOS":
 
 
     # ========================================================
-    # PLOT
+    # BASE DO PLOT
     # ========================================================
 
     resultado_cruz_plot = (
@@ -2878,17 +3426,9 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    if indicador_cruz == "Rendimento":
-
-        formato_rotulo_cruz = ".1%"
-        formato_tooltip_cruz = ".2%"
-        formato_eixo_cruz = ".0%"
-
-    else:
-
-        formato_rotulo_cruz = ".2f"
-        formato_tooltip_cruz = ".3f"
-        formato_eixo_cruz = ".1f"
+    formatos_cruz = formatos_indicador(
+        indicador_cruz
+    )
 
 
     qtd_grupos_maiores = max(
@@ -2910,6 +3450,10 @@ if pagina == "CRUZAMENTOS":
         )
     )
 
+
+    # ========================================================
+    # GRÁFICO PRINCIPAL
+    # ========================================================
 
     st.markdown(
         f"""
@@ -2971,7 +3515,9 @@ if pagina == "CRUZAMENTOS":
                     zero=True
                 ),
                 axis=alt.Axis(
-                    format=formato_eixo_cruz
+                    format=formatos_cruz[
+                        "eixo"
+                    ]
                 ),
             ),
         )
@@ -3016,7 +3562,9 @@ if pagina == "CRUZAMENTOS":
                 alt.Tooltip(
                     "Média:Q",
                     title="Média ponderada",
-                    format=formato_tooltip_cruz,
+                    format=formatos_cruz[
+                        "tooltip"
+                    ],
                 ),
 
                 alt.Tooltip(
@@ -3042,9 +3590,12 @@ if pagina == "CRUZAMENTOS":
             fontSize=9,
         )
         .encode(
+
             text=alt.Text(
                 "Média:Q",
-                format=formato_rotulo_cruz,
+                format=formatos_cruz[
+                    "rotulo"
+                ],
             ),
         )
     )
@@ -3127,6 +3678,7 @@ if pagina == "CRUZAMENTOS":
             ano_cruz_inicial
         )
 
+
         col_fim = str(
             ano_cruz_final
         )
@@ -3152,10 +3704,6 @@ if pagina == "CRUZAMENTOS":
                 ]
             )
 
-
-            # =================================================
-            # Ordenação por delta
-            # =================================================
 
             if ordenacao_cruz == "Delta":
 
@@ -3294,14 +3842,6 @@ if pagina == "CRUZAMENTOS":
                 )
 
 
-            formato_delta_cruz = (
-                "+.1%"
-                if indicador_cruz
-                == "Rendimento"
-                else "+.2f"
-            )
-
-
             st.markdown(
                 f"""
                 <div style="
@@ -3340,10 +3880,8 @@ if pagina == "CRUZAMENTOS":
                     y=alt.Y(
                         "Variação:Q",
                         title=(
-                            f"Δ "
-                            f"{ano_cruz_final}"
-                            f" − "
-                            f"{ano_cruz_inicial}"
+                            f"Δ {ano_cruz_final} "
+                            f"− {ano_cruz_inicial}"
                         ),
                     ),
                 )
@@ -3375,7 +3913,9 @@ if pagina == "CRUZAMENTOS":
                         alt.Tooltip(
                             "Variação:Q",
                             title="Variação",
-                            format=formato_delta_cruz,
+                            format=formatos_cruz[
+                                "delta"
+                            ],
                         ),
                     ],
                 )
@@ -3395,7 +3935,9 @@ if pagina == "CRUZAMENTOS":
 
                     text=alt.Text(
                         "Variação:Q",
-                        format=formato_delta_cruz,
+                        format=formatos_cruz[
+                            "delta"
+                        ],
                     ),
                 )
             )
@@ -3473,10 +4015,6 @@ if pagina == "CRUZAMENTOS":
             "para visualizar a variação."
         )
 
-
-    # ========================================================
-    # NOVA TABELA DE CRUZAMENTOS
-    # ========================================================
 
     renderizar_tabela_cruzamentos(
         resultado=resultado_cruz,
@@ -3732,7 +4270,8 @@ if pagina == "DEMOGRAFIA":
     except Exception as erro:
 
         st.error(
-            "Não foi possível preparar a visualização."
+            "Não foi possível preparar "
+            "a visualização."
         )
 
         st.exception(
@@ -3743,7 +4282,7 @@ if pagina == "DEMOGRAFIA":
 
 
     # ========================================================
-    # INTEGRAL AGREGADO SOMENTE SE FILTRO ESTIVER ATIVO
+    # INTEGRAL AGREGADO
     # ========================================================
 
     if (
@@ -3799,6 +4338,10 @@ if pagina == "DEMOGRAFIA":
         variavel_composicao,
     )
 
+
+    # ========================================================
+    # DISTRIBUIÇÃO
+    # ========================================================
 
     distribuicao = (
         base_demo
@@ -3891,6 +4434,10 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # TOTAIS
+    # ========================================================
+
     totais_grupos = (
         base_demo[
             [
@@ -3935,6 +4482,7 @@ if pagina == "DEMOGRAFIA":
                     "Grupo": [
                         "Consolidado"
                     ],
+
                     "Total_Escolas": [
                         total_consolidado
                     ],
@@ -4049,6 +4597,10 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # ESPAÇO
+    # ========================================================
+
     ESPACO_DEMO = "   "
 
 
@@ -4113,6 +4665,7 @@ if pagina == "DEMOGRAFIA":
                     "Grupo": [
                         ESPACO_DEMO
                     ],
+
                     "Total_Escolas": [
                         0
                     ],
@@ -4122,6 +4675,10 @@ if pagina == "DEMOGRAFIA":
         ignore_index=True,
     )
 
+
+    # ========================================================
+    # CORES
+    # ========================================================
 
     paleta_demo = [
         "#4E79A7",
@@ -4166,6 +4723,10 @@ if pagina == "DEMOGRAFIA":
         ),
     )
 
+
+    # ========================================================
+    # GRÁFICOS
+    # ========================================================
 
     with col_visual_demo:
 
@@ -4397,6 +4958,10 @@ st.caption(
 )
 
 
+# ============================================================
+# INDICADOR + ORDENAÇÃO + SAME SCHOOLS
+# ============================================================
+
 (
     col_indicador,
     col_ordenacao,
@@ -4567,7 +5132,7 @@ if same_schools:
 
 
 # ============================================================
-# EIXO
+# EIXO X
 # ============================================================
 
 if "eixo_x" not in st.session_state:
@@ -4621,15 +5186,12 @@ except Exception as erro:
 
 
 # ============================================================
-# REMOVE INTEGRAL AGREGADO SE NÃO ESTIVER SELECIONADO
-#
-# data.py continua podendo criá-lo, mas o app não deixa
-# essa categoria chegar aos gráficos/tabelas sem seleção
-# explícita.
+# NOVA REGRA DO INTEGRAL AGREGADO
 # ============================================================
 
 if (
-    eixo_x == "Tipo de Escola"
+    eixo_x
+    == "Tipo de Escola"
     and
     not mostrar_integral_agregado
 ):
@@ -4648,7 +5210,8 @@ if (
 if resultado.empty:
 
     st.warning(
-        "Não há dados válidos para a configuração selecionada."
+        "Não há dados válidos para "
+        "a configuração selecionada."
     )
 
     st.stop()
@@ -4658,18 +5221,14 @@ if resultado.empty:
 # FORMATOS
 # ============================================================
 
-if indicador == "Rendimento":
+formatos = formatos_indicador(
+    indicador
+)
 
-    formato_rotulo = ".1%"
-    formato_tooltip = ".2%"
-    formato_eixo = ".0%"
 
-else:
-
-    formato_rotulo = ".2f"
-    formato_tooltip = ".3f"
-    formato_eixo = ".1f"
-
+# ============================================================
+# ANOS MAIS RECENTES
+# ============================================================
 
 anos_ordenados = sorted(
     anos
@@ -4911,7 +5470,7 @@ for categoria in categorias_presentes:
 
 
 # ============================================================
-# CONSOLIDADO NO GRÁFICO
+# CONSOLIDADO
 # ============================================================
 
 CATEGORIA_ESPACO = "   "
@@ -4968,7 +5527,7 @@ for ano in anos:
 
 
 # ============================================================
-# GRÁFICO 1
+# GRÁFICO PRINCIPAL
 # ============================================================
 
 st.markdown(
@@ -5019,7 +5578,9 @@ barras = (
                 zero=True
             ),
             axis=alt.Axis(
-                format=formato_eixo
+                format=formatos[
+                    "eixo"
+                ]
             ),
         ),
 
@@ -5049,7 +5610,9 @@ barras = (
             alt.Tooltip(
                 "Média:Q",
                 title="Média ponderada",
-                format=formato_tooltip,
+                format=formatos[
+                    "tooltip"
+                ],
             ),
 
             alt.Tooltip(
@@ -5092,7 +5655,9 @@ rotulos = (
 
         text=alt.Text(
             "Média:Q",
-            format=formato_rotulo,
+            format=formatos[
+                "rotulo"
+            ],
         ),
     )
 )
@@ -5144,7 +5709,7 @@ st.radio(
 
 
 # ============================================================
-# GRÁFICO DELTA
+# DELTA
 # ============================================================
 
 if (
@@ -5180,14 +5745,6 @@ if (
             ),
         ],
         ignore_index=True,
-    )
-
-
-    formato_delta = (
-        "+.1%"
-        if indicador
-        == "Rendimento"
-        else "+.2f"
     )
 
 
@@ -5230,8 +5787,8 @@ if (
             y=alt.Y(
                 "Variação:Q",
                 title=(
-                    f"Δ {ano_final}"
-                    f" − {ano_inicial}"
+                    f"Δ {ano_final} "
+                    f"− {ano_inicial}"
                 ),
             ),
 
@@ -5245,7 +5802,9 @@ if (
 
                 alt.Tooltip(
                     "Variação:Q",
-                    format=formato_delta,
+                    format=formatos[
+                        "delta"
+                    ],
                 ),
             ],
         )
@@ -5273,7 +5832,9 @@ if (
 
             text=alt.Text(
                 "Variação:Q",
-                format=formato_delta,
+                format=formatos[
+                    "delta"
+                ],
             ),
         )
     )
@@ -5322,7 +5883,7 @@ else:
 
 
 # ============================================================
-# TABELA PRINCIPAL
+# TABELA
 # ============================================================
 
 renderizar_tabela_principal(
