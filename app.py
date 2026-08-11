@@ -2572,7 +2572,7 @@ def criar_grafico_boxplots(
     else:
 
         formato_eixo = ".1f"
-        formato_tooltip = ".2f"
+        formato_tooltip = ".1f"
 
         medias[
             "Rótulo média"
@@ -2580,7 +2580,7 @@ def criar_grafico_boxplots(
             "Média"
         ].apply(
             lambda valor: (
-                f"{float(valor):.2f}"
+                f"{float(valor):.1f}"
                 .replace(
                     ".",
                     ",",
@@ -2891,7 +2891,7 @@ def criar_grafico_delta_boxplots(
     else:
 
         formato_eixo = "+.1f"
-        formato_tooltip = "+.2f"
+        formato_tooltip = "+.1f"
 
         medias[
             "Rótulo média"
@@ -2899,7 +2899,7 @@ def criar_grafico_delta_boxplots(
             "Média"
         ].apply(
             lambda valor: (
-                f"{float(valor):+.2f}"
+                f"{float(valor):+.1f}"
                 .replace(
                     ".",
                     ",",
@@ -3111,6 +3111,528 @@ def criar_grafico_delta_boxplots(
         ),
     )
 
+
+
+# ============================================================
+# DISTRIBUIÇÕES — GRÁFICOS DE MÉDIAS DOS AGREGADOS
+# ============================================================
+
+def criar_grafico_barras_medias_agregado(
+    dados,
+    ordem,
+    indicador,
+    variavel,
+    anos,
+    rotulos_multilinha=True,
+):
+
+    if dados.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "Mensagem": [
+                            "Sem dados"
+                        ]
+                    }
+                )
+            )
+            .mark_text(
+                fontSize=15,
+            )
+            .encode(
+                text="Mensagem:N"
+            )
+            .properties(
+                height=260,
+            )
+        )
+
+
+    anos_str = [
+        str(
+            ano
+        )
+        for ano in sorted(
+            anos
+        )
+    ]
+
+
+    medias = (
+        dados
+        .groupby(
+            [
+                "Categoria",
+                "Ano",
+            ],
+            as_index=False,
+        )
+        .agg(
+            Média=(
+                "Valor",
+                "mean",
+            ),
+            **{
+                "N escolas": (
+                    "Cód. INEP",
+                    "nunique",
+                )
+            },
+        )
+    )
+
+
+    if indicador == "Rendimento":
+
+        formato_eixo = ".0%"
+        formato_tooltip = ".1%"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor) * 100:.1f}%"
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+    else:
+
+        formato_eixo = ".1f"
+        formato_tooltip = ".1f"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor):.1f}"
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+
+    configuracao_eixo_x = {
+        "labelAngle": 0,
+        "labelFontSize": 10,
+        "titleFontSize": 12,
+        "labelLimit": 280,
+        "labelPadding": 8,
+    }
+
+
+    if rotulos_multilinha:
+
+        configuracao_eixo_x[
+            "labelExpr"
+        ] = "split(datum.label, '\\n')"
+
+
+    eixo_x = alt.X(
+        "Categoria:N",
+        sort=ordem,
+        title=rotulo_dimensao(
+            variavel
+        ),
+        axis=alt.Axis(
+            **configuracao_eixo_x
+        ),
+    )
+
+
+    eixo_y = alt.Y(
+        "Média:Q",
+        title=f"Média de {indicador}",
+        scale=alt.Scale(
+            zero=True,
+        ),
+        axis=alt.Axis(
+            format=formato_eixo,
+            labelFontSize=11,
+            titleFontSize=12,
+        ),
+    )
+
+
+    escala_anos = alt.Scale(
+        domain=anos_str,
+        range=[
+            CORES_ANOS[
+                ano
+            ]
+            for ano in anos_str
+        ],
+    )
+
+
+    deslocamento_ano = alt.XOffset(
+        "Ano:N",
+        sort=anos_str,
+    )
+
+
+    barras = (
+        alt.Chart(
+            medias
+        )
+        .mark_bar(
+            size=max(
+                16,
+                54
+                - 6
+                * (
+                    len(
+                        anos_str
+                    )
+                    - 1
+                ),
+            ),
+            cornerRadiusTopLeft=2,
+            cornerRadiusTopRight=2,
+        )
+        .encode(
+            x=eixo_x,
+            xOffset=deslocamento_ano,
+            y=eixo_y,
+            color=alt.Color(
+                "Ano:N",
+                title="Ano",
+                sort=anos_str,
+                scale=escala_anos,
+                legend=alt.Legend(
+                    orient="top",
+                    direction="horizontal",
+                    title=None,
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categorias",
+                ),
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title="Média",
+                    format=formato_tooltip,
+                ),
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="N escolas",
+                    format="d",
+                ),
+            ],
+        )
+    )
+
+
+    rotulos = (
+        alt.Chart(
+            medias
+        )
+        .mark_text(
+            dy=-9,
+            fontSize=9.5,
+            fontWeight="bold",
+            color="#2F313C",
+        )
+        .encode(
+            x=alt.X(
+                "Categoria:N",
+                sort=ordem,
+            ),
+            xOffset=alt.XOffset(
+                "Ano:N",
+                sort=anos_str,
+            ),
+            y=alt.Y(
+                "Média:Q",
+            ),
+            text=alt.Text(
+                "Rótulo média:N"
+            ),
+        )
+    )
+
+
+    return (
+        barras
+        +
+        rotulos
+    ).properties(
+        height=285,
+        title=alt.TitleParams(
+            text=(
+                f"Médias de {indicador} — categorias agregadas de "
+                f"{rotulo_dimensao(variavel)}"
+            ),
+            subtitle=(
+                "As barras representam as mesmas médias destacadas nos boxplots acima."
+            ),
+            anchor="middle",
+            fontSize=15,
+            subtitleFontSize=10.5,
+            subtitlePadding=7,
+        ),
+    )
+
+
+def criar_grafico_barras_medias_delta_agregado(
+    dados,
+    ordem,
+    indicador,
+    variavel,
+    ano_inicial,
+    ano_final,
+    rotulos_multilinha=True,
+):
+
+    if dados.empty:
+
+        return (
+            alt.Chart(
+                pd.DataFrame(
+                    {
+                        "Mensagem": [
+                            "Sem dados"
+                        ]
+                    }
+                )
+            )
+            .mark_text(
+                fontSize=15,
+            )
+            .encode(
+                text="Mensagem:N"
+            )
+            .properties(
+                height=260,
+            )
+        )
+
+
+    medias = (
+        dados
+        .groupby(
+            "Categoria",
+            as_index=False,
+        )
+        .agg(
+            Média=(
+                "Delta",
+                "mean",
+            ),
+            **{
+                "N escolas": (
+                    "Cód. INEP",
+                    "nunique",
+                )
+            },
+        )
+    )
+
+
+    if indicador == "Rendimento":
+
+        formato_eixo = "+.0%"
+        formato_tooltip = "+.1%"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor) * 100:+.1f} p.p."
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+    else:
+
+        formato_eixo = "+.1f"
+        formato_tooltip = "+.1f"
+
+        medias[
+            "Rótulo média"
+        ] = medias[
+            "Média"
+        ].apply(
+            lambda valor: (
+                f"{float(valor):+.1f}"
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+        )
+
+
+    configuracao_eixo_x = {
+        "labelAngle": 0,
+        "labelFontSize": 10,
+        "titleFontSize": 12,
+        "labelLimit": 280,
+        "labelPadding": 8,
+    }
+
+
+    if rotulos_multilinha:
+
+        configuracao_eixo_x[
+            "labelExpr"
+        ] = "split(datum.label, '\\n')"
+
+
+    eixo_x = alt.X(
+        "Categoria:N",
+        sort=ordem,
+        title=rotulo_dimensao(
+            variavel
+        ),
+        axis=alt.Axis(
+            **configuracao_eixo_x
+        ),
+    )
+
+
+    eixo_y = alt.Y(
+        "Média:Q",
+        title=f"Média do delta de {indicador}",
+        scale=alt.Scale(
+            zero=True,
+        ),
+        axis=alt.Axis(
+            format=formato_eixo,
+            labelFontSize=11,
+            titleFontSize=12,
+        ),
+    )
+
+
+    linha_zero = (
+        alt.Chart(
+            pd.DataFrame(
+                {
+                    "Zero": [
+                        0
+                    ]
+                }
+            )
+        )
+        .mark_rule(
+            color="#9AA0A6",
+            strokeDash=[
+                4,
+                4,
+            ],
+            strokeWidth=1,
+        )
+        .encode(
+            y=alt.Y(
+                "Zero:Q"
+            )
+        )
+    )
+
+
+    barras = (
+        alt.Chart(
+            medias
+        )
+        .mark_bar(
+            size=58,
+            cornerRadiusTopLeft=2,
+            cornerRadiusTopRight=2,
+            color="#6C9FCC",
+        )
+        .encode(
+            x=eixo_x,
+            y=eixo_y,
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categorias",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title="Média do delta",
+                    format=formato_tooltip,
+                ),
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="N escolas",
+                    format="d",
+                ),
+            ],
+        )
+    )
+
+
+    rotulos = (
+        alt.Chart(
+            medias
+        )
+        .mark_text(
+            dy=-10,
+            fontSize=10,
+            fontWeight="bold",
+            color="#2F313C",
+        )
+        .encode(
+            x=alt.X(
+                "Categoria:N",
+                sort=ordem,
+            ),
+            y=alt.Y(
+                "Média:Q",
+            ),
+            text=alt.Text(
+                "Rótulo média:N"
+            ),
+        )
+    )
+
+
+    return (
+        linha_zero
+        +
+        barras
+        +
+        rotulos
+    ).properties(
+        height=285,
+        title=alt.TitleParams(
+            text=(
+                f"Médias dos deltas de {indicador} — categorias agregadas de "
+                f"{rotulo_dimensao(variavel)} — {ano_final} − {ano_inicial}"
+            ),
+            subtitle=(
+                "As barras representam as mesmas médias destacadas nos boxplots acima."
+            ),
+            anchor="middle",
+            fontSize=15,
+            subtitleFontSize=10.5,
+            subtitlePadding=7,
+        ),
+    )
 
 
 # ============================================================
@@ -8041,6 +8563,24 @@ if pagina == "DISTRIBUIÇÕES":
                 )
 
 
+                grafico_medias_agregado = (
+                    criar_grafico_barras_medias_agregado(
+                        dados=dados_agregado_plot,
+                        ordem=ordem_agregado_plot,
+                        indicador=indicador_agregado,
+                        variavel=variavel_agregado,
+                        anos=anos_agregado,
+                        rotulos_multilinha=True,
+                    )
+                )
+
+
+                st.altair_chart(
+                    grafico_medias_agregado,
+                    width="stretch",
+                )
+
+
             with col_p_agregado:
 
                 exibir_p_valores_agregados(
@@ -8156,6 +8696,25 @@ if pagina == "DISTRIBUIÇÕES":
 
                 st.altair_chart(
                     grafico_delta_agregado,
+                    width="stretch",
+                )
+
+
+                grafico_medias_delta_agregado = (
+                    criar_grafico_barras_medias_delta_agregado(
+                        dados=dados_delta_agregado_plot,
+                        ordem=ordem_delta_agregado_plot,
+                        indicador=indicador_agregado,
+                        variavel=variavel_agregado,
+                        ano_inicial=ano_inicial_agregado,
+                        ano_final=ano_final_agregado,
+                        rotulos_multilinha=True,
+                    )
+                )
+
+
+                st.altair_chart(
+                    grafico_medias_delta_agregado,
                     width="stretch",
                 )
 
