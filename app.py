@@ -1,5 +1,6 @@
 import hmac
 import re
+import textwrap
 
 import altair as alt
 import numpy as np
@@ -5197,72 +5198,78 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
+    # IMPORTANTE: o HTML precisa chegar ao Markdown sem recuo à esquerda.
+    # Caso contrário, o Markdown interpreta as tags como bloco de código
+    # e exibe literalmente <div>, <table> etc.
+    html_tabela = textwrap.dedent(
+        f"""\
+<style>
+    .melhores-tabela-wrap {{
+        width: 100%;
+        max-height: 720px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        border: 1px solid #E5E7EB;
+        border-radius: 6px;
+        margin-top: 0.25rem;
+        margin-bottom: 0.75rem;
+    }}
+
+    table.tabela-melhores-escolas {{
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 8.2px !important;
+        line-height: 1.08;
+        margin: 0 !important;
+    }}
+
+    table.tabela-melhores-escolas th,
+    table.tabela-melhores-escolas td {{
+        text-align: center !important;
+        vertical-align: middle !important;
+        padding: 3px 2px !important;
+        border-bottom: 1px solid #ECEFF2;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        word-break: normal;
+    }}
+
+    table.tabela-melhores-escolas th {{
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #F6F7F9;
+        font-size: 8.0px !important;
+        font-weight: 700;
+        color: #343741;
+    }}
+
+    /* Nome da escola recebe mais espaço; posição e código, menos. */
+    table.tabela-melhores-escolas th:nth-child(1),
+    table.tabela-melhores-escolas td:nth-child(1) {{
+        width: 4.5%;
+    }}
+
+    table.tabela-melhores-escolas th:nth-child(2),
+    table.tabela-melhores-escolas td:nth-child(2) {{
+        width: 15%;
+    }}
+
+    table.tabela-melhores-escolas th:nth-child(3),
+    table.tabela-melhores-escolas td:nth-child(3) {{
+        width: 7%;
+    }}
+</style>
+<div class="melhores-tabela-wrap">
+{tabela_html}
+</div>
+"""
+    )
+
     st.markdown(
-        f"""
-        <style>
-            .melhores-tabela-wrap {{
-                width: 100%;
-                max-height: 720px;
-                overflow-y: auto;
-                overflow-x: hidden;
-                border: 1px solid #E5E7EB;
-                border-radius: 6px;
-                margin-top: 0.25rem;
-                margin-bottom: 0.75rem;
-            }}
-
-            table.tabela-melhores-escolas {{
-                width: 100% !important;
-                max-width: 100% !important;
-                border-collapse: collapse;
-                table-layout: fixed;
-                font-size: 8.2px !important;
-                line-height: 1.08;
-                margin: 0 !important;
-            }}
-
-            table.tabela-melhores-escolas th,
-            table.tabela-melhores-escolas td {{
-                text-align: center !important;
-                vertical-align: middle !important;
-                padding: 3px 2px !important;
-                border-bottom: 1px solid #ECEFF2;
-                white-space: normal !important;
-                overflow-wrap: anywhere;
-                word-break: normal;
-            }}
-
-            table.tabela-melhores-escolas th {{
-                position: sticky;
-                top: 0;
-                z-index: 2;
-                background: #F6F7F9;
-                font-size: 8.0px !important;
-                font-weight: 700;
-                color: #343741;
-            }}
-
-            /* Nome da escola recebe mais espaço; posição e código, menos. */
-            table.tabela-melhores-escolas th:nth-child(1),
-            table.tabela-melhores-escolas td:nth-child(1) {{
-                width: 4.5%;
-            }}
-
-            table.tabela-melhores-escolas th:nth-child(2),
-            table.tabela-melhores-escolas td:nth-child(2) {{
-                width: 15%;
-            }}
-
-            table.tabela-melhores-escolas th:nth-child(3),
-            table.tabela-melhores-escolas td:nth-child(3) {{
-                width: 7%;
-            }}
-        </style>
-
-        <div class="melhores-tabela-wrap">
-            {tabela_html}
-        </div>
-        """,
+        html_tabela,
         unsafe_allow_html=True,
     )
 
