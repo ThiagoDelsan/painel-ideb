@@ -37,7 +37,7 @@ st.markdown(
     <style>
 
         .block-container {
-            padding-top: 0.65rem;
+            padding-top: 0.55rem;
             padding-bottom: 1rem;
         }
 
@@ -52,8 +52,8 @@ st.markdown(
 
         section[data-testid="stSidebar"] .block-container {
             padding-top: 0.55rem;
-            padding-left: 0.75rem;
-            padding-right: 0.75rem;
+            padding-left: 0.70rem;
+            padding-right: 0.70rem;
         }
 
         section[data-testid="stSidebar"] h3 {
@@ -64,24 +64,22 @@ st.markdown(
 
         section[data-testid="stSidebar"] label {
             font-size: 0.70rem !important;
-            line-height: 1rem !important;
+            line-height: 0.95rem !important;
             margin-bottom: 0.08rem !important;
         }
 
         /*
-        Antes tínhamos margens negativas.
-        Elas aproximavam os campos, mas podiam causar
-        sobreposição entre multiselects.
+        Espaçamento compacto, mas sem margens negativas.
+        Isso evita a sobreposição entre os filtros.
         */
-
         section[data-testid="stSidebar"]
         div[data-testid="stVerticalBlock"] {
-            gap: 0.30rem !important;
+            gap: 0.20rem !important;
         }
 
         section[data-testid="stSidebar"] .stMultiSelect {
             margin-top: 0 !important;
-            margin-bottom: 0.12rem !important;
+            margin-bottom: 0.05rem !important;
         }
 
         section[data-testid="stSidebar"]
@@ -138,9 +136,9 @@ st.markdown(
 
         .soft-divider {
             border: none;
-            border-top: 1px solid rgba(120, 130, 140, 0.22);
-            margin-top: 0.45rem;
-            margin-bottom: 0.65rem;
+            border-top: 1px solid rgba(120, 130, 140, 0.23);
+            margin-top: 0.40rem;
+            margin-bottom: 0.60rem;
         }
 
     </style>
@@ -209,7 +207,6 @@ ORDEM_FAIXA_IDEB = [
 # ============================================================
 
 ROTULOS_DIMENSOES = {
-
     "1ª IDEB 100% integral":
         "1º IDEB 100% integral (em construção)",
 
@@ -399,7 +396,7 @@ with st.sidebar:
 
 
 # ============================================================
-# SELEÇÃO = 9
+# SELEÇÃO
 #
 # 0 = Não
 # 1 = Sim
@@ -453,9 +450,7 @@ def categorizar_selecao(valor):
 
 
 # ============================================================
-# WRAPPERS DAS FUNÇÕES DO DATA.PY
-#
-# Assim tratamos Seleção = 9 no app sem alterar data.py.
+# WRAPPERS DO DATA.PY
 # ============================================================
 
 def criar_variavel_eixo(
@@ -548,9 +543,7 @@ def aplicar_filtros_categoricos(
     filtros,
 ):
 
-    filtros_base = (
-        filtros.copy()
-    )
+    filtros_base = filtros.copy()
 
 
     filtro_selecao = (
@@ -573,7 +566,7 @@ def aplicar_filtros_categoricos(
 
         if "Seleção" in resultado.columns:
 
-            categoria_selecao = (
+            categoria = (
                 resultado[
                     "Seleção"
                 ]
@@ -585,7 +578,7 @@ def aplicar_filtros_categoricos(
 
             resultado = (
                 resultado[
-                    categoria_selecao.isin(
+                    categoria.isin(
                         filtro_selecao
                     )
                 ]
@@ -609,16 +602,16 @@ def formatos_indicador(
         return {
             "rotulo": ".1%",
             "tooltip": ".1%",
-            "eixo": ".0%",
             "delta": "+.1%",
+            "baseline": 0.30,
         }
 
 
     return {
         "rotulo": ".1f",
         "tooltip": ".1f",
-        "eixo": ".1f",
         "delta": "+.1f",
+        "baseline": 3.0,
     }
 
 
@@ -627,7 +620,9 @@ def formatar_valor_tabela(
     indicador,
 ):
 
-    if pd.isna(valor):
+    if pd.isna(
+        valor
+    ):
 
         return "—"
 
@@ -960,9 +955,7 @@ def criar_duas_dimensoes(
     )
 
 
-    resultado = (
-        base.copy()
-    )
+    resultado = base.copy()
 
 
     resultado[
@@ -1214,31 +1207,15 @@ def media_ponderada_duas_dimensoes(
 
 def limpar_todos_os_filtros():
 
-    prefixos = [
-        "filtro_",
-    ]
-
-
-    chaves_exatas = [
-        "filtro_proped",
-        "filtro_ept",
-    ]
-
-
     apagar = []
 
 
-    for chave in st.session_state.keys():
+    for chave in list(
+        st.session_state.keys()
+    ):
 
-        if (
-            any(
-                chave.startswith(prefixo)
-                for prefixo
-                in prefixos
-            )
-            or
-            chave
-            in chaves_exatas
+        if chave.startswith(
+            "filtro_"
         ):
 
             apagar.append(
@@ -1255,7 +1232,7 @@ def limpar_todos_os_filtros():
 
 
 # ============================================================
-# DISTRIBUIÇÃO MELHORES ESCOLAS
+# DISTRIBUIÇÃO — MELHORES ESCOLAS
 # ============================================================
 
 def preparar_distribuicao_top(
@@ -1455,64 +1432,118 @@ def grafico_distribuicao_top(
 
 
 # ============================================================
-# NOVO LAYOUT HORIZONTAL — PRINCIPAIS INDICADORES
+# PREPARAÇÃO DA VISÃO HORIZONTAL
+#
+# Estrutura:
+#
+# Consolidado
+#   2021 (...)
+#   2023 (...)
+#   2025 (...)
+#
+#   ESPAÇO GRANDE
+#
+# Categoria A
+#   2021 (...)
+#   2023 (...)
+#   2025 (...)
+#
+#   ESPAÇO PEQUENO
+#
+# Categoria B
+# ...
 # ============================================================
 
-def preparar_layout_horizontal_principal(
-    resultado,
-    consolidado,
+def preparar_linhas_horizontais(
+    dados,
     anos,
-    ordem_categorias,
+    categorias,
     ano_inicial,
     ano_final,
 ):
-
-    dados = pd.concat(
-        [
-            resultado,
-            consolidado,
-        ],
-        ignore_index=True,
-    )
-
-
-    categorias = (
-        ordem_categorias
-        +
-        [
-            "Consolidado"
-        ]
-    )
-
 
     anos_ord = sorted(
         anos
     )
 
 
-    linhas = []
+    registros = []
+
+    ordem = []
+
+    contador = 0
 
 
-    for categoria in categorias:
+    # ========================================================
+    # FUNÇÃO INTERNA PARA CRIAR UM BLOCO
+    # ========================================================
 
-        temp_cat = (
-            dados[
-                dados[
-                    "Categoria"
-                ]
-                == categoria
-            ]
-            .copy()
+    def adicionar_bloco(
+        categoria,
+        recorte_categoria,
+        consolidado=False,
+    ):
+
+        nonlocal contador
+
+
+        # ----------------------------------------------------
+        # Cabeçalho centralizado da categoria
+        # ----------------------------------------------------
+
+        row_header = (
+            f"{contador:04d}|"
+        )
+
+        contador += 1
+
+
+        registros.append(
+            {
+                "RowID":
+                    row_header,
+
+                "TipoLinha":
+                    "cabecalho",
+
+                "Categoria":
+                    categoria,
+
+                "Ano":
+                    None,
+
+                "Média":
+                    np.nan,
+
+                "N escolas":
+                    np.nan,
+
+                "Variação":
+                    np.nan,
+
+                "TextoCategoria":
+                    categoria,
+
+                "TextoEixo":
+                    "",
+            }
         )
 
 
-        for i, ano in enumerate(
-            anos_ord
-        ):
+        ordem.append(
+            row_header
+        )
 
-            recorte = (
-                temp_cat[
-                    temp_cat[
+
+        # ----------------------------------------------------
+        # Anos
+        # ----------------------------------------------------
+
+        for ano in anos_ord:
+
+            rec = (
+                recorte_categoria[
+                    recorte_categoria[
                         "Ano"
                     ]
                     == str(
@@ -1522,126 +1553,105 @@ def preparar_layout_horizontal_principal(
             )
 
 
-            if recorte.empty:
+            if rec.empty:
 
                 continue
 
 
             n = int(
-                recorte[
+                rec[
                     "N escolas"
                 ].iloc[0]
             )
 
 
-            if i == 0:
-
-                label = (
-                    f"{categoria}  "
-                    f"{ano} ({n:,})"
-                )
-
-            else:
-
-                label = (
-                    f"        "
-                    f"{ano} ({n:,})"
-                )
-
-
-            label = label.replace(
+            texto_ano = (
+                f"{ano} "
+                f"({n:,})"
+            ).replace(
                 ",",
                 ".",
             )
 
 
-            linhas.append(
+            row_ano = (
+                f"{contador:04d}|"
+                f"{texto_ano}"
+            )
+
+            contador += 1
+
+
+            registros.append(
                 {
+                    "RowID":
+                        row_ano,
+
+                    "TipoLinha":
+                        "ano",
+
                     "Categoria":
                         categoria,
 
                     "Ano":
-                        str(ano),
+                        str(
+                            ano
+                        ),
 
                     "Média":
-                        recorte[
+                        rec[
                             "Média"
                         ].iloc[0],
 
                     "N escolas":
                         n,
 
-                    "Linha":
-                        label,
+                    "Variação":
+                        np.nan,
+
+                    "TextoCategoria":
+                        "",
+
+                    "TextoEixo":
+                        texto_ano,
                 }
             )
 
 
-    plot = pd.DataFrame(
-        linhas
-    )
+            ordem.append(
+                row_ano
+            )
 
 
-    if plot.empty:
+        # ----------------------------------------------------
+        # Delta
+        # ----------------------------------------------------
 
-        return (
-            plot,
-            [],
-        )
-
-
-    # ========================================================
-    # DELTA POR CATEGORIA
-    # ========================================================
-
-    deltas = {}
-
-
-    if (
-        ano_inicial is not None
-        and
-        ano_final is not None
-    ):
-
-        for categoria in categorias:
+        if (
+            ano_inicial is not None
+            and
+            ano_final is not None
+        ):
 
             rec_ini = (
-                dados[
-                    (
-                        dados[
-                            "Categoria"
-                        ]
-                        == categoria
-                    )
-                    &
-                    (
-                        dados[
-                            "Ano"
-                        ]
-                        == str(
-                            ano_inicial
-                        )
+                recorte_categoria[
+                    recorte_categoria[
+                        "Ano"
+                    ]
+                    == str(
+                        ano_inicial
                     )
                 ]
             )
 
 
             rec_fim = (
-                dados[
-                    (
-                        dados[
-                            "Categoria"
-                        ]
-                        == categoria
-                    )
-                    &
-                    (
-                        dados[
-                            "Ano"
-                        ]
-                        == str(
-                            ano_final
-                        )
+                recorte_categoria[
+                    recorte_categoria[
+                        "Ano"
+                    ]
+                    == str(
+                        ano_final
                     )
                 ]
             )
@@ -1653,9 +1663,7 @@ def preparar_layout_horizontal_principal(
                 not rec_fim.empty
             ):
 
-                deltas[
-                    categoria
-                ] = (
+                delta = (
                     rec_fim[
                         "Média"
                     ].iloc[0]
@@ -1666,50 +1674,665 @@ def preparar_layout_horizontal_principal(
                 )
 
 
-    plot[
-        "Variação"
-    ] = np.nan
+                for registro in reversed(
+                    registros
+                ):
+
+                    if (
+                        registro[
+                            "Categoria"
+                        ]
+                        == categoria
+                        and
+                        registro[
+                            "Ano"
+                        ]
+                        == str(
+                            ano_final
+                        )
+                    ):
+
+                        registro[
+                            "Variação"
+                        ] = delta
+
+                        break
 
 
-    # Delta aparece na linha do ano mais recente.
-    for categoria, delta in deltas.items():
+        # ----------------------------------------------------
+        # Separador
+        # ----------------------------------------------------
 
-        mask = (
-            (
-                plot[
-                    "Categoria"
-                ]
-                == categoria
+        if consolidado:
+
+            quantidade_espacos = 2
+            tipo_sep = (
+                "separador_grande"
             )
-            &
-            (
-                plot[
-                    "Ano"
-                ]
-                == str(
-                    ano_final
-                )
+
+        else:
+
+            quantidade_espacos = 1
+            tipo_sep = (
+                "separador_pequeno"
             )
+
+
+        for _ in range(
+            quantidade_espacos
+        ):
+
+            row_sep = (
+                f"{contador:04d}|"
+            )
+
+            contador += 1
+
+
+            registros.append(
+                {
+                    "RowID":
+                        row_sep,
+
+                    "TipoLinha":
+                        tipo_sep,
+
+                    "Categoria":
+                        categoria,
+
+                    "Ano":
+                        None,
+
+                    "Média":
+                        np.nan,
+
+                    "N escolas":
+                        np.nan,
+
+                    "Variação":
+                        np.nan,
+
+                    "TextoCategoria":
+                        "",
+
+                    "TextoEixo":
+                        "",
+                }
+            )
+
+
+            ordem.append(
+                row_sep
+            )
+
+
+    # ========================================================
+    # CONSOLIDADO SEMPRE PRIMEIRO
+    # ========================================================
+
+    rec_consolidado = (
+        dados[
+            dados[
+                "Categoria"
+            ]
+            == "Consolidado"
+        ]
+        .copy()
+    )
+
+
+    if not rec_consolidado.empty:
+
+        adicionar_bloco(
+            categoria="Consolidado",
+            recorte_categoria=(
+                rec_consolidado
+            ),
+            consolidado=True,
         )
 
 
-        plot.loc[
-            mask,
-            "Variação",
-        ] = delta
+    # ========================================================
+    # DEMAIS CATEGORIAS
+    # ========================================================
+
+    for categoria in categorias:
+
+        if categoria == "Consolidado":
+
+            continue
 
 
-    ordem_linhas = (
+        rec = (
+            dados[
+                dados[
+                    "Categoria"
+                ]
+                == categoria
+            ]
+            .copy()
+        )
+
+
+        if rec.empty:
+
+            continue
+
+
+        adicionar_bloco(
+            categoria=categoria,
+            recorte_categoria=rec,
+            consolidado=False,
+        )
+
+
+    # ========================================================
+    # REMOVE ÚLTIMO SEPARADOR
+    # ========================================================
+
+    while (
+        registros
+        and
+        registros[-1][
+            "TipoLinha"
+        ].startswith(
+            "separador"
+        )
+    ):
+
+        registros.pop()
+
+        ordem.pop()
+
+
+    return (
+        pd.DataFrame(
+            registros
+        ),
+        ordem,
+    )
+
+
+# ============================================================
+# CONSTRÓI OS DOIS GRÁFICOS HORIZONTAIS
+# ============================================================
+
+def criar_painel_horizontal(
+    plot,
+    ordem_linhas,
+    indicador,
+    eixo_nome,
+    ano_inicial,
+    ano_final,
+    largura_esquerda=425,
+    largura_direita=235,
+):
+
+    formatos = formatos_indicador(
+        indicador
+    )
+
+
+    baseline = formatos[
+        "baseline"
+    ]
+
+
+    altura = max(
+        280,
+        len(
+            plot
+        )
+        * 20,
+    )
+
+
+    # ========================================================
+    # EIXO Y
+    #
+    # RowID é único.
+    # Depois do "|" vem o texto que deve ser exibido.
+    # ========================================================
+
+    eixo_y_esquerdo = alt.Y(
+        "RowID:N",
+        title=None,
+        sort=ordem_linhas,
+        axis=alt.Axis(
+            labelExpr=(
+                "split(datum.label, '|')[1]"
+            ),
+            labelLimit=130,
+            labelFontSize=10,
+            labelPadding=5,
+            ticks=False,
+            domain=False,
+        ),
+    )
+
+
+    eixo_y_direito = alt.Y(
+        "RowID:N",
+        title=None,
+        sort=ordem_linhas,
+        axis=None,
+    )
+
+
+    # ========================================================
+    # BARRAS ABSOLUTAS
+    # ========================================================
+
+    dados_anos = (
         plot[
-            "Linha"
+            plot[
+                "TipoLinha"
+            ]
+            == "ano"
         ]
-        .tolist()
+    )
+
+
+    barras_abs = (
+        alt.Chart(
+            dados_anos
+        )
+        .mark_bar(
+            height=13,
+            clip=True,
+        )
+        .encode(
+
+            y=eixo_y_esquerdo,
+
+            x=alt.X(
+                "Média:Q",
+                title=None,
+                scale=alt.Scale(
+                    domainMin=baseline,
+                    zero=False,
+                    nice=True,
+                ),
+                axis=alt.Axis(
+                    labels=False,
+                    ticks=False,
+                    domain=False,
+                    grid=False,
+                    title=None,
+                ),
+            ),
+
+            x2=alt.datum(
+                baseline
+            ),
+
+            color=alt.Color(
+                "Ano:N",
+                title="Ano",
+                scale=alt.Scale(
+                    domain=ORDEM_ANOS_STR,
+                    range=ESCALA_CORES_ANOS,
+                ),
+                sort=ORDEM_ANOS_STR,
+                legend=alt.Legend(
+                    orient="top",
+                    direction="horizontal",
+                    title=None,
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title=rotulo_dimensao(
+                        eixo_nome
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="Escolas",
+                    format=",",
+                ),
+
+                alt.Tooltip(
+                    "Média:Q",
+                    title=indicador,
+                    format=formatos[
+                        "tooltip"
+                    ],
+                ),
+            ],
+        )
+    )
+
+
+    # ========================================================
+    # RÓTULOS DO VALOR
+    # ========================================================
+
+    textos_abs = (
+        alt.Chart(
+            dados_anos
+        )
+        .mark_text(
+            align="left",
+            dx=4,
+            fontSize=10,
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+
+            x="Média:Q",
+
+            text=alt.Text(
+                "Média:Q",
+                format=formatos[
+                    "rotulo"
+                ],
+            ),
+        )
+    )
+
+
+    # ========================================================
+    # CABEÇALHO DAS CATEGORIAS
+    #
+    # Centralizado no espaço horizontal do gráfico.
+    # ========================================================
+
+    dados_cabecalho = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "cabecalho"
+        ]
+    )
+
+
+    textos_categoria = (
+        alt.Chart(
+            dados_cabecalho
+        )
+        .mark_text(
+            fontSize=11,
+            fontWeight="bold",
+            align="center",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+
+            x=alt.value(
+                largura_esquerda
+                / 2
+            ),
+
+            text="TextoCategoria:N",
+        )
+    )
+
+
+    # ========================================================
+    # LINHAS FINAS ENTRE AS CATEGORIAS
+    # ========================================================
+
+    dados_separadores = (
+        plot[
+            plot[
+                "TipoLinha"
+            ].isin(
+                [
+                    "separador_pequeno",
+                    "separador_grande",
+                ]
+            )
+        ]
+    )
+
+
+    regras_abs = (
+        alt.Chart(
+            dados_separadores
+        )
+        .mark_rule(
+            strokeWidth=0.7,
+            color="#D9DDE3",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+        )
+    )
+
+
+    graf_abs = (
+        barras_abs
+        +
+        textos_abs
+        +
+        textos_categoria
+        +
+        regras_abs
+    ).properties(
+        width=largura_esquerda,
+        height=altura,
+        title=alt.TitleParams(
+            text=(
+                f"Média ponderada de "
+                f"{indicador}"
+            ),
+            anchor="middle",
+            fontSize=16,
+            fontWeight="bold",
+        ),
+    )
+
+
+    # ========================================================
+    # DELTA
+    # ========================================================
+
+    dados_delta = (
+        plot[
+            plot[
+                "Variação"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    barras_delta = (
+        alt.Chart(
+            dados_delta
+        )
+        .mark_bar(
+            height=13,
+            color=COR_DELTA,
+        )
+        .encode(
+
+            y=eixo_y_direito,
+
+            x=alt.X(
+                "Variação:Q",
+                title=None,
+                axis=alt.Axis(
+                    labels=False,
+                    ticks=False,
+                    domain=False,
+                    grid=False,
+                    title=None,
+                ),
+            ),
+
+            x2=alt.datum(
+                0
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title=rotulo_dimensao(
+                        eixo_nome
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Variação:Q",
+                    title="Variação",
+                    format=formatos[
+                        "delta"
+                    ],
+                ),
+            ],
+        )
+    )
+
+
+    # ========================================================
+    # RÓTULOS DELTA
+    # ========================================================
+
+    textos_delta = (
+        alt.Chart(
+            dados_delta
+        )
+        .mark_text(
+            dx=alt.expr(
+                "datum.Variação >= 0 "
+                "? 4 : -4"
+            ),
+            align=alt.expr(
+                "datum.Variação >= 0 "
+                "? 'left' : 'right'"
+            ),
+            fontSize=10,
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+
+            x="Variação:Q",
+
+            text=alt.Text(
+                "Variação:Q",
+                format=formatos[
+                    "delta"
+                ],
+            ),
+        )
+    )
+
+
+    # ========================================================
+    # ZERO DO DELTA
+    # ========================================================
+
+    linha_zero = (
+        alt.Chart(
+            pd.DataFrame(
+                {
+                    "zero": [
+                        0
+                    ]
+                }
+            )
+        )
+        .mark_rule(
+            color="#8A8A8A",
+            strokeWidth=0.8,
+        )
+        .encode(
+            x="zero:Q"
+        )
+    )
+
+
+    # ========================================================
+    # SEPARADORES TAMBÉM NO DELTA
+    # ========================================================
+
+    regras_delta = (
+        alt.Chart(
+            dados_separadores
+        )
+        .mark_rule(
+            strokeWidth=0.7,
+            color="#D9DDE3",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+        )
+    )
+
+
+    titulo_delta = (
+        (
+            f"Variação "
+            f"{ano_final} − "
+            f"{ano_inicial}"
+        )
+        if ano_inicial
+        is not None
+        else
+        "Variação"
+    )
+
+
+    graf_delta = (
+        barras_delta
+        +
+        textos_delta
+        +
+        linha_zero
+        +
+        regras_delta
+    ).properties(
+        width=largura_direita,
+        height=altura,
+        title=alt.TitleParams(
+            text=titulo_delta,
+            anchor="middle",
+            fontSize=16,
+            fontWeight="bold",
+        ),
     )
 
 
     return (
-        plot,
-        ordem_linhas,
+        alt.hconcat(
+            graf_abs,
+            graf_delta,
+            spacing=16,
+        )
+        .resolve_scale(
+            y="shared"
+        )
     )
 
 
@@ -1826,7 +2449,7 @@ pagina = (
 
 
 # ============================================================
-# FILTROS DA SIDEBAR
+# FILTROS
 # ============================================================
 
 st.sidebar.markdown(
@@ -1921,7 +2544,7 @@ st.sidebar.markdown(
     <div style="
         font-size:0.72rem;
         font-weight:600;
-        margin-top:0.55rem;
+        margin-top:0.50rem;
         margin-bottom:0.10rem;
     ">
         Participação no IDEB
@@ -1960,7 +2583,7 @@ st.sidebar.markdown(
     <div style="
         font-size:0.72rem;
         font-weight:600;
-        margin-top:0.55rem;
+        margin-top:0.50rem;
         margin-bottom:0.10rem;
     ">
         Oferta
@@ -1997,7 +2620,7 @@ filtro_ept = (
 
 
 # ============================================================
-# APLICAR FILTROS
+# APLICA FILTROS
 # ============================================================
 
 try:
@@ -2087,11 +2710,7 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
-    (
-        c1,
-        c2,
-        c3,
-    ) = st.columns(
+    c1, c2, c3 = st.columns(
         [
             1.8,
             1.1,
@@ -2483,7 +3102,7 @@ if pagina == "MELHORES ESCOLAS":
 
 
     # ========================================================
-    # GRÁFICOS DE PERFIL
+    # PERFIL DO TOP
     # ========================================================
 
     dist_tipo = preparar_distribuicao_top(
@@ -2563,7 +3182,7 @@ if pagina == "MELHORES ESCOLAS":
 
 
     # ========================================================
-    # DIMENSÕES DA TABELA
+    # DIMENSÕES
     # ========================================================
 
     for dimensao in EIXOS_DISPONIVEIS:
@@ -2591,20 +3210,18 @@ if pagina == "MELHORES ESCOLAS":
             ] = "Não informado"
 
 
-    ranking = (
-        ranking.merge(
-            base_dim[
-                [
-                    "Cód. INEP"
-                ]
-                +
-                list(
-                    EIXOS_DISPONIVEIS.keys()
-                )
-            ],
-            on="Cód. INEP",
-            how="left",
-        )
+    ranking = ranking.merge(
+        base_dim[
+            [
+                "Cód. INEP"
+            ]
+            +
+            list(
+                EIXOS_DISPONIVEIS.keys()
+            )
+        ],
+        on="Cód. INEP",
+        how="left",
     )
 
 
@@ -2745,6 +3362,7 @@ if pagina == "CRUZAMENTOS":
             text-align:center;
             font-size:25px;
             font-weight:700;
+            margin-bottom:0.35rem;
         ">
             CRUZAMENTOS
         </div>
@@ -2753,7 +3371,7 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    c1, c2 = st.columns(
+    controle_1, controle_2 = st.columns(
         [
             2,
             1,
@@ -2761,7 +3379,7 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    with c1:
+    with controle_1:
 
         indicador_cruz = st.selectbox(
             "Indicador",
@@ -2776,7 +3394,7 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    with c2:
+    with controle_2:
 
         ordenacao_cruz = st.selectbox(
             "Ordenação",
@@ -2788,7 +3406,11 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    _, bloco, __ = st.columns(
+    # ========================================================
+    # ANOS
+    # ========================================================
+
+    _, bloco_cruz_anos, __ = st.columns(
         [
             1.4,
             3,
@@ -2797,12 +3419,9 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    with bloco:
+    with bloco_cruz_anos:
 
         cols = st.columns(5)
-
-
-        selecao = {}
 
 
         defaults = {
@@ -2812,6 +3431,9 @@ if pagina == "CRUZAMENTOS":
             2023: True,
             2025: True,
         }
+
+
+        selecao = {}
 
 
         for col, ano in zip(
@@ -2842,7 +3464,21 @@ if pagina == "CRUZAMENTOS":
 
     if not anos_cruz:
 
+        st.warning(
+            "Selecione pelo menos um ano."
+        )
+
         st.stop()
+
+
+    # ========================================================
+    # DIMENSÕES
+    # ========================================================
+
+    st.markdown(
+        '<hr class="soft-divider">',
+        unsafe_allow_html=True,
+    )
 
 
     opcoes = list(
@@ -2872,10 +3508,10 @@ if pagina == "CRUZAMENTOS":
 
 
     opcoes_2 = [
-        x
-        for x
+        item
+        for item
         in opcoes
-        if x
+        if item
         != variavel_1
     ]
 
@@ -2898,6 +3534,10 @@ if pagina == "CRUZAMENTOS":
         )
 
 
+    # ========================================================
+    # RESULTADO
+    # ========================================================
+
     resultado_cruz = (
         media_ponderada_duas_dimensoes(
             base=df,
@@ -2912,6 +3552,15 @@ if pagina == "CRUZAMENTOS":
     )
 
 
+    consolidado_cruz = (
+        calcular_consolidado(
+            df,
+            indicador_cruz,
+            anos_cruz,
+        )
+    )
+
+
     if resultado_cruz.empty:
 
         st.warning(
@@ -2921,43 +3570,38 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
-    anos_ord = sorted(
+    anos_ord_cruz = sorted(
         anos_cruz
     )
 
 
     ano_final_cruz = (
-        anos_ord[-1]
+        anos_ord_cruz[-1]
     )
 
 
     ano_ini_cruz = (
-        anos_ord[-2]
+        anos_ord_cruz[-2]
         if len(
-            anos_ord
+            anos_ord_cruz
         )
         >= 2
         else None
     )
 
 
-    formatos = formatos_indicador(
-        indicador_cruz
-    )
-
-
     # ========================================================
-    # CRIA UMA LINHA PARA CADA COMBINAÇÃO + ANO
+    # CRIA IDENTIFICADOR DA COMBINAÇÃO
     # ========================================================
 
     resultado_cruz[
-        "Grupo"
+        "Categoria"
     ] = (
         resultado_cruz[
             "Categoria_1"
         ].astype(str)
         +
-        " | "
+        " → "
         +
         resultado_cruz[
             "Categoria_2"
@@ -2965,382 +3609,184 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    grupos = (
+    base_cruz_simples = (
         resultado_cruz[
-            "Grupo"
+            [
+                "Ano",
+                "Categoria",
+                "Média",
+                "N escolas",
+                "Matrículas",
+            ]
+        ]
+        .copy()
+    )
+
+
+    # ========================================================
+    # ORDENAÇÃO
+    # ========================================================
+
+    categorias_cruz = (
+        base_cruz_simples[
+            "Categoria"
         ]
         .drop_duplicates()
         .tolist()
     )
 
 
-    linhas = []
+    if ordenacao_cruz == "Número absoluto":
 
-
-    for grupo in grupos:
-
-        rec_grupo = (
-            resultado_cruz[
-                resultado_cruz[
-                    "Grupo"
+        ordem_cruz = (
+            base_cruz_simples[
+                base_cruz_simples[
+                    "Ano"
                 ]
-                == grupo
+                == str(
+                    ano_final_cruz
+                )
             ]
+            .sort_values(
+                "Média",
+                ascending=False,
+            )[
+                "Categoria"
+            ]
+            .tolist()
         )
 
 
-        for i, ano in enumerate(
-            anos_ord
+    elif ano_ini_cruz is not None:
+
+        pivot_cruz = (
+            base_cruz_simples[
+                base_cruz_simples[
+                    "Ano"
+                ].isin(
+                    [
+                        str(
+                            ano_ini_cruz
+                        ),
+                        str(
+                            ano_final_cruz
+                        ),
+                    ]
+                )
+            ]
+            .pivot(
+                index="Categoria",
+                columns="Ano",
+                values="Média",
+            )
+            .reset_index()
+        )
+
+
+        if (
+            str(
+                ano_ini_cruz
+            )
+            in pivot_cruz.columns
+            and
+            str(
+                ano_final_cruz
+            )
+            in pivot_cruz.columns
         ):
 
-            rec = (
-                rec_grupo[
-                    rec_grupo[
-                        "Ano"
-                    ]
-                    == str(
-                        ano
+            pivot_cruz[
+                "Delta"
+            ] = (
+                pivot_cruz[
+                    str(
+                        ano_final_cruz
                     )
                 ]
-            )
-
-
-            if rec.empty:
-
-                continue
-
-
-            n = int(
-                rec[
-                    "N escolas"
-                ].iloc[0]
-            )
-
-
-            if i == 0:
-
-                label = (
-                    f"{grupo}  "
-                    f"{ano} "
-                    f"({n:,})"
-                )
-
-            else:
-
-                label = (
-                    f"        "
-                    f"{ano} "
-                    f"({n:,})"
-                )
-
-
-            label = label.replace(
-                ",",
-                ".",
-            )
-
-
-            linhas.append(
-                {
-                    "Grupo":
-                        grupo,
-
-                    "Linha":
-                        label,
-
-                    "Ano":
-                        str(ano),
-
-                    "Média":
-                        rec[
-                            "Média"
-                        ].iloc[0],
-
-                    "Variação":
-                        np.nan,
-                }
-            )
-
-
-    plot_cruz = pd.DataFrame(
-        linhas
-    )
-
-
-    if ano_ini_cruz is not None:
-
-        for grupo in grupos:
-
-            rec = (
-                resultado_cruz[
-                    resultado_cruz[
-                        "Grupo"
-                    ]
-                    == grupo
-                ]
-            )
-
-
-            ini = (
-                rec[
-                    rec[
-                        "Ano"
-                    ]
-                    == str(
+                -
+                pivot_cruz[
+                    str(
                         ano_ini_cruz
                     )
                 ]
             )
 
 
-            fim = (
-                rec[
-                    rec[
-                        "Ano"
-                    ]
-                    == str(
-                        ano_final_cruz
-                    )
+            ordem_cruz = (
+                pivot_cruz
+                .sort_values(
+                    "Delta",
+                    ascending=False,
+                )[
+                    "Categoria"
                 ]
+                .tolist()
             )
 
 
-            if (
-                not ini.empty
-                and
-                not fim.empty
-            ):
+        else:
 
-                delta = (
-                    fim[
-                        "Média"
-                    ].iloc[0]
-                    -
-                    ini[
-                        "Média"
-                    ].iloc[0]
-                )
-
-
-                mask = (
-                    (
-                        plot_cruz[
-                            "Grupo"
-                        ]
-                        == grupo
-                    )
-                    &
-                    (
-                        plot_cruz[
-                            "Ano"
-                        ]
-                        == str(
-                            ano_final_cruz
-                        )
-                    )
-                )
-
-
-                plot_cruz.loc[
-                    mask,
-                    "Variação",
-                ] = delta
-
-
-    ordem = (
-        plot_cruz[
-            "Linha"
-        ]
-        .tolist()
-    )
-
-
-    # ========================================================
-    # DOIS GRÁFICOS LADO A LADO
-    # ========================================================
-
-    esquerda = (
-        alt.Chart(
-            plot_cruz
-        )
-        .mark_bar()
-        .encode(
-
-            y=alt.Y(
-                "Linha:N",
-                title=None,
-                sort=ordem,
-                axis=alt.Axis(
-                    labelLimit=250,
-                    labelFontSize=10,
-                ),
-            ),
-
-            x=alt.X(
-                "Média:Q",
-                title=indicador_cruz,
-                axis=alt.Axis(
-                    format=formatos[
-                        "eixo"
-                    ],
-                ),
-            ),
-
-            color=alt.Color(
-                "Ano:N",
-                scale=alt.Scale(
-                    domain=ORDEM_ANOS_STR,
-                    range=ESCALA_CORES_ANOS,
-                ),
-            ),
-        )
-        .properties(
-            height=max(
-                300,
-                len(
-                    plot_cruz
-                )
-                * 22,
+            ordem_cruz = (
+                categorias_cruz
             )
+
+
+    else:
+
+        ordem_cruz = (
+            categorias_cruz
         )
-    )
 
 
-    texto_esquerda = (
-        alt.Chart(
-            plot_cruz
-        )
-        .mark_text(
-            align="left",
-            dx=4,
-        )
-        .encode(
+    for categoria in categorias_cruz:
 
-            y=alt.Y(
-                "Linha:N",
-                sort=ordem,
-            ),
+        if categoria not in ordem_cruz:
 
-            x="Média:Q",
-
-            text=alt.Text(
-                "Média:Q",
-                format=formatos[
-                    "rotulo"
-                ],
-            ),
-        )
-    )
-
-
-    direita = (
-        alt.Chart(
-            plot_cruz[
-                plot_cruz[
-                    "Variação"
-                ].notna()
-            ]
-        )
-        .mark_bar(
-            color=COR_DELTA
-        )
-        .encode(
-
-            y=alt.Y(
-                "Linha:N",
-                title=None,
-                sort=ordem,
-                axis=None,
-            ),
-
-            x=alt.X(
-                "Variação:Q",
-                title=(
-                    f"Δ {ano_final_cruz} "
-                    f"− {ano_ini_cruz}"
-                    if ano_ini_cruz
-                    is not None
-                    else "Variação"
-                ),
-            ),
-        )
-        .properties(
-            height=max(
-                300,
-                len(
-                    plot_cruz
-                )
-                * 22,
+            ordem_cruz.append(
+                categoria
             )
+
+
+    dados_cruz = pd.concat(
+        [
+            consolidado_cruz,
+            base_cruz_simples,
+        ],
+        ignore_index=True,
+    )
+
+
+    plot_cruz, ordem_linhas_cruz = (
+        preparar_linhas_horizontais(
+            dados=dados_cruz,
+            anos=anos_cruz,
+            categorias=ordem_cruz,
+            ano_inicial=ano_ini_cruz,
+            ano_final=ano_final_cruz,
         )
     )
 
 
-    texto_direita = (
-        alt.Chart(
-            plot_cruz[
-                plot_cruz[
-                    "Variação"
-                ].notna()
-            ]
-        )
-        .mark_text(
-            dx=alt.expr(
-                "datum.Variação >= 0 "
-                "? 5 : -5"
+    painel_cruz = (
+        criar_painel_horizontal(
+            plot=plot_cruz,
+            ordem_linhas=ordem_linhas_cruz,
+            indicador=indicador_cruz,
+            eixo_nome=(
+                f"{rotulo_dimensao(variavel_1)} "
+                f"→ "
+                f"{rotulo_dimensao(variavel_2)}"
             ),
-            align=alt.expr(
-                "datum.Variação >= 0 "
-                "? 'left' : 'right'"
-            ),
-        )
-        .encode(
-
-            y=alt.Y(
-                "Linha:N",
-                sort=ordem,
-            ),
-
-            x="Variação:Q",
-
-            text=alt.Text(
-                "Variação:Q",
-                format=formatos[
-                    "delta"
-                ],
-            ),
-        )
-    )
-
-
-    grafico_cruz = (
-        alt.hconcat(
-            (
-                esquerda
-                +
-                texto_esquerda
-            ).properties(
-                width=550
-            ),
-
-            (
-                direita
-                +
-                texto_direita
-            ).properties(
-                width=300
-            ),
-
-            spacing=25,
-        )
-        .resolve_scale(
-            y="shared"
+            ano_inicial=ano_ini_cruz,
+            ano_final=ano_final_cruz,
+            largura_esquerda=425,
+            largura_direita=235,
         )
     )
 
 
     st.altair_chart(
-        grafico_cruz,
+        painel_cruz,
         width="stretch",
     )
 
@@ -3796,6 +4242,10 @@ st.caption(
 )
 
 
+# ============================================================
+# CONTROLES SUPERIORES
+# ============================================================
+
 c1, c2, c3 = st.columns(
     [
         2,
@@ -3839,19 +4289,34 @@ with c3:
 
 
 # ============================================================
-# ANOS
+# ANOS + VARIÁVEL NA MESMA LINHA
 # ============================================================
 
-_, bloco_anos, __ = st.columns(
+col_anos_area, col_variavel_area = st.columns(
     [
-        1.4,
-        3,
-        1.4,
-    ]
+        4.4,
+        1.6,
+    ],
+    gap="medium",
 )
 
 
-with bloco_anos:
+with col_anos_area:
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:0.78rem;
+            font-weight:600;
+            margin-bottom:0.05rem;
+        ">
+            Anos
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
     cols = st.columns(5)
 
@@ -3886,6 +4351,32 @@ with bloco_anos:
             )
 
 
+with col_variavel_area:
+
+    if "eixo_x" not in st.session_state:
+
+        st.session_state[
+            "eixo_x"
+        ] = "Tipo de Escola"
+
+
+    st.selectbox(
+        "Variável",
+        options=list(
+            EIXOS_DISPONIVEIS.keys()
+        ),
+        format_func=rotulo_dimensao,
+        key="eixo_x",
+    )
+
+
+eixo_x = (
+    st.session_state[
+        "eixo_x"
+    ]
+)
+
+
 anos = [
     ano
     for ano, ativo
@@ -3904,7 +4395,7 @@ if not anos:
 
 
 # ============================================================
-# DIVISOR
+# DIVISOR SUAVE
 # ============================================================
 
 st.markdown(
@@ -3914,76 +4405,20 @@ st.markdown(
 
 
 # ============================================================
-# VARIÁVEL DO EIXO X
-# ============================================================
-
-st.markdown(
-    """
-    <div style="
-        text-align:center;
-        font-size:0.80rem;
-        font-weight:600;
-        margin-bottom:0.15rem;
-    ">
-        Variável
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-if "eixo_x" not in st.session_state:
-
-    st.session_state[
-        "eixo_x"
-    ] = "Tipo de Escola"
-
-
-_, bloco_eixo, __ = st.columns(
-    [
-        0.4,
-        5.2,
-        0.4,
-    ]
-)
-
-
-with bloco_eixo:
-
-    st.radio(
-        "Variável",
-        options=list(
-            EIXOS_DISPONIVEIS.keys()
-        ),
-        horizontal=True,
-        label_visibility="collapsed",
-        format_func=rotulo_dimensao,
-        key="eixo_x",
-    )
-
-
-eixo_x = (
-    st.session_state[
-        "eixo_x"
-    ]
-)
-
-
-# ============================================================
 # SAME SCHOOLS
 # ============================================================
 
-df_principal = (
-    df.copy()
-)
+df_principal = df.copy()
 
 
 if same_schools:
 
-    df_principal = filtrar_same_schools(
-        df_principal,
-        indicador,
-        anos,
+    df_principal = (
+        filtrar_same_schools(
+            df_principal,
+            indicador,
+            anos,
+        )
     )
 
 
@@ -4033,6 +4468,10 @@ if (
 
 
 if resultado.empty:
+
+    st.warning(
+        "Não há resultados para a configuração selecionada."
+    )
 
     st.stop()
 
@@ -4087,6 +4526,11 @@ if ordenacao == "Número absoluto":
                 ano_final
             )
         ]
+        .dropna(
+            subset=[
+                "Média"
+            ]
+        )
         .sort_values(
             "Média",
             ascending=False,
@@ -4102,9 +4546,8 @@ else:
 
     if ano_inicial is None:
 
-        ordem_categorias = (
-            categorias
-        )
+        ordem_categorias = categorias
+
 
     else:
 
@@ -4173,11 +4616,10 @@ else:
                 .tolist()
             )
 
+
         else:
 
-            ordem_categorias = (
-                categorias
-            )
+            ordem_categorias = categorias
 
 
 for categoria in categorias:
@@ -4190,322 +4632,46 @@ for categoria in categorias:
 
 
 # ============================================================
-# BASE ÚNICA PARA OS DOIS GRÁFICOS
+# CONSOLIDADO + DEMAIS
 # ============================================================
 
+dados_principal = pd.concat(
+    [
+        consolidado,
+        resultado,
+    ],
+    ignore_index=True,
+)
+
+
 plot_principal, ordem_linhas = (
-    preparar_layout_horizontal_principal(
-        resultado=resultado,
-        consolidado=consolidado,
+    preparar_linhas_horizontais(
+        dados=dados_principal,
         anos=anos,
-        ordem_categorias=ordem_categorias,
+        categorias=ordem_categorias,
         ano_inicial=ano_inicial,
         ano_final=ano_final,
     )
 )
 
 
-formatos = formatos_indicador(
-    indicador
-)
-
-
-altura = max(
-    300,
-    len(
-        plot_principal
-    )
-    * 25,
-)
-
-
 # ============================================================
-# GRÁFICO ESQUERDO — VALORES ABSOLUTOS
+# GRÁFICOS
 # ============================================================
 
-graf_abs = (
-    alt.Chart(
-        plot_principal
-    )
-    .mark_bar()
-    .encode(
-
-        y=alt.Y(
-            "Linha:N",
-            sort=ordem_linhas,
-            title=None,
-            axis=alt.Axis(
-                labelLimit=280,
-                labelFontSize=10,
-            ),
-        ),
-
-        x=alt.X(
-            "Média:Q",
-            title=indicador,
-            scale=alt.Scale(
-                zero=True
-            ),
-            axis=alt.Axis(
-                format=formatos[
-                    "eixo"
-                ]
-            ),
-        ),
-
-        color=alt.Color(
-            "Ano:N",
-            title="Ano",
-            scale=alt.Scale(
-                domain=ORDEM_ANOS_STR,
-                range=ESCALA_CORES_ANOS,
-            ),
-        ),
-
-        tooltip=[
-            alt.Tooltip(
-                "Categoria:N",
-                title=rotulo_dimensao(
-                    eixo_x
-                ),
-            ),
-
-            alt.Tooltip(
-                "Ano:N",
-            ),
-
-            alt.Tooltip(
-                "N escolas:Q",
-                title="Escolas",
-                format=",",
-            ),
-
-            alt.Tooltip(
-                "Média:Q",
-                format=formatos[
-                    "tooltip"
-                ],
-            ),
-        ],
-    )
-    .properties(
-        height=altura,
-        title=alt.TitleParams(
-            text=(
-                f"Média ponderada de "
-                f"{indicador}"
-            ),
-            anchor="middle",
-            fontSize=17,
-            fontWeight="bold",
-        ),
-    )
-)
-
-
-texto_abs = (
-    alt.Chart(
-        plot_principal
-    )
-    .mark_text(
-        align="left",
-        dx=5,
-        fontSize=10,
-    )
-    .encode(
-
-        y=alt.Y(
-            "Linha:N",
-            sort=ordem_linhas,
-        ),
-
-        x="Média:Q",
-
-        text=alt.Text(
-            "Média:Q",
-            format=formatos[
-                "rotulo"
-            ],
-        ),
-    )
-)
-
-
-# ============================================================
-# GRÁFICO DIREITO — DELTA
-# ============================================================
-
-plot_delta = (
-    plot_principal[
-        plot_principal[
-            "Variação"
-        ].notna()
-    ]
-    .copy()
-)
-
-
-graf_delta = (
-    alt.Chart(
-        plot_delta
-    )
-    .mark_bar(
-        color=COR_DELTA
-    )
-    .encode(
-
-        y=alt.Y(
-            "Linha:N",
-            sort=ordem_linhas,
-            title=None,
-            axis=None,
-        ),
-
-        x=alt.X(
-            "Variação:Q",
-            title=(
-                (
-                    f"Δ {ano_final} "
-                    f"− {ano_inicial}"
-                )
-                if ano_inicial
-                is not None
-                else "Variação"
-            ),
-            axis=alt.Axis(
-                format=formatos[
-                    "eixo"
-                ]
-            ),
-        ),
-
-        tooltip=[
-            alt.Tooltip(
-                "Categoria:N",
-                title=rotulo_dimensao(
-                    eixo_x
-                ),
-            ),
-
-            alt.Tooltip(
-                "Variação:Q",
-                format=formatos[
-                    "delta"
-                ],
-            ),
-        ],
-    )
-    .properties(
-        height=altura,
-        title=alt.TitleParams(
-            text=(
-                (
-                    f"Variação "
-                    f"{ano_final} − "
-                    f"{ano_inicial}"
-                )
-                if ano_inicial
-                is not None
-                else "Variação"
-            ),
-            anchor="middle",
-            fontSize=17,
-            fontWeight="bold",
-        ),
-    )
-)
-
-
-texto_delta = (
-    alt.Chart(
-        plot_delta
-    )
-    .mark_text(
-        dx=alt.expr(
-            "datum.Variação >= 0 "
-            "? 5 : -5"
-        ),
-        align=alt.expr(
-            "datum.Variação >= 0 "
-            "? 'left' : 'right'"
-        ),
-        fontSize=10,
-    )
-    .encode(
-
-        y=alt.Y(
-            "Linha:N",
-            sort=ordem_linhas,
-        ),
-
-        x="Variação:Q",
-
-        text=alt.Text(
-            "Variação:Q",
-            format=formatos[
-                "delta"
-            ],
-        ),
-    )
-)
-
-
-linha_zero_delta = (
-    alt.Chart(
-        pd.DataFrame(
-            {
-                "zero": [
-                    0
-                ]
-            }
-        )
-    )
-    .mark_rule(
-        color="#666666",
-        strokeWidth=1,
-    )
-    .encode(
-        x="zero:Q"
-    )
-)
-
-
-# ============================================================
-# VISÃO ÚNICA
-# ============================================================
-
-painel_graficos = (
-    alt.hconcat(
-
-        (
-            graf_abs
-            +
-            texto_abs
-        )
-        .properties(
-            width=600
-        ),
-
-        (
-            graf_delta
-            +
-            texto_delta
-            +
-            linha_zero_delta
-        )
-        .properties(
-            width=320
-        ),
-
-        spacing=30,
-    )
-    .resolve_scale(
-        y="shared"
-    )
+painel = criar_painel_horizontal(
+    plot=plot_principal,
+    ordem_linhas=ordem_linhas,
+    indicador=indicador,
+    eixo_nome=eixo_x,
+    ano_inicial=ano_inicial,
+    ano_final=ano_final,
+    largura_esquerda=425,
+    largura_direita=235,
 )
 
 
 st.altair_chart(
-    painel_graficos,
+    painel,
     width="stretch",
 )
