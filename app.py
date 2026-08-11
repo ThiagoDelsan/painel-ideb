@@ -8864,41 +8864,35 @@ same_schools_ativo = st.sidebar.toggle(
 )
 
 
-# SAME SCHOOLS agora significa manter somente as escolas cuja
-# classificação na coluna Transicao é diferente de "-".
+# SAME SCHOOLS usa exclusivamente o indicador Same_Schools da aba
+# ESCOLAS_CONSOLIDADO: 1 = entra no universo; 0 = não entra.
+# A coluna Transicao NÃO define o universo. Ela fornece apenas as
+# categorias exibidas no painel como "Categorias Same Schools".
 df_base_filtros = df_completo.copy()
 
 
 if same_schools_ativo:
 
-    if "Transicao" not in df_base_filtros.columns:
+    if "Same_Schools" not in df_base_filtros.columns:
 
-        # Esta mensagem só deve aparecer se a preparação da base
-        # realmente não tiver conseguido incorporar o atributo da
-        # aba Escolas_2025. O nome exibido no painel continua sendo
-        # "Categorias Same Schools"; "Transicao" é apenas o nome
-        # físico da coluna de origem.
         st.error(
-            "Não foi possível carregar o campo Categorias Same Schools "
-            "a partir da coluna Transicao da aba Escolas_2025."
+            "Não foi possível carregar a coluna Same_Schools "
+            "da aba ESCOLAS_CONSOLIDADO."
         )
         st.stop()
 
 
-    valores_same_school = (
+    indicador_same_schools = pd.to_numeric(
         df_base_filtros[
-            "Transicao"
-        ]
-        .astype("string")
-        .str.strip()
+            "Same_Schools"
+        ],
+        errors="coerce",
     )
 
 
     df_base_filtros = (
         df_base_filtros[
-            valores_same_school.notna()
-            &
-            valores_same_school.ne("-")
+            indicador_same_schools.eq(1)
         ]
         .copy()
     )
