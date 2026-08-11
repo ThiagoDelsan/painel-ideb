@@ -18,8 +18,8 @@ SPREADSHEET_ID = (
 )
 
 ABA_IDEB = "IDEB_Escolas (ENSINO MÉDIO)"
-ABA_INFO = "Info_Escolas_Consolidado"
-ABA_ESCOLAS_2025 = "Escolas_2025"
+ABA_INFO = "ESCOLAS_ANO_A_ANO"
+ABA_ESCOLAS_CONSOLIDADO = "ESCOLAS_CONSOLIDADO"
 
 
 ANOS_DISPONIVEIS = [
@@ -45,11 +45,11 @@ INDICADORES_DISPONIVEIS = [
 # ============================================================
 
 FAIXAS_IDEB = [
-    "Menor que 3",
-    "Entre 3 e 4",
-    "Entre 4 e 5",
-    "Entre 5 e 6",
-    "Maior que 6",
+    "IDEB < 3",
+    "3 ≤ IDEB < 4",
+    "4 ≤ IDEB < 5",
+    "5 ≤ IDEB ≤ 6",
+    "IDEB > 6",
     "Sem resultado",
 ]
 
@@ -104,9 +104,9 @@ EIXOS_DISPONIVEIS = {
         "tipo": "carga_horaria",
     },
 
-    "Transição": {
+    "Categorias Same Schools": {
         "tipo": "coluna",
-        "coluna": "Transição",
+        "coluna": "Transicao",
     },
 
     "Faixa IDEB 2017": {
@@ -463,23 +463,33 @@ def classificar_faixa_ideb(valor):
         return "Sem resultado"
 
 
+    # Intervalos usados no painel:
+    #   IDEB < 3
+    #   3 ≤ IDEB < 4
+    #   4 ≤ IDEB < 5
+    #   5 ≤ IDEB ≤ 6
+    #   IDEB > 6
+    #
+    # A ordem das condições abaixo define explicitamente a inclusão
+    # das extremidades de cada faixa.
+
     if valor < 3:
 
-        return "Menor que 3"
+        return "IDEB < 3"
 
     if valor < 4:
 
-        return "Entre 3 e 4"
+        return "3 ≤ IDEB < 4"
 
     if valor < 5:
 
-        return "Entre 4 e 5"
+        return "4 ≤ IDEB < 5"
 
     if valor <= 6:
 
-        return "Entre 5 e 6"
+        return "5 ≤ IDEB ≤ 6"
 
-    return "Maior que 6"
+    return "IDEB > 6"
 
 
 # ============================================================
@@ -638,7 +648,7 @@ def carregar_info_escolas():
         raise ValueError(
             "Não foi possível identificar "
             "as colunas da aba "
-            "Info_Escolas_Consolidado."
+            "ESCOLAS_ANO_A_ANO."
         )
 
 
@@ -698,7 +708,7 @@ def carregar_info_escolas():
 
         raise ValueError(
             "Colunas obrigatórias ausentes "
-            "em Info_Escolas_Consolidado: "
+            "em ESCOLAS_ANO_A_ANO: "
             f"{faltantes}"
         )
 
@@ -782,20 +792,20 @@ def carregar_info_escolas():
 
 
 # ============================================================
-# LEITURA DA ABA ESCOLAS_2025
+# LEITURA DA ABA ESCOLAS_CONSOLIDADO
 # ============================================================
 
 @st.cache_data(
     ttl=300
 )
-def carregar_escolas_2025():
+def carregar_escolas_consolidado():
 
     planilha = (
         conectar_google_sheets()
     )
 
     aba = planilha.worksheet(
-        ABA_ESCOLAS_2025
+        ABA_ESCOLAS_CONSOLIDADO
     )
 
     dados = (
@@ -808,7 +818,8 @@ def carregar_escolas_2025():
         return pd.DataFrame(
             columns=[
                 "Cód. INEP",
-                "Transição",
+                "Same_Schools",
+                "Transicao",
                 "1º IDEB 100% integral",
             ]
         )
@@ -835,7 +846,8 @@ def carregar_escolas_2025():
 
         raise ValueError(
             "Não foi possível identificar "
-            "as colunas da aba Escolas_2025."
+            "as colunas da aba "
+            "ESCOLAS_CONSOLIDADO."
         )
 
 
@@ -870,50 +882,37 @@ def carregar_escolas_2025():
 
 
     # ========================================================
-    # COLUNAS NECESSÁRIAS
+    # COLUNAS OBRIGATÓRIAS
     # ========================================================
 
-    if "Codigo_INEP" not in df.columns:
+    colunas_obrigatorias = [
+        "Codigo_INEP",
+        "Same_Schools",
+        "Transicao",
+        "1a_edicao_IDEB_100",
+    ]
+
+
+    faltantes = [
+        coluna
+        for coluna
+        in colunas_obrigatorias
+        if coluna
+        not in df.columns
+    ]
+
+
+    if faltantes:
 
         raise ValueError(
-            "A coluna 'Codigo_INEP' não foi encontrada "
-            "na aba Escolas_2025."
-        )
-
-
-    # A especificação da aba usa 'Transicao'. Mantemos também
-    # compatibilidade com 'Destino_2025Transicao', caso esse seja
-    # o nome efetivamente utilizado na planilha.
-    if "Transicao" in df.columns:
-
-        coluna_transicao = "Transicao"
-
-    elif "Destino_2025Transicao" in df.columns:
-
-        coluna_transicao = "Destino_2025Transicao"
-
-    else:
-
-        raise ValueError(
-            "A coluna 'Transicao' não foi encontrada "
-            "na aba Escolas_2025."
-        )
-
-
-    if "1a_edicao_IDEB_100" not in df.columns:
-
-        raise ValueError(
-            "A coluna '1a_edicao_IDEB_100' não foi encontrada "
-            "na aba Escolas_2025."
+            "Colunas obrigatórias ausentes "
+            "na aba ESCOLAS_CONSOLIDADO: "
+            f"{faltantes}"
         )
 
 
     df = df[
-        [
-            "Codigo_INEP",
-            coluna_transicao,
-            "1a_edicao_IDEB_100",
-        ]
+        colunas_obrigatorias
     ].copy()
 
 
@@ -964,10 +963,25 @@ def carregar_escolas_2025():
     if duplicados:
 
         raise ValueError(
-            "A coluna Codigo_INEP da aba Escolas_2025 "
+            "A coluna Codigo_INEP da aba ESCOLAS_CONSOLIDADO "
             "deve ser uma chave única. Códigos duplicados: "
             f"{duplicados[:10]}"
         )
+
+
+    # ========================================================
+    # SAME SCHOOLS
+    # ========================================================
+
+    df[
+        "Same_Schools"
+    ] = (
+        converter_numero(
+            df[
+                "Same_Schools"
+            ]
+        )
+    )
 
 
     # ========================================================
@@ -977,15 +991,15 @@ def carregar_escolas_2025():
     df = df.rename(
         columns={
             "Codigo_INEP": "Cód. INEP",
-            coluna_transicao: "Transição",
             "1a_edicao_IDEB_100": "1º IDEB 100% integral",
         }
     )
 
 
-    # Remove espaços excedentes sem alterar a redação das categorias.
+    # Transicao é o nome físico na base. No painel, essa variável
+    # é exposta com o rótulo "Categorias Same Schools".
     for coluna in [
-        "Transição",
+        "Transicao",
         "1º IDEB 100% integral",
     ]:
 
@@ -1289,8 +1303,8 @@ def preparar_base():
         carregar_info_escolas()
     )
 
-    df_escolas_2025 = (
-        carregar_escolas_2025()
+    df_escolas_consolidado = (
+        carregar_escolas_consolidado()
     )
 
 
@@ -1417,27 +1431,78 @@ def preparar_base():
 
 
     # ========================================================
-    # ATRIBUTOS DA ABA ESCOLAS_2025
+    # ATRIBUTOS DA ABA ESCOLAS_CONSOLIDADO
     #
-    # São atributos no nível da escola e, portanto, ficam
-    # disponíveis em todas as linhas escola × ano do painel.
+    # Same_Schools, Transicao e 1a_edicao_IDEB_100 são atributos
+    # no nível da escola. Por isso, são incorporados a todas as
+    # linhas escola × ano do painel usando Codigo_INEP como chave.
     # ========================================================
 
-    if not df_escolas_2025.empty:
+    if not df_escolas_consolidado.empty:
+
+        # Usa nomes temporários para impedir que eventuais colunas
+        # homônimas da base ano a ano gerem sufixos _x / _y. A aba
+        # ESCOLAS_CONSOLIDADO é a fonte oficial destes atributos.
+        atributos_escolas_consolidado = (
+            df_escolas_consolidado.rename(
+                columns={
+                    "Same_Schools": "__Same_Schools_ESCOLAS_CONSOLIDADO",
+                    "Transicao": "__Transicao_ESCOLAS_CONSOLIDADO",
+                    "1º IDEB 100% integral": "__Primeiro_IDEB_100_ESCOLAS_CONSOLIDADO",
+                }
+            )
+            .copy()
+        )
+
 
         base_final = (
             base_final.merge(
-                df_escolas_2025,
+                atributos_escolas_consolidado,
                 on="Cód. INEP",
                 how="left",
                 validate="many_to_one",
             )
         )
 
+
+        base_final[
+            "Same_Schools"
+        ] = base_final[
+            "__Same_Schools_ESCOLAS_CONSOLIDADO"
+        ]
+
+
+        base_final[
+            "Transicao"
+        ] = base_final[
+            "__Transicao_ESCOLAS_CONSOLIDADO"
+        ]
+
+
+        base_final[
+            "1º IDEB 100% integral"
+        ] = base_final[
+            "__Primeiro_IDEB_100_ESCOLAS_CONSOLIDADO"
+        ]
+
+
+        base_final = base_final.drop(
+            columns=[
+                "__Same_Schools_ESCOLAS_CONSOLIDADO",
+                "__Transicao_ESCOLAS_CONSOLIDADO",
+                "__Primeiro_IDEB_100_ESCOLAS_CONSOLIDADO",
+            ]
+        )
+
+
     else:
 
         base_final[
-            "Transição"
+            "Same_Schools"
+        ] = np.nan
+
+        base_final[
+            "Transicao"
         ] = np.nan
 
         base_final[
@@ -1879,12 +1944,12 @@ def obter_opcoes_filtro(
 
 
     # ========================================================
-    # TRANSIÇÃO
+    # CATEGORIAS SAME SCHOOLS
     # ========================================================
 
     if (
         nome_filtro
-        == "Transição"
+        == "Categorias Same Schools"
     ):
 
         ordem = [
@@ -2019,14 +2084,20 @@ def aplicar_filtro_participacao_ideb(
         return base
 
 
-    if set(
-        valores_filtro
-    ) == {
-        "Sim",
-        "Não",
-    }:
+    valores_filtro = [
+        str(valor)
+        for valor
+        in valores_filtro
+    ]
 
-        return base
+
+    faixas_selecionadas = [
+        valor
+        for valor
+        in valores_filtro
+        if valor in FAIXAS_IDEB
+        and valor != "Sem resultado"
+    ]
 
 
     coluna_ref = (
@@ -2034,100 +2105,179 @@ def aplicar_filtro_participacao_ideb(
     )
 
 
+    # ========================================================
+    # CAMINHO PRINCIPAL: usa a coluna histórica já incorporada
+    # à base. Assim o filtro seleciona a escola pelo resultado
+    # daquele ano e preserva suas demais linhas históricas.
+    # ========================================================
+
     if (
         coluna_ref
         in base.columns
     ):
 
-        tem_ideb = (
+        valores_ideb = pd.to_numeric(
             base[
                 coluna_ref
-            ]
-            .notna()
+            ],
+            errors="coerce",
         )
 
 
+        tem_ideb = (
+            valores_ideb.notna()
+        )
+
+
+        # "Sim" significa qualquer escola que tenha IDEB no ano.
+        # Se "Sim" for selecionado junto com faixas, ele prevalece,
+        # pois já representa a união de todas as faixas com resultado.
         if "Sim" in valores_filtro:
 
-            return (
-                base.loc[
-                    tem_ideb
-                ]
-                .reset_index(
-                    drop=True
+            mascara = tem_ideb
+
+        elif faixas_selecionadas:
+
+            classificacao = (
+                valores_ideb.apply(
+                    classificar_faixa_ideb
                 )
             )
 
 
-        if "Não" in valores_filtro:
-
-            return (
-                base.loc[
-                    ~tem_ideb
-                ]
-                .reset_index(
-                    drop=True
+            mascara = (
+                tem_ideb
+                &
+                classificacao.isin(
+                    faixas_selecionadas
                 )
             )
 
+        else:
 
-    escolas_com_ideb = (
-        base.loc[
-            (
-                base[
-                    "Ano"
-                ]
-                == ano
+            return base
+
+
+        return (
+            base.loc[
+                mascara
+            ]
+            .reset_index(
+                drop=True
             )
-            &
-            (
-                base[
-                    "IDEB"
-                ]
-                .notna()
-            ),
-            "Cód. INEP",
+        )
+
+
+    # ========================================================
+    # FALLBACK: caso a coluna IDEB_REF não exista, identifica as
+    # escolas pela linha do ano selecionado e reaplica a seleção
+    # ao painel completo.
+    # ========================================================
+
+    if (
+        "Ano"
+        not in base.columns
+        or
+        "IDEB"
+        not in base.columns
+        or
+        "Cód. INEP"
+        not in base.columns
+    ):
+
+        return base
+
+
+    recorte_ano = (
+        base[
+            base[
+                "Ano"
+            ]
+            == ano
+        ][
+            [
+                "Cód. INEP",
+                "IDEB",
+            ]
         ]
-        .dropna()
-        .unique()
+        .drop_duplicates(
+            "Cód. INEP"
+        )
+        .copy()
+    )
+
+
+    recorte_ano[
+        "_IDEB_NUM"
+    ] = pd.to_numeric(
+        recorte_ano[
+            "IDEB"
+        ],
+        errors="coerce",
     )
 
 
     if "Sim" in valores_filtro:
 
-        return (
-            base[
-                base[
-                    "Cód. INEP"
-                ]
-                .isin(
-                    escolas_com_ideb
-                )
+        escolas_selecionadas = (
+            recorte_ano.loc[
+                recorte_ano[
+                    "_IDEB_NUM"
+                ].notna(),
+                "Cód. INEP",
             ]
-            .reset_index(
-                drop=True
+            .dropna()
+            .unique()
+        )
+
+    elif faixas_selecionadas:
+
+        recorte_ano[
+            "_FAIXA_IDEB"
+        ] = (
+            recorte_ano[
+                "_IDEB_NUM"
+            ]
+            .apply(
+                classificar_faixa_ideb
             )
         )
 
 
-    if "Não" in valores_filtro:
-
-        return (
-            base[
-                ~base[
-                    "Cód. INEP"
-                ]
-                .isin(
-                    escolas_com_ideb
-                )
+        escolas_selecionadas = (
+            recorte_ano.loc[
+                recorte_ano[
+                    "_IDEB_NUM"
+                ].notna()
+                &
+                recorte_ano[
+                    "_FAIXA_IDEB"
+                ].isin(
+                    faixas_selecionadas
+                ),
+                "Cód. INEP",
             ]
-            .reset_index(
-                drop=True
-            )
+            .dropna()
+            .unique()
         )
 
+    else:
 
-    return base
+        return base
+
+
+    return (
+        base[
+            base[
+                "Cód. INEP"
+            ].isin(
+                escolas_selecionadas
+            )
+        ]
+        .reset_index(
+            drop=True
+        )
+    )
 
 
 # ============================================================
