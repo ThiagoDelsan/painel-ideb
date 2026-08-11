@@ -2482,6 +2482,157 @@ def preparar_dados_delta_boxplot(
     )
 
 
+def calcular_dominio_y_compartilhado(
+    serie,
+    indicador,
+    delta=False,
+):
+
+    valores = (
+        pd.to_numeric(
+            serie,
+            errors="coerce",
+        )
+        .replace(
+            [
+                np.inf,
+                -np.inf,
+            ],
+            np.nan,
+        )
+        .dropna()
+    )
+
+
+    if valores.empty:
+
+        return None
+
+
+    minimo = float(
+        valores.min()
+    )
+
+    maximo = float(
+        valores.max()
+    )
+
+
+    # Para valores absolutos, os dois gráficos partem de zero.
+    # Para deltas, zero também precisa pertencer à escala, mas
+    # preservamos valores negativos quando existirem.
+    if delta:
+
+        limite_inferior = min(
+            minimo,
+            0.0,
+        )
+
+        limite_superior = max(
+            maximo,
+            0.0,
+        )
+
+    else:
+
+        limite_inferior = 0.0
+
+        limite_superior = max(
+            maximo,
+            0.0,
+        )
+
+
+    amplitude = (
+        limite_superior
+        - limite_inferior
+    )
+
+
+    if amplitude <= 0:
+
+        amplitude = max(
+            abs(
+                limite_superior
+            ),
+            1.0,
+        )
+
+
+    margem = (
+        amplitude
+        * 0.06
+    )
+
+
+    if limite_inferior < 0:
+
+        limite_inferior -= margem
+
+
+    if limite_superior > 0:
+
+        limite_superior += margem
+
+
+    # Arredonda os limites para que os dois gráficos tenham uma
+    # escala limpa e rigorosamente idêntica.
+    passo = (
+        0.01
+        if indicador == "Rendimento"
+        else 0.1
+    )
+
+
+    limite_inferior = (
+        np.floor(
+            limite_inferior
+            / passo
+        )
+        * passo
+    )
+
+    limite_superior = (
+        np.ceil(
+            limite_superior
+            / passo
+        )
+        * passo
+    )
+
+
+    # Rendimento absoluto é uma proporção. Quando os dados estão
+    # dentro do intervalo esperado, usa 0% a 100%, o que também
+    # deixa a leitura dos dois gráficos mais intuitiva.
+    if (
+        not delta
+        and indicador == "Rendimento"
+        and minimo >= 0
+        and maximo <= 1
+    ):
+
+        limite_inferior = 0.0
+        limite_superior = 1.0
+
+
+    if limite_superior <= limite_inferior:
+
+        limite_superior = (
+            limite_inferior
+            + passo
+        )
+
+
+    return [
+        float(
+            limite_inferior
+        ),
+        float(
+            limite_superior
+        ),
+    ]
+
+
 def criar_grafico_boxplots(
     dados,
     ordem,
@@ -2490,6 +2641,8 @@ def criar_grafico_boxplots(
     anos,
     variavel_2=None,
     rotulos_multilinha=False,
+    dominio_y=None,
+    altura=430,
 ):
 
     if dados.empty:
@@ -2628,16 +2781,28 @@ def criar_grafico_boxplots(
     )
 
 
+    escala_y = (
+        alt.Scale(
+            domain=dominio_y,
+            zero=False,
+            nice=False,
+        )
+        if dominio_y is not None
+        else alt.Scale(
+            zero=False,
+        )
+    )
+
+
     eixo_y = alt.Y(
         "Valor:Q",
         title=indicador,
-        scale=alt.Scale(
-            zero=False,
-        ),
+        scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
             labelFontSize=11,
             titleFontSize=12,
+            tickCount=6,
         ),
     )
 
@@ -2734,6 +2899,7 @@ def criar_grafico_boxplots(
             ),
             y=alt.Y(
                 "Média:Q",
+                scale=escala_y,
             ),
             tooltip=[
                 alt.Tooltip(
@@ -2780,6 +2946,7 @@ def criar_grafico_boxplots(
             ),
             y=alt.Y(
                 "Média:Q",
+                scale=escala_y,
             ),
             text=alt.Text(
                 "Rótulo média:N"
@@ -2795,7 +2962,7 @@ def criar_grafico_boxplots(
         +
         rotulos_media
     ).properties(
-        height=430,
+        height=altura,
         title=alt.TitleParams(
             text=(
                 f"Distribuição de {indicador} por "
@@ -2822,6 +2989,8 @@ def criar_grafico_delta_boxplots(
     ano_final,
     variavel_2=None,
     rotulos_multilinha=False,
+    dominio_y=None,
+    altura=430,
 ):
 
     if dados.empty:
@@ -2947,18 +3116,30 @@ def criar_grafico_delta_boxplots(
     )
 
 
+    escala_y = (
+        alt.Scale(
+            domain=dominio_y,
+            zero=False,
+            nice=False,
+        )
+        if dominio_y is not None
+        else alt.Scale(
+            zero=False,
+        )
+    )
+
+
     eixo_y = alt.Y(
         "Delta:Q",
         title=(
             f"Delta de {indicador}"
         ),
-        scale=alt.Scale(
-            zero=False,
-        ),
+        scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
             labelFontSize=11,
             titleFontSize=12,
+            tickCount=6,
         ),
     )
 
@@ -2983,7 +3164,8 @@ def criar_grafico_delta_boxplots(
         )
         .encode(
             y=alt.Y(
-                "Zero:Q"
+                "Zero:Q",
+                scale=escala_y,
             )
         )
     )
@@ -3039,6 +3221,7 @@ def criar_grafico_delta_boxplots(
             ),
             y=alt.Y(
                 "Média:Q",
+                scale=escala_y,
             ),
             tooltip=[
                 alt.Tooltip(
@@ -3077,6 +3260,7 @@ def criar_grafico_delta_boxplots(
             ),
             y=alt.Y(
                 "Média:Q",
+                scale=escala_y,
             ),
             text=alt.Text(
                 "Rótulo média:N"
@@ -3094,7 +3278,7 @@ def criar_grafico_delta_boxplots(
         +
         rotulos_media
     ).properties(
-        height=430,
+        height=altura,
         title=alt.TitleParams(
             text=(
                 f"Distribuição dos deltas de {indicador} por "
@@ -3124,6 +3308,8 @@ def criar_grafico_barras_medias_agregado(
     variavel,
     anos,
     rotulos_multilinha=True,
+    dominio_y=None,
+    altura=430,
 ):
 
     if dados.empty:
@@ -3251,16 +3437,28 @@ def criar_grafico_barras_medias_agregado(
     )
 
 
+    escala_y = (
+        alt.Scale(
+            domain=dominio_y,
+            zero=False,
+            nice=False,
+        )
+        if dominio_y is not None
+        else alt.Scale(
+            zero=True,
+        )
+    )
+
+
     eixo_y = alt.Y(
         "Média:Q",
         title=f"Média de {indicador}",
-        scale=alt.Scale(
-            zero=True,
-        ),
+        scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
             labelFontSize=11,
             titleFontSize=12,
+            tickCount=6,
         ),
     )
 
@@ -3361,6 +3559,7 @@ def criar_grafico_barras_medias_agregado(
             ),
             y=alt.Y(
                 "Média:Q",
+                scale=escala_y,
             ),
             text=alt.Text(
                 "Rótulo média:N"
@@ -3374,7 +3573,7 @@ def criar_grafico_barras_medias_agregado(
         +
         rotulos
     ).properties(
-        height=285,
+        height=altura,
         title=alt.TitleParams(
             text=(
                 f"Médias de {indicador} — categorias agregadas de "
@@ -3399,6 +3598,8 @@ def criar_grafico_barras_medias_delta_agregado(
     ano_inicial,
     ano_final,
     rotulos_multilinha=True,
+    dominio_y=None,
+    altura=430,
 ):
 
     if dados.empty:
@@ -3513,16 +3714,28 @@ def criar_grafico_barras_medias_delta_agregado(
     )
 
 
+    escala_y = (
+        alt.Scale(
+            domain=dominio_y,
+            zero=False,
+            nice=False,
+        )
+        if dominio_y is not None
+        else alt.Scale(
+            zero=True,
+        )
+    )
+
+
     eixo_y = alt.Y(
         "Média:Q",
         title=f"Média do delta de {indicador}",
-        scale=alt.Scale(
-            zero=True,
-        ),
+        scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
             labelFontSize=11,
             titleFontSize=12,
+            tickCount=6,
         ),
     )
 
@@ -3547,7 +3760,8 @@ def criar_grafico_barras_medias_delta_agregado(
         )
         .encode(
             y=alt.Y(
-                "Zero:Q"
+                "Zero:Q",
+                scale=escala_y,
             )
         )
     )
@@ -3603,6 +3817,7 @@ def criar_grafico_barras_medias_delta_agregado(
             ),
             y=alt.Y(
                 "Média:Q",
+                scale=escala_y,
             ),
             text=alt.Text(
                 "Rótulo média:N"
@@ -3618,7 +3833,7 @@ def criar_grafico_barras_medias_delta_agregado(
         +
         rotulos
     ).properties(
-        height=285,
+        height=altura,
         title=alt.TitleParams(
             text=(
                 f"Médias dos deltas de {indicador} — categorias agregadas de "
@@ -8521,9 +8736,18 @@ if pagina == "DISTRIBUIÇÕES":
             # A tabela de testes aparece abaixo dos dois gráficos.
             # ====================================================
 
+            dominio_y_agregado = calcular_dominio_y_compartilhado(
+                dados_agregado_plot[
+                    "Valor"
+                ],
+                indicador_agregado,
+                delta=False,
+            )
+
+
             col_boxplot_agregado, col_medias_agregado = st.columns(
                 [
-                    1.55,
+                    1.00,
                     1.00,
                 ],
                 gap="medium",
@@ -8540,6 +8764,8 @@ if pagina == "DISTRIBUIÇÕES":
                     variavel_2=None,
                     anos=anos_agregado,
                     rotulos_multilinha=True,
+                    dominio_y=dominio_y_agregado,
+                    altura=430,
                 )
 
 
@@ -8580,6 +8806,8 @@ if pagina == "DISTRIBUIÇÕES":
                         variavel=variavel_agregado,
                         anos=anos_agregado,
                         rotulos_multilinha=True,
+                        dominio_y=dominio_y_agregado,
+                        altura=430,
                     )
                 )
 
@@ -8663,9 +8891,18 @@ if pagina == "DISTRIBUIÇÕES":
             # A tabela de testes aparece abaixo dos dois gráficos.
             # ====================================================
 
+            dominio_y_delta_agregado = calcular_dominio_y_compartilhado(
+                dados_delta_agregado_plot[
+                    "Delta"
+                ],
+                indicador_agregado,
+                delta=True,
+            )
+
+
             col_boxplot_delta_ag, col_medias_delta_ag = st.columns(
                 [
-                    1.55,
+                    1.00,
                     1.00,
                 ],
                 gap="medium",
@@ -8683,6 +8920,8 @@ if pagina == "DISTRIBUIÇÕES":
                     ano_inicial=ano_inicial_agregado,
                     ano_final=ano_final_agregado,
                     rotulos_multilinha=True,
+                    dominio_y=dominio_y_delta_agregado,
+                    altura=430,
                 )
 
 
@@ -8725,6 +8964,8 @@ if pagina == "DISTRIBUIÇÕES":
                         ano_inicial=ano_inicial_agregado,
                         ano_final=ano_final_agregado,
                         rotulos_multilinha=True,
+                        dominio_y=dominio_y_delta_agregado,
+                        altura=430,
                     )
                 )
 
