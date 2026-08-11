@@ -3539,10 +3539,9 @@ if "pagina" not in st.session_state:
     )
 
 
-nav_1, nav_2, nav_3, nav_4, nav_5 = st.columns(
+nav_1, nav_2, nav_3, nav_4 = st.columns(
     [
         1.55,
-        1.15,
         1.00,
         1.15,
         1.35,
@@ -3566,18 +3565,6 @@ with nav_1:
 with nav_2:
 
     if st.button(
-        "CRUZAMENTOS",
-        width="stretch",
-    ):
-
-        st.session_state.pagina = (
-            "CRUZAMENTOS"
-        )
-
-
-with nav_3:
-
-    if st.button(
         "DEMOGRAFIA",
         width="stretch",
     ):
@@ -3587,7 +3574,7 @@ with nav_3:
         )
 
 
-with nav_4:
+with nav_3:
 
     if st.button(
         "DISTRIBUIÇÕES",
@@ -3599,7 +3586,7 @@ with nav_4:
         )
 
 
-with nav_5:
+with nav_4:
 
     if st.button(
         "MELHORES ESCOLAS",
@@ -4583,10 +4570,10 @@ if pagina == "MELHORES ESCOLAS":
 
 
 # ============================================================
-# CRUZAMENTOS
+# PRINCIPAIS INDICADORES
 # ============================================================
 
-if pagina == "CRUZAMENTOS":
+if pagina == "PRINCIPAIS INDICADORES":
 
     st.markdown(
         """
@@ -4596,7 +4583,7 @@ if pagina == "CRUZAMENTOS":
             font-weight:700;
             margin-bottom:0.25rem;
         ">
-            CRUZAMENTOS
+            PRINCIPAIS INDICADORES
         </div>
         """,
         unsafe_allow_html=True,
@@ -4615,7 +4602,7 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    SEM_ESCOLHA = "Sem escolha"
+    SEM_ESCOLHA = "<vazio>"
 
 
     c1, c2, c3, c4 = st.columns(
@@ -4818,8 +4805,8 @@ if pagina == "CRUZAMENTOS":
     # ========================================================
     # UMA DIMENSÃO
     #
-    # Quando a 2ª dimensão está como "Sem escolha", a aba
-    # Cruzamentos replica a lógica de Principais Indicadores.
+    # Quando a 2ª dimensão está como "<vazio>", o painel
+    # utiliza apenas a 1ª dimensão.
     # ========================================================
 
     if variavel_2 == SEM_ESCOLHA:
@@ -6013,405 +6000,3 @@ if pagina == "DEMOGRAFIA":
 
 
     st.stop()
-
-
-# ============================================================
-# PRINCIPAIS INDICADORES
-# ============================================================
-
-st.caption(
-    "Médias ponderadas pelo total de matrículas "
-    "de 3º e 4º ano do Ensino Médio."
-)
-
-
-same_schools = st.toggle(
-    "SAME SCHOOLS",
-    value=False,
-    key="same_schools_principal",
-)
-
-
-c1, c2, c3 = st.columns(
-    [
-        1.5,
-        1.5,
-        1.0,
-    ]
-)
-
-
-with c1:
-
-    indicador = st.selectbox(
-        "Indicador",
-        [
-            "IDEB",
-            "N(LP)",
-            "N(M)",
-            "N",
-            "Rendimento",
-        ],
-        key="indicador_principal",
-    )
-
-
-with c2:
-
-    if "eixo_x" not in st.session_state:
-
-        st.session_state[
-            "eixo_x"
-        ] = "Tipo de Escola"
-
-
-    st.selectbox(
-        "Variável",
-        options=list(
-            EIXOS_DISPONIVEIS.keys()
-        ),
-        format_func=rotulo_dimensao,
-        key="eixo_x",
-    )
-
-
-with c3:
-
-    ordenacao = st.selectbox(
-        "Ordenação",
-        [
-            "Número absoluto",
-            "Delta",
-        ],
-        key="ordenacao_principal",
-    )
-
-
-eixo_x = st.session_state[
-    "eixo_x"
-]
-
-
-# ============================================================
-# ANOS
-# ============================================================
-
-_, bloco_anos, __ = st.columns(
-    [
-        1.3,
-        3.4,
-        1.3,
-    ]
-)
-
-
-with bloco_anos:
-
-    cols = st.columns(5)
-
-
-    defaults = {
-        2017: False,
-        2019: False,
-        2021: False,
-        2023: True,
-        2025: True,
-    }
-
-
-    selecao = {}
-
-
-    for col, ano in zip(
-        cols,
-        ANOS_PAINEL,
-    ):
-
-        with col:
-
-            selecao[
-                ano
-            ] = st.checkbox(
-                str(ano),
-                value=defaults[
-                    ano
-                ],
-                key=f"principal_ano_{ano}",
-            )
-
-
-anos = [
-    ano
-    for ano, ativo
-    in selecao.items()
-    if ativo
-]
-
-
-if not anos:
-
-    st.warning(
-        "Selecione pelo menos um ano."
-    )
-
-    st.stop()
-
-
-# ============================================================
-# SAME SCHOOLS
-# ============================================================
-
-df_principal = df.copy()
-
-
-if same_schools:
-
-    df_principal = filtrar_same_schools(
-        df_principal,
-        indicador,
-        anos,
-    )
-
-
-# ============================================================
-# CÁLCULO
-# ============================================================
-
-resultado = (
-    media_ponderada_por_categoria(
-        df=df_principal,
-        indicador=indicador,
-        anos=anos,
-        eixo_painel=eixo_x,
-    )
-)
-
-
-consolidado = calcular_consolidado(
-    df_principal,
-    indicador,
-    anos,
-)
-
-
-if (
-    eixo_x
-    == "Tipo de Escola"
-    and
-    not mostrar_integral_agregado
-):
-
-    resultado = (
-        resultado[
-            resultado[
-                "Categoria"
-            ]
-            != CATEGORIA_INTEGRAL_AGREGADA
-        ]
-        .copy()
-    )
-
-
-if resultado.empty:
-
-    st.warning(
-        "Não há resultados para a configuração selecionada."
-    )
-
-    st.stop()
-
-
-# ============================================================
-# ANOS DE COMPARAÇÃO
-# ============================================================
-
-anos_ord = sorted(
-    anos
-)
-
-
-ano_final = anos_ord[-1]
-
-
-ano_inicial = (
-    anos_ord[-2]
-    if len(
-        anos_ord
-    )
-    >= 2
-    else None
-)
-
-
-# ============================================================
-# ORDEM
-# ============================================================
-
-categorias = (
-    resultado[
-        "Categoria"
-    ]
-    .dropna()
-    .astype(str)
-    .unique()
-    .tolist()
-)
-
-
-if ordenacao == "Número absoluto":
-
-    ordem_categorias = (
-        resultado[
-            resultado[
-                "Ano"
-            ]
-            == str(
-                ano_final
-            )
-        ]
-        .dropna(
-            subset=[
-                "Média"
-            ]
-        )
-        .sort_values(
-            "Média",
-            ascending=False,
-        )[
-            "Categoria"
-        ]
-        .astype(str)
-        .tolist()
-    )
-
-
-else:
-
-    if ano_inicial is None:
-
-        ordem_categorias = categorias
-
-    else:
-
-        pivot_ord = (
-            resultado[
-                resultado[
-                    "Ano"
-                ].isin(
-                    [
-                        str(
-                            ano_inicial
-                        ),
-                        str(
-                            ano_final
-                        ),
-                    ]
-                )
-            ]
-            .pivot(
-                index="Categoria",
-                columns="Ano",
-                values="Média",
-            )
-            .reset_index()
-        )
-
-
-        if (
-            str(
-                ano_inicial
-            )
-            in pivot_ord.columns
-            and
-            str(
-                ano_final
-            )
-            in pivot_ord.columns
-        ):
-
-            pivot_ord[
-                "Delta"
-            ] = (
-                pivot_ord[
-                    str(
-                        ano_final
-                    )
-                ]
-                -
-                pivot_ord[
-                    str(
-                        ano_inicial
-                    )
-                ]
-            )
-
-
-            ordem_categorias = (
-                pivot_ord
-                .sort_values(
-                    "Delta",
-                    ascending=False,
-                )[
-                    "Categoria"
-                ]
-                .astype(str)
-                .tolist()
-            )
-
-        else:
-
-            ordem_categorias = categorias
-
-
-for categoria in categorias:
-
-    if categoria not in ordem_categorias:
-
-        ordem_categorias.append(
-            categoria
-        )
-
-
-# ============================================================
-# PLOT PRINCIPAL
-# ============================================================
-
-dados_principal = pd.concat(
-    [
-        consolidado,
-        resultado,
-    ],
-    ignore_index=True,
-)
-
-
-(
-    plot_principal,
-    labels_principal,
-    labels_anos_principal,
-    ordem_linhas,
-) = preparar_linhas_horizontais(
-    dados=dados_principal,
-    anos=anos,
-    categorias=ordem_categorias,
-    ano_inicial=ano_inicial,
-    ano_final=ano_final,
-)
-
-
-painel = criar_painel_horizontal(
-    plot=plot_principal,
-    labels_categorias=labels_principal,
-    labels_anos=labels_anos_principal,
-    ordem_linhas=ordem_linhas,
-    indicador=indicador,
-    eixo_nome=eixo_x,
-    ano_inicial=ano_inicial,
-    ano_final=ano_final,
-)
-
-
-st.altair_chart(
-    painel,
-    width="stretch",
-)
