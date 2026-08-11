@@ -19,6 +19,7 @@ from src.data import (
     media_ponderada_por_categoria,
     criar_variavel_eixo as criar_variavel_eixo_data,
     EIXOS_DISPONIVEIS,
+    FAIXAS_IDEB,
 )
 
 
@@ -193,11 +194,11 @@ CATEGORIA_INTEGRAL_AGREGADA = (
 
 
 ORDEM_FAIXA_IDEB = [
-    "Menor que 3",
-    "Entre 3 e 4",
-    "Entre 4 e 5",
-    "Entre 5 e 6",
-    "Maior que 6",
+    "IDEB < 3",
+    "3 ≤ IDEB < 4",
+    "4 ≤ IDEB < 5",
+    "5 ≤ IDEB ≤ 6",
+    "IDEB > 6",
     "Sem resultado",
 ]
 
@@ -1578,7 +1579,7 @@ def grafico_barra_100_top(
                     orient="bottom",
                     direction="horizontal",
                     columns=3,
-                    labelFontSize=9,
+                    labelFontSize=10.5,
                     symbolSize=80,
                     title=None,
                 ),
@@ -1629,7 +1630,7 @@ def grafico_barra_100_top(
         .mark_text(
             baseline="middle",
             align="center",
-            fontSize=9.5,
+            fontSize=11.5,
         )
         .encode(
 
@@ -8250,7 +8251,13 @@ for ano in ANOS_PAINEL:
             f"IDEB {ano}",
             options=[
                 "Sim",
-                "Não",
+                *[
+                    faixa
+                    for faixa
+                    in FAIXAS_IDEB
+                    if faixa
+                    != "Sem resultado"
+                ],
             ],
             placeholder="Todos",
             key=f"filtro_ideb_{ano}",
@@ -8480,14 +8487,9 @@ if pagina == "DISTRIBUIÇÕES":
 
         with dist_3:
 
-            indice_padrao_var_2_distrib = (
-                opcoes_2_distribuicoes.index(
-                    "PPI"
-                )
-                if "PPI"
-                in opcoes_2_distribuicoes
-                else 0
-            )
+            # A 2ª dimensão começa sem seleção. O usuário pode
+            # adicionar uma segunda camada quando desejar.
+            indice_padrao_var_2_distrib = 0
 
 
             variavel_2_distribuicoes = st.selectbox(
@@ -10615,14 +10617,8 @@ if pagina == "PRINCIPAIS INDICADORES":
 
     with c3:
 
-        indice_padrao_var_2 = (
-            opcoes_2.index(
-                "PPI"
-            )
-            if "PPI"
-            in opcoes_2
-            else 0
-        )
+        # A 2ª dimensão começa como <vazio> por padrão.
+        indice_padrao_var_2 = 0
 
 
         variavel_2 = st.selectbox(
@@ -11735,7 +11731,7 @@ if pagina == "DEMOGRAFIA":
         .mark_text(
             align="center",
             baseline="middle",
-            fontSize=9.5,
+            fontSize=11.5,
         )
         .encode(
 
