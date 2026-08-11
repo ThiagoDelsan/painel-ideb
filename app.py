@@ -37,7 +37,7 @@ st.markdown(
     <style>
 
         .block-container {
-            padding-top: 1.15rem;
+            padding-top: 1rem;
             padding-bottom: 1rem;
         }
 
@@ -46,14 +46,13 @@ st.markdown(
            ==================================================== */
 
         .panel-main-title {
+            display: block;
             font-size: 2.55rem;
             font-weight: 760;
-            line-height: 1.25;
+            line-height: 1.30;
             color: #2f313c;
-            margin-top: 0.20rem;
-            margin-bottom: 0.70rem;
-            padding-top: 0.10rem;
-            padding-bottom: 0.10rem;
+            margin: 0 0 0.65rem 0;
+            padding: 0.15rem 0 0.20rem 0;
             overflow: visible;
         }
 
@@ -113,13 +112,6 @@ st.markdown(
             font-size: 0.68rem !important;
         }
 
-        .demo-variable-title {
-            font-size: 0.80rem;
-            font-weight: 700;
-            margin-top: 4px;
-            margin-bottom: 2px;
-        }
-
         /* ====================================================
            LOGIN
            ==================================================== */
@@ -138,13 +130,6 @@ st.markdown(
             font-size: 14px;
             color: #6b7280;
             margin-bottom: 22px;
-        }
-
-        .login-footer {
-            text-align: center;
-            font-size: 11px;
-            color: #9ca3af;
-            margin-top: 18px;
         }
 
     </style>
@@ -403,10 +388,6 @@ with st.sidebar:
 
 # ============================================================
 # SELEÇÃO
-#
-# 0 = Não
-# 1 = Sim
-# 9 = Não informado
 # ============================================================
 
 def categorizar_selecao(valor):
@@ -628,9 +609,7 @@ def formatar_valor_tabela(
     indicador,
 ):
 
-    if pd.isna(
-        valor
-    ):
+    if pd.isna(valor):
 
         return "—"
 
@@ -709,9 +688,7 @@ def ordenar_dimensao(
         str(valor)
         for valor
         in valores
-        if pd.notna(
-            valor
-        )
+        if pd.notna(valor)
     ]
 
 
@@ -1240,7 +1217,7 @@ def limpar_todos_os_filtros():
 
 
 # ============================================================
-# DISTRIBUIÇÃO — MELHORES ESCOLAS
+# MELHORES ESCOLAS — DISTRIBUIÇÕES
 # ============================================================
 
 def preparar_distribuicao_top(
@@ -1440,6 +1417,26 @@ def grafico_distribuicao_top(
 
 
 # ============================================================
+# MALHA Y
+# ============================================================
+
+def escala_y(
+    ordem_linhas,
+):
+
+    return alt.Y(
+        "RowID:N",
+        title=None,
+        sort=ordem_linhas,
+        scale=alt.Scale(
+            paddingInner=0,
+            paddingOuter=0.02,
+        ),
+        axis=None,
+    )
+
+
+# ============================================================
 # PRINCIPAIS INDICADORES
 # PREPARAÇÃO DAS LINHAS
 # ============================================================
@@ -1461,6 +1458,8 @@ def preparar_linhas_horizontais(
     registros = []
 
     categorias_labels = []
+
+    anos_labels = []
 
     ordem = []
 
@@ -1515,8 +1514,7 @@ def preparar_linhas_horizontais(
 
 
             row_id = (
-                f"{contador:04d}|"
-                f"{texto_ano}"
+                f"{contador:05d}"
             )
 
 
@@ -1549,8 +1547,16 @@ def preparar_linhas_horizontais(
 
                     "Variação":
                         np.nan,
+                }
+            )
 
-                    "TextoEixo":
+
+            anos_labels.append(
+                {
+                    "RowID":
+                        row_id,
+
+                    "AnoLabel":
                         texto_ano,
                 }
             )
@@ -1681,7 +1687,7 @@ def preparar_linhas_horizontais(
         ):
 
             row_sep = (
-                f"{contador:04d}|"
+                f"{contador:05d}"
             )
 
 
@@ -1710,9 +1716,6 @@ def preparar_linhas_horizontais(
 
                     "Variação":
                         np.nan,
-
-                    "TextoEixo":
-                        "",
                 }
             )
 
@@ -1722,6 +1725,7 @@ def preparar_linhas_horizontais(
             )
 
 
+    # Consolidado primeiro
     rec_consolidado = (
         dados[
             dados[
@@ -1744,6 +1748,7 @@ def preparar_linhas_horizontais(
         )
 
 
+    # Categorias
     for categoria in categorias:
 
         if categoria == "Consolidado":
@@ -1796,51 +1801,31 @@ def preparar_linhas_horizontais(
         pd.DataFrame(
             categorias_labels
         ),
+        pd.DataFrame(
+            anos_labels
+        ),
         ordem,
     )
 
 
 # ============================================================
-# FUNÇÃO DE ESCALA Y COMPARTILHADA
-#
-# paddingInner = 0 deixa as barras dos anos coladas.
-# Os espaços entre categorias continuam sendo definidos pelas
-# linhas fictícias de separação.
-# ============================================================
-
-def escala_y(
-    ordem_linhas,
-    eixo=None,
-):
-
-    return alt.Y(
-        "RowID:N",
-        title=None,
-        sort=ordem_linhas,
-        scale=alt.Scale(
-            paddingInner=0,
-            paddingOuter=0.05,
-        ),
-        axis=eixo,
-    )
-
-
-# ============================================================
 # PRINCIPAIS INDICADORES
-# PAINEL HORIZONTAL
+# PAINEL
 # ============================================================
 
 def criar_painel_horizontal(
     plot,
     labels_categorias,
+    labels_anos,
     ordem_linhas,
     indicador,
     eixo_nome,
     ano_inicial,
     ano_final,
     largura_categoria=135,
-    largura_esquerda=380,
-    largura_direita=215,
+    largura_anos=100,
+    largura_esquerda=360,
+    largura_direita=200,
 ):
 
     formatos = formatos_indicador(
@@ -1854,29 +1839,13 @@ def criar_painel_horizontal(
 
 
     altura = max(
-        280,
+        260,
         len(
             plot
         )
-        * 20,
+        * 19,
     )
 
-
-    eixo_anos = alt.Axis(
-        labelExpr=(
-            "split(datum.label, '|')[1]"
-        ),
-        labelLimit=105,
-        labelFontSize=10,
-        labelPadding=5,
-        ticks=False,
-        domain=False,
-    )
-
-
-    # ========================================================
-    # SEPARADORES
-    # ========================================================
 
     dados_sep_pequeno = (
         plot[
@@ -1898,7 +1867,7 @@ def criar_painel_horizontal(
     )
 
 
-    def regras_finas():
+    def regra_fina():
 
         return (
             alt.Chart(
@@ -1910,14 +1879,13 @@ def criar_painel_horizontal(
             )
             .encode(
                 y=escala_y(
-                    ordem_linhas,
-                    eixo=None,
+                    ordem_linhas
                 )
             )
         )
 
 
-    def regras_grandes():
+    def regra_grande():
 
         return (
             alt.Chart(
@@ -1925,22 +1893,21 @@ def criar_painel_horizontal(
             )
             .mark_rule(
                 strokeWidth=1.15,
-                color="#C7CDD4",
+                color="#C5CBD2",
             )
             .encode(
                 y=escala_y(
-                    ordem_linhas,
-                    eixo=None,
+                    ordem_linhas
                 )
             )
         )
 
 
     # ========================================================
-    # COLUNA DA CATEGORIA
+    # COLUNA CATEGORIA
     # ========================================================
 
-    textos_categoria = (
+    texto_categoria = (
         alt.Chart(
             labels_categorias
         )
@@ -1953,28 +1920,25 @@ def criar_painel_horizontal(
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x=alt.value(
                 largura_categoria
-                - 4
+                - 5
             ),
 
-            text=alt.Text(
-                "CategoriaLabel:N"
-            ),
+            text="CategoriaLabel:N",
         )
     )
 
 
-    graf_categorias = (
-        textos_categoria
+    graf_categoria = (
+        texto_categoria
         +
-        regras_finas()
+        regra_fina()
         +
-        regras_grandes()
+        regra_grande()
     ).properties(
         width=largura_categoria,
         height=altura,
@@ -1982,7 +1946,49 @@ def criar_painel_horizontal(
 
 
     # ========================================================
-    # DADOS DOS ANOS
+    # COLUNA ANO + N
+    # ========================================================
+
+    texto_anos = (
+        alt.Chart(
+            labels_anos
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=9.5,
+            color="#7B8498",
+        )
+        .encode(
+
+            y=escala_y(
+                ordem_linhas
+            ),
+
+            x=alt.value(
+                largura_anos
+                - 5
+            ),
+
+            text="AnoLabel:N",
+        )
+    )
+
+
+    graf_anos = (
+        texto_anos
+        +
+        regra_fina()
+        +
+        regra_grande()
+    ).properties(
+        width=largura_anos,
+        height=altura,
+    )
+
+
+    # ========================================================
+    # BARRAS
     # ========================================================
 
     dados_anos = (
@@ -1995,23 +2001,18 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # BARRAS ABSOLUTAS
-    # ========================================================
-
     barras_abs = (
         alt.Chart(
             dados_anos
         )
         .mark_bar(
-            size=20,
+            size=19,
             clip=True,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=eixo_anos,
+                ordem_linhas
             ),
 
             x=alt.X(
@@ -2027,7 +2028,6 @@ def criar_painel_horizontal(
                     ticks=False,
                     domain=False,
                     grid=False,
-                    title=None,
                 ),
             ),
 
@@ -2042,7 +2042,6 @@ def criar_painel_horizontal(
                     domain=ORDEM_ANOS_STR,
                     range=ESCALA_CORES_ANOS,
                 ),
-                sort=ORDEM_ANOS_STR,
                 legend=alt.Legend(
                     orient="top",
                     direction="horizontal",
@@ -2089,13 +2088,12 @@ def criar_painel_horizontal(
         .mark_text(
             align="left",
             dx=4,
-            fontSize=10,
+            fontSize=9.5,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x="Média:Q",
@@ -2115,9 +2113,9 @@ def criar_painel_horizontal(
         +
         textos_abs
         +
-        regras_finas()
+        regra_fina()
         +
-        regras_grandes()
+        regra_grande()
     ).properties(
         width=largura_esquerda,
         height=altura,
@@ -2152,14 +2150,13 @@ def criar_painel_horizontal(
             dados_delta
         )
         .mark_bar(
-            size=20,
+            size=19,
             color=COR_DELTA,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x=alt.X(
@@ -2170,7 +2167,6 @@ def criar_painel_horizontal(
                     ticks=False,
                     domain=False,
                     grid=False,
-                    title=None,
                 ),
             ),
 
@@ -2211,13 +2207,12 @@ def criar_painel_horizontal(
                 "datum.Variação >= 0 "
                 "? 'left' : 'right'"
             ),
-            fontSize=10,
+            fontSize=9.5,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x="Variação:Q",
@@ -2272,9 +2267,9 @@ def criar_painel_horizontal(
         +
         linha_zero
         +
-        regras_finas()
+        regra_fina()
         +
-        regras_grandes()
+        regra_grande()
     ).properties(
         width=largura_direita,
         height=altura,
@@ -2287,11 +2282,10 @@ def criar_painel_horizontal(
     )
 
 
-    # spacing=0 faz as linhas atravessarem visualmente
-    # todas as áreas sem interrupção.
     return (
         alt.hconcat(
-            graf_categorias,
+            graf_categoria,
+            graf_anos,
             graf_abs,
             graf_delta,
             spacing=0,
@@ -2306,8 +2300,7 @@ def criar_painel_horizontal(
 
 
 # ============================================================
-# CRUZAMENTOS
-# PREPARAÇÃO EM TRÊS NÍVEIS
+# CRUZAMENTOS — PREPARAÇÃO
 # ============================================================
 
 def preparar_linhas_cruzamentos(
@@ -2331,6 +2324,8 @@ def preparar_linhas_cruzamentos(
     labels_nivel_1 = []
 
     labels_nivel_2 = []
+
+    labels_anos = []
 
     ordem_linhas = []
 
@@ -2359,8 +2354,7 @@ def preparar_linhas_cruzamentos(
 
 
         row_id = (
-            f"{contador:05d}|"
-            f"{texto_ano}"
+            f"{contador:06d}"
         )
 
 
@@ -2398,6 +2392,17 @@ def preparar_linhas_cruzamentos(
         )
 
 
+        labels_anos.append(
+            {
+                "RowID":
+                    row_id,
+
+                "AnoLabel":
+                    texto_ano,
+            }
+        )
+
+
         ordem_linhas.append(
             row_id
         )
@@ -2414,7 +2419,7 @@ def preparar_linhas_cruzamentos(
 
 
         row_id = (
-            f"{contador:05d}|"
+            f"{contador:06d}"
         )
 
 
@@ -2587,7 +2592,7 @@ def preparar_linhas_cruzamentos(
 
 
     # ========================================================
-    # DEMAIS NÍVEIS
+    # DEMAIS
     # ========================================================
 
     for nivel_1 in ordem_nivel_1:
@@ -2848,19 +2853,22 @@ def preparar_linhas_cruzamentos(
         pd.DataFrame(
             labels_nivel_2
         ),
+        pd.DataFrame(
+            labels_anos
+        ),
         ordem_linhas,
     )
 
 
 # ============================================================
-# CRUZAMENTOS
-# PAINEL HORIZONTAL
+# CRUZAMENTOS — GRÁFICO
 # ============================================================
 
 def criar_painel_cruzamentos(
     plot,
     labels_nivel_1,
     labels_nivel_2,
+    labels_anos,
     ordem_linhas,
     indicador,
     variavel_1,
@@ -2869,8 +2877,9 @@ def criar_painel_cruzamentos(
     ano_final,
     largura_nivel_1=105,
     largura_nivel_2=120,
-    largura_esquerda=335,
-    largura_direita=190,
+    largura_anos=95,
+    largura_esquerda=320,
+    largura_direita=185,
 ):
 
     formatos = formatos_indicador(
@@ -2884,23 +2893,11 @@ def criar_painel_cruzamentos(
 
 
     altura = max(
-        300,
+        290,
         len(
             plot
         )
-        * 19,
-    )
-
-
-    eixo_anos = alt.Axis(
-        labelExpr=(
-            "split(datum.label, '|')[1]"
-        ),
-        labelLimit=98,
-        labelFontSize=9.5,
-        labelPadding=4,
-        ticks=False,
-        domain=False,
+        * 18,
     )
 
 
@@ -2924,12 +2921,7 @@ def criar_painel_cruzamentos(
     )
 
 
-    # ========================================================
-    # FUNÇÕES DAS LINHAS
-    # Usadas em TODAS as colunas para ficarem contínuas.
-    # ========================================================
-
-    def regras_n2():
+    def regra_n2():
 
         return (
             alt.Chart(
@@ -2941,27 +2933,25 @@ def criar_painel_cruzamentos(
             )
             .encode(
                 y=escala_y(
-                    ordem_linhas,
-                    eixo=None,
+                    ordem_linhas
                 )
             )
         )
 
 
-    def regras_n1():
+    def regra_n1():
 
         return (
             alt.Chart(
                 separadores_n1
             )
             .mark_rule(
-                strokeWidth=1.70,
+                strokeWidth=1.65,
                 color="#B9C0C8",
             )
             .encode(
                 y=escala_y(
-                    ordem_linhas,
-                    eixo=None,
+                    ordem_linhas
                 )
             )
         )
@@ -2971,7 +2961,7 @@ def criar_painel_cruzamentos(
     # NÍVEL 1
     # ========================================================
 
-    textos_nivel_1 = (
+    texto_n1 = (
         alt.Chart(
             labels_nivel_1
         )
@@ -2984,8 +2974,7 @@ def criar_painel_cruzamentos(
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x=alt.value(
@@ -2993,19 +2982,15 @@ def criar_painel_cruzamentos(
                 - 4
             ),
 
-            text=alt.Text(
-                "Label:N"
-            ),
+            text="Label:N",
         )
     )
 
 
-    graf_nivel_1 = (
-        textos_nivel_1
+    graf_n1 = (
+        texto_n1
         +
-        regras_n2()
-        +
-        regras_n1()
+        regra_n1()
     ).properties(
         width=largura_nivel_1,
         height=altura,
@@ -3016,7 +3001,7 @@ def criar_painel_cruzamentos(
     # NÍVEL 2
     # ========================================================
 
-    textos_nivel_2 = (
+    texto_n2 = (
         alt.Chart(
             labels_nivel_2
         )
@@ -3028,8 +3013,7 @@ def criar_painel_cruzamentos(
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x=alt.value(
@@ -3037,19 +3021,17 @@ def criar_painel_cruzamentos(
                 - 4
             ),
 
-            text=alt.Text(
-                "Label:N"
-            ),
+            text="Label:N",
         )
     )
 
 
-    graf_nivel_2 = (
-        textos_nivel_2
+    graf_n2 = (
+        texto_n2
         +
-        regras_n2()
+        regra_n2()
         +
-        regras_n1()
+        regra_n1()
     ).properties(
         width=largura_nivel_2,
         height=altura,
@@ -3057,7 +3039,49 @@ def criar_painel_cruzamentos(
 
 
     # ========================================================
-    # ANOS / BARRAS
+    # ANO + N
+    # ========================================================
+
+    texto_anos = (
+        alt.Chart(
+            labels_anos
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=9.2,
+            color="#7B8498",
+        )
+        .encode(
+
+            y=escala_y(
+                ordem_linhas
+            ),
+
+            x=alt.value(
+                largura_anos
+                - 4
+            ),
+
+            text="AnoLabel:N",
+        )
+    )
+
+
+    graf_anos = (
+        texto_anos
+        +
+        regra_n2()
+        +
+        regra_n1()
+    ).properties(
+        width=largura_anos,
+        height=altura,
+    )
+
+
+    # ========================================================
+    # BARRAS
     # ========================================================
 
     dados_anos = (
@@ -3076,14 +3100,13 @@ def criar_painel_cruzamentos(
             dados_anos
         )
         .mark_bar(
-            size=19,
+            size=18,
             clip=True,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=eixo_anos,
+                ordem_linhas
             ),
 
             x=alt.X(
@@ -3099,7 +3122,6 @@ def criar_painel_cruzamentos(
                     ticks=False,
                     domain=False,
                     grid=False,
-                    title=None,
                 ),
             ),
 
@@ -3114,7 +3136,6 @@ def criar_painel_cruzamentos(
                     domain=ORDEM_ANOS_STR,
                     range=ESCALA_CORES_ANOS,
                 ),
-                sort=ORDEM_ANOS_STR,
                 legend=alt.Legend(
                     orient="top",
                     direction="horizontal",
@@ -3161,20 +3182,19 @@ def criar_painel_cruzamentos(
     )
 
 
-    textos_abs = (
+    texto_abs = (
         alt.Chart(
             dados_anos
         )
         .mark_text(
             align="left",
             dx=4,
-            fontSize=9.5,
+            fontSize=9.2,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x="Média:Q",
@@ -3192,11 +3212,11 @@ def criar_painel_cruzamentos(
     graf_abs = (
         barras_abs
         +
-        textos_abs
+        texto_abs
         +
-        regras_n2()
+        regra_n2()
         +
-        regras_n1()
+        regra_n1()
     ).properties(
         width=largura_esquerda,
         height=altura,
@@ -3231,14 +3251,13 @@ def criar_painel_cruzamentos(
             dados_delta
         )
         .mark_bar(
-            size=19,
+            size=18,
             color=COR_DELTA,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x=alt.X(
@@ -3249,7 +3268,6 @@ def criar_painel_cruzamentos(
                     ticks=False,
                     domain=False,
                     grid=False,
-                    title=None,
                 ),
             ),
 
@@ -3284,7 +3302,7 @@ def criar_painel_cruzamentos(
     )
 
 
-    textos_delta = (
+    texto_delta = (
         alt.Chart(
             dados_delta
         )
@@ -3297,13 +3315,12 @@ def criar_painel_cruzamentos(
                 "datum.Variação >= 0 "
                 "? 'left' : 'right'"
             ),
-            fontSize=9.5,
+            fontSize=9.2,
         )
         .encode(
 
             y=escala_y(
-                ordem_linhas,
-                eixo=None,
+                ordem_linhas
             ),
 
             x="Variação:Q",
@@ -3329,7 +3346,7 @@ def criar_painel_cruzamentos(
             )
         )
         .mark_rule(
-            color="#8A8A8A",
+            color="#888888",
             strokeWidth=0.8,
         )
         .encode(
@@ -3354,13 +3371,13 @@ def criar_painel_cruzamentos(
     graf_delta = (
         barras_delta
         +
-        textos_delta
+        texto_delta
         +
         linha_zero
         +
-        regras_n2()
+        regra_n2()
         +
-        regras_n1()
+        regra_n1()
     ).properties(
         width=largura_direita,
         height=altura,
@@ -3375,8 +3392,9 @@ def criar_painel_cruzamentos(
 
     return (
         alt.hconcat(
-            graf_nivel_1,
-            graf_nivel_2,
+            graf_n1,
+            graf_n2,
+            graf_anos,
             graf_abs,
             graf_delta,
             spacing=0,
@@ -3413,7 +3431,7 @@ except Exception as erro:
 
 
 # ============================================================
-# TÍTULO PRINCIPAL
+# TÍTULO
 # ============================================================
 
 st.markdown(
@@ -3579,7 +3597,7 @@ for nome in nomes_filtros:
 
 
 # ============================================================
-# REGRA DO INTEGRAL AGREGADO
+# INTEGRAL AGREGADO
 # ============================================================
 
 filtro_tipo_escola = (
@@ -4444,7 +4462,7 @@ if pagina == "CRUZAMENTOS":
             text-align:center;
             font-size:25px;
             font-weight:700;
-            margin-bottom:0.35rem;
+            margin-bottom:0.25rem;
         ">
             CRUZAMENTOS
         </div>
@@ -4453,15 +4471,37 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    controle_1, controle_2 = st.columns(
+    # ========================================================
+    # SAME SCHOOLS ACIMA
+    # ========================================================
+
+    same_schools_cruz = st.toggle(
+        "SAME SCHOOLS",
+        value=False,
+        key="same_schools_cruz",
+    )
+
+
+    # ========================================================
+    # INDICADOR → 1ª DIMENSÃO → 2ª DIMENSÃO → ORDENAÇÃO
+    # ========================================================
+
+    opcoes = list(
+        EIXOS_DISPONIVEIS.keys()
+    )
+
+
+    c1, c2, c3, c4 = st.columns(
         [
-            2,
-            1,
+            1.25,
+            1.25,
+            1.25,
+            1.0,
         ]
     )
 
 
-    with controle_1:
+    with c1:
 
         indicador_cruz = st.selectbox(
             "Indicador",
@@ -4476,7 +4516,52 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    with controle_2:
+    with c2:
+
+        variavel_1 = st.selectbox(
+            "1ª dimensão",
+            opcoes,
+            index=(
+                opcoes.index(
+                    "INSE"
+                )
+                if "INSE"
+                in opcoes
+                else 0
+            ),
+            format_func=rotulo_dimensao,
+            key="cruz_var_1",
+        )
+
+
+    opcoes_2 = [
+        item
+        for item
+        in opcoes
+        if item
+        != variavel_1
+    ]
+
+
+    with c3:
+
+        variavel_2 = st.selectbox(
+            "2ª dimensão",
+            opcoes_2,
+            index=(
+                opcoes_2.index(
+                    "PPI"
+                )
+                if "PPI"
+                in opcoes_2
+                else 0
+            ),
+            format_func=rotulo_dimensao,
+            key="cruz_var_2",
+        )
+
+
+    with c4:
 
         ordenacao_cruz = st.selectbox(
             "Ordenação",
@@ -4488,11 +4573,15 @@ if pagina == "CRUZAMENTOS":
         )
 
 
+    # ========================================================
+    # ANOS
+    # ========================================================
+
     _, bloco_cruz_anos, __ = st.columns(
         [
-            1.4,
-            3,
-            1.4,
+            1.3,
+            3.4,
+            1.3,
         ]
     )
 
@@ -4549,62 +4638,25 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
-    opcoes = list(
-        EIXOS_DISPONIVEIS.keys()
-    )
+    # ========================================================
+    # SAME SCHOOLS TAMBÉM NO CRUZAMENTO
+    # ========================================================
+
+    df_cruz = df.copy()
 
 
-    c1, c2 = st.columns(2)
+    if same_schools_cruz:
 
-
-    with c1:
-
-        variavel_1 = st.selectbox(
-            "1ª dimensão",
-            opcoes,
-            index=(
-                opcoes.index(
-                    "INSE"
-                )
-                if "INSE"
-                in opcoes
-                else 0
-            ),
-            format_func=rotulo_dimensao,
-            key="cruz_var_1",
-        )
-
-
-    opcoes_2 = [
-        item
-        for item
-        in opcoes
-        if item
-        != variavel_1
-    ]
-
-
-    with c2:
-
-        variavel_2 = st.selectbox(
-            "2ª dimensão",
-            opcoes_2,
-            index=(
-                opcoes_2.index(
-                    "PPI"
-                )
-                if "PPI"
-                in opcoes_2
-                else 0
-            ),
-            format_func=rotulo_dimensao,
-            key="cruz_var_2",
+        df_cruz = filtrar_same_schools(
+            df_cruz,
+            indicador_cruz,
+            anos_cruz,
         )
 
 
     resultado_cruz = (
         media_ponderada_duas_dimensoes(
-            base=df,
+            base=df_cruz,
             indicador=indicador_cruz,
             anos=anos_cruz,
             variavel_1=variavel_1,
@@ -4618,7 +4670,7 @@ if pagina == "CRUZAMENTOS":
 
     consolidado_cruz = (
         calcular_consolidado(
-            df,
+            df_cruz,
             indicador_cruz,
             anos_cruz,
         )
@@ -4829,6 +4881,7 @@ if pagina == "CRUZAMENTOS":
         plot_cruz,
         labels_n1,
         labels_n2,
+        labels_anos_cruz,
         ordem_linhas_cruz,
     ) = preparar_linhas_cruzamentos(
         resultado=resultado_cruz,
@@ -4846,16 +4899,13 @@ if pagina == "CRUZAMENTOS":
             plot=plot_cruz,
             labels_nivel_1=labels_n1,
             labels_nivel_2=labels_n2,
+            labels_anos=labels_anos_cruz,
             ordem_linhas=ordem_linhas_cruz,
             indicador=indicador_cruz,
             variavel_1=variavel_1,
             variavel_2=variavel_2,
             ano_inicial=ano_ini_cruz,
             ano_final=ano_final_cruz,
-            largura_nivel_1=105,
-            largura_nivel_2=120,
-            largura_esquerda=335,
-            largura_direita=190,
         )
     )
 
@@ -4881,6 +4931,7 @@ if pagina == "DEMOGRAFIA":
             text-align:center;
             font-size:25px;
             font-weight:700;
+            margin-bottom:0.5rem;
         ">
             DEMOGRAFIA
         </div>
@@ -4889,13 +4940,27 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    ano_demografia = st.radio(
-        "Ano de referência",
-        options=ANOS_PAINEL,
-        index=4,
-        horizontal=True,
-        key="ano_demografia",
+    # ========================================================
+    # CONTROLES EM LISTAS DE SELEÇÃO
+    # ========================================================
+
+    d1, d2, d3 = st.columns(
+        [
+            1,
+            1.4,
+            1.4,
+        ]
     )
+
+
+    with d1:
+
+        ano_demografia = st.selectbox(
+            "Ano de referência",
+            options=ANOS_PAINEL,
+            index=4,
+            key="ano_demografia",
+        )
 
 
     opcoes_demo = list(
@@ -4903,19 +4968,11 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    col_var, col_visual = st.columns(
-        [
-            1.15,
-            4.85,
-        ]
-    )
+    with d2:
 
-
-    with col_var:
-
-        variavel_demo = st.radio(
+        variavel_demo = st.selectbox(
             "Variável das barras",
-            opcoes_demo,
+            options=opcoes_demo,
             index=(
                 opcoes_demo.index(
                     "PPI"
@@ -4925,6 +4982,7 @@ if pagina == "DEMOGRAFIA":
                 else 0
             ),
             format_func=rotulo_dimensao,
+            key="demo_variavel_barras",
         )
 
 
@@ -4937,11 +4995,11 @@ if pagina == "DEMOGRAFIA":
     ]
 
 
-    with col_visual:
+    with d3:
 
-        variavel_comp = st.radio(
+        variavel_comp = st.selectbox(
             "Composição das barras",
-            op_comp,
+            options=op_comp,
             index=(
                 op_comp.index(
                     "INSE"
@@ -4950,8 +5008,8 @@ if pagina == "DEMOGRAFIA":
                 in op_comp
                 else 0
             ),
-            horizontal=True,
             format_func=rotulo_dimensao,
+            key="demo_variavel_comp",
         )
 
 
@@ -4994,6 +5052,10 @@ if pagina == "DEMOGRAFIA":
         "Categoria"
     ].values
 
+
+    # ========================================================
+    # INTEGRAL AGREGADO
+    # ========================================================
 
     if (
         variavel_demo
@@ -5093,16 +5155,25 @@ if pagina == "DEMOGRAFIA":
 
     resumo[
         "Percentual"
-    ] = (
+    ] = np.where(
+        resumo[
+            "Total"
+        ]
+        > 0,
         resumo[
             "Escolas"
         ]
         /
         resumo[
             "Total"
-        ]
+        ],
+        0,
     )
 
+
+    # ========================================================
+    # CONSOLIDADO
+    # ========================================================
 
     base_consolidado = (
         df[
@@ -5157,11 +5228,13 @@ if pagina == "DEMOGRAFIA":
 
     cons[
         "Percentual"
-    ] = (
+    ] = np.where(
+        total_cons > 0,
         cons[
             "Escolas"
         ]
-        / total_cons
+        / total_cons,
+        0,
     )
 
 
@@ -5177,8 +5250,8 @@ if pagina == "DEMOGRAFIA":
 
     resumo = pd.concat(
         [
-            resumo,
             cons,
+            resumo,
         ],
         ignore_index=True,
     )
@@ -5207,30 +5280,53 @@ if pagina == "DEMOGRAFIA":
     ]
 
 
-    graf_pct = (
+    # ========================================================
+    # GRÁFICO %
+    # ========================================================
+
+    barras_pct = (
         alt.Chart(
             resumo
         )
-        .mark_bar()
+        .mark_bar(
+            height=26,
+        )
         .encode(
 
             y=alt.Y(
                 "Grupo:N",
                 sort=ordem_barras,
                 title=None,
+                axis=alt.Axis(
+                    labelFontSize=11,
+                    labelLimit=170,
+                    domain=False,
+                    ticks=False,
+                ),
             ),
 
             x=alt.X(
                 "Percentual:Q",
-                stack="normalize",
+                stack="zero",
+                scale=alt.Scale(
+                    domain=[
+                        0,
+                        1,
+                    ]
+                ),
                 axis=alt.Axis(
                     format=".0%",
+                    grid=False,
+                    domain=False,
                 ),
                 title=None,
             ),
 
             color=alt.Color(
                 "Composição:N",
+                title=rotulo_dimensao(
+                    variavel_comp
+                ),
                 scale=alt.Scale(
                     domain=ordem_comp,
                     range=paleta[
@@ -5241,27 +5337,111 @@ if pagina == "DEMOGRAFIA":
                 ),
             ),
 
-            tooltip=[
-                "Grupo:N",
+            order=alt.Order(
                 "Composição:N",
-                "Escolas:Q",
+                sort="ascending",
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Grupo:N",
+                    title=rotulo_dimensao(
+                        variavel_demo
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Composição:N",
+                    title=rotulo_dimensao(
+                        variavel_comp
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Escolas:Q",
+                    title="Escolas",
+                    format=",",
+                ),
+
                 alt.Tooltip(
                     "Percentual:Q",
+                    title="Percentual",
                     format=".1%",
                 ),
             ],
         )
-        .properties(
-            height=max(
-                250,
-                42
-                * len(
-                    ordem_barras
-                ),
-            )
+    )
+
+
+    # Rótulo dentro das barras.
+    texto_pct = (
+        alt.Chart(
+            resumo[
+                resumo[
+                    "Percentual"
+                ]
+                >= 0.035
+            ]
+        )
+        .mark_text(
+            baseline="middle",
+            fontSize=9.5,
+        )
+        .encode(
+
+            y=alt.Y(
+                "Grupo:N",
+                sort=ordem_barras,
+            ),
+
+            x=alt.X(
+                "Percentual:Q",
+                stack="center",
+            ),
+
+            detail="Composição:N",
+
+            text=alt.Text(
+                "Percentual:Q",
+                format=".0%",
+            ),
+
+            order=alt.Order(
+                "Composição:N",
+                sort="ascending",
+            ),
         )
     )
 
+
+    graf_pct = (
+        barras_pct
+        +
+        texto_pct
+    ).properties(
+        width=520,
+        height=max(
+            260,
+            len(
+                ordem_barras
+            )
+            * 45,
+        ),
+        title=alt.TitleParams(
+            text=(
+                f"Distribuição de "
+                f"{rotulo_dimensao(variavel_comp)}"
+            ),
+            anchor="middle",
+            fontSize=16,
+            fontWeight="bold",
+        ),
+    )
+
+
+    # ========================================================
+    # NÚMERO DE ESCOLAS
+    # ========================================================
 
     totais_demo = pd.concat(
         [
@@ -5270,6 +5450,7 @@ if pagina == "DEMOGRAFIA":
                     "Grupo": [
                         "Consolidado"
                     ],
+
                     "Total": [
                         total_cons
                     ],
@@ -5281,12 +5462,13 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    graf_n = (
+    barras_n = (
         alt.Chart(
             totais_demo
         )
         .mark_bar(
-            color="#6C93B8"
+            height=26,
+            color="#6C9FCC",
         )
         .encode(
 
@@ -5299,27 +5481,92 @@ if pagina == "DEMOGRAFIA":
             x=alt.X(
                 "Total:Q",
                 title=None,
+                axis=alt.Axis(
+                    labels=False,
+                    ticks=False,
+                    grid=False,
+                    domain=False,
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Grupo:N",
+                    title=rotulo_dimensao(
+                        variavel_demo
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Total:Q",
+                    title="Escolas",
+                    format=",",
+                ),
+            ],
+        )
+    )
+
+
+    texto_n = (
+        alt.Chart(
+            totais_demo
+        )
+        .mark_text(
+            align="left",
+            dx=6,
+            fontSize=10,
+            fontWeight="bold",
+        )
+        .encode(
+
+            y=alt.Y(
+                "Grupo:N",
+                sort=ordem_barras,
+            ),
+
+            x="Total:Q",
+
+            text=alt.Text(
+                "Total:Q",
+                format=",",
             ),
         )
     )
 
 
-    with col_visual:
-
-        st.altair_chart(
-            alt.hconcat(
-                graf_pct.properties(
-                    width=520
-                ),
-                graf_n.properties(
-                    width=180
-                ),
+    graf_n = (
+        barras_n
+        +
+        texto_n
+    ).properties(
+        width=210,
+        height=max(
+            260,
+            len(
+                ordem_barras
             )
-            .resolve_scale(
-                y="shared"
-            ),
-            width="stretch",
+            * 45,
+        ),
+        title=alt.TitleParams(
+            text="Número de escolas",
+            anchor="middle",
+            fontSize=16,
+            fontWeight="bold",
+        ),
+    )
+
+
+    st.altair_chart(
+        alt.hconcat(
+            graf_pct,
+            graf_n,
+            spacing=20,
         )
+        .resolve_scale(
+            y="shared"
+        ),
+        width="stretch",
+    )
 
 
     st.stop()
@@ -5336,14 +5583,25 @@ st.caption(
 
 
 # ============================================================
-# CONTROLES SUPERIORES
+# SAME SCHOOLS ACIMA
+# ============================================================
+
+same_schools = st.toggle(
+    "SAME SCHOOLS",
+    value=False,
+    key="same_schools_principal",
+)
+
+
+# ============================================================
+# INDICADOR → VARIÁVEL → ORDENAÇÃO
 # ============================================================
 
 c1, c2, c3 = st.columns(
     [
-        2,
-        1,
-        1,
+        1.5,
+        1.5,
+        1.0,
     ]
 )
 
@@ -5359,10 +5617,30 @@ with c1:
             "N",
             "Rendimento",
         ],
+        key="indicador_principal",
     )
 
 
 with c2:
+
+    if "eixo_x" not in st.session_state:
+
+        st.session_state[
+            "eixo_x"
+        ] = "Tipo de Escola"
+
+
+    st.selectbox(
+        "Variável",
+        options=list(
+            EIXOS_DISPONIVEIS.keys()
+        ),
+        format_func=rotulo_dimensao,
+        key="eixo_x",
+    )
+
+
+with c3:
 
     ordenacao = st.selectbox(
         "Ordenação",
@@ -5370,46 +5648,31 @@ with c2:
             "Número absoluto",
             "Delta",
         ],
+        key="ordenacao_principal",
     )
 
 
-with c3:
-
-    same_schools = st.toggle(
-        "SAME SCHOOLS",
-        value=False,
-    )
-
-
-# ============================================================
-# ANOS + VARIÁVEL
-# ============================================================
-
-col_anos_area, col_variavel_area = st.columns(
-    [
-        4.4,
-        1.6,
-    ],
-    gap="medium",
+eixo_x = (
+    st.session_state[
+        "eixo_x"
+    ]
 )
 
 
-with col_anos_area:
+# ============================================================
+# ANOS
+# ============================================================
 
-    st.markdown(
-        """
-        <div style="
-            text-align:center;
-            font-size:0.78rem;
-            font-weight:600;
-            margin-bottom:0.05rem;
-        ">
-            Anos
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+_, bloco_anos, __ = st.columns(
+    [
+        1.3,
+        3.4,
+        1.3,
+    ]
+)
 
+
+with bloco_anos:
 
     cols = st.columns(5)
 
@@ -5442,32 +5705,6 @@ with col_anos_area:
                 ],
                 key=f"principal_ano_{ano}",
             )
-
-
-with col_variavel_area:
-
-    if "eixo_x" not in st.session_state:
-
-        st.session_state[
-            "eixo_x"
-        ] = "Tipo de Escola"
-
-
-    st.selectbox(
-        "Variável",
-        options=list(
-            EIXOS_DISPONIVEIS.keys()
-        ),
-        format_func=rotulo_dimensao,
-        key="eixo_x",
-    )
-
-
-eixo_x = (
-    st.session_state[
-        "eixo_x"
-    ]
-)
 
 
 anos = [
@@ -5529,7 +5766,7 @@ consolidado = (
 
 
 # ============================================================
-# REGRA INTEGRAL AGREGADO
+# INTEGRAL AGREGADO
 # ============================================================
 
 if (
@@ -5715,7 +5952,7 @@ for categoria in categorias:
 
 
 # ============================================================
-# CONSOLIDADO + CATEGORIAS
+# CONSOLIDADO + RESULTADOS
 # ============================================================
 
 dados_principal = pd.concat(
@@ -5730,6 +5967,7 @@ dados_principal = pd.concat(
 (
     plot_principal,
     labels_principal,
+    labels_anos_principal,
     ordem_linhas,
 ) = preparar_linhas_horizontais(
     dados=dados_principal,
@@ -5741,20 +5979,18 @@ dados_principal = pd.concat(
 
 
 # ============================================================
-# GRÁFICOS
+# GRÁFICO
 # ============================================================
 
 painel = criar_painel_horizontal(
     plot=plot_principal,
     labels_categorias=labels_principal,
+    labels_anos=labels_anos_principal,
     ordem_linhas=ordem_linhas,
     indicador=indicador,
     eixo_nome=eixo_x,
     ano_inicial=ano_inicial,
     ano_final=ano_final,
-    largura_categoria=135,
-    largura_esquerda=380,
-    largura_direita=215,
 )
 
 
