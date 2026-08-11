@@ -1,4 +1,5 @@
 import hmac
+import html
 import itertools
 import math
 import re
@@ -2488,6 +2489,7 @@ def criar_grafico_boxplots(
     variavel_1,
     anos,
     variavel_2=None,
+    rotulos_multilinha=False,
 ):
 
     if dados.empty:
@@ -2600,16 +2602,28 @@ def criar_grafico_boxplots(
         )
 
 
+    configuracao_eixo_x = {
+        "labelAngle": 0 if rotulos_multilinha else -25,
+        "labelFontSize": 10,
+        "titleFontSize": 12,
+        "labelLimit": 260 if rotulos_multilinha else 210,
+        "labelPadding": 8,
+    }
+
+
+    if rotulos_multilinha:
+
+        configuracao_eixo_x[
+            "labelExpr"
+        ] = "split(datum.label, '\\n')"
+
+
     eixo_x = alt.X(
         "Categoria:N",
         sort=ordem,
         title=titulo_dimensao,
         axis=alt.Axis(
-            labelAngle=-25,
-            labelFontSize=10,
-            titleFontSize=12,
-            labelLimit=210,
-            labelPadding=8,
+            **configuracao_eixo_x
         ),
     )
 
@@ -2807,6 +2821,7 @@ def criar_grafico_delta_boxplots(
     ano_inicial,
     ano_final,
     variavel_2=None,
+    rotulos_multilinha=False,
 ):
 
     if dados.empty:
@@ -2906,16 +2921,28 @@ def criar_grafico_delta_boxplots(
         )
 
 
+    configuracao_eixo_x = {
+        "labelAngle": 0 if rotulos_multilinha else -25,
+        "labelFontSize": 10,
+        "titleFontSize": 12,
+        "labelLimit": 260 if rotulos_multilinha else 210,
+        "labelPadding": 8,
+    }
+
+
+    if rotulos_multilinha:
+
+        configuracao_eixo_x[
+            "labelExpr"
+        ] = "split(datum.label, '\\n')"
+
+
     eixo_x = alt.X(
         "Categoria:N",
         sort=ordem,
         title=titulo_dimensao,
         axis=alt.Axis(
-            labelAngle=-25,
-            labelFontSize=10,
-            titleFontSize=12,
-            labelLimit=210,
-            labelPadding=8,
+            **configuracao_eixo_x
         ),
     )
 
@@ -4256,16 +4283,56 @@ def formatar_p_valor(
     )
 
 
+def descricao_teste_media(
+    teste,
+):
+
+    descricoes = {
+        "t de Welch bilateral": (
+            "Teste t bilateral de Welch para comparar as médias de dois "
+            "grupos independentes sem pressupor variâncias iguais. É usado "
+            "quando ambos os grupos têm pelo menos 30 observações."
+        ),
+        "Permutação bilateral da diferença de médias": (
+            "Teste bilateral de permutação da diferença de médias. É usado "
+            "quando pelo menos um dos grupos tem menos de 30 observações."
+        ),
+        "Amostra insuficiente": (
+            "Não há observações suficientes nos dois grupos para calcular "
+            "um teste de diferença de médias."
+        ),
+    }
+
+
+    return descricoes.get(
+        teste,
+        "Teste estatístico usado para comparar as médias dos dois grupos.",
+    )
+
+
+def nome_curto_teste_media(
+    teste,
+):
+
+    nomes = {
+        "t de Welch bilateral": "t de Welch",
+        "Permutação bilateral da diferença de médias": "Permutação",
+        "Amostra insuficiente": "Amostra insuficiente",
+    }
+
+
+    return nomes.get(
+        teste,
+        teste,
+    )
+
+
 def exibir_p_valores_agregados(
     resultados,
 ):
 
     st.markdown(
         "##### Diferença de médias"
-    )
-
-    st.caption(
-        "Agregado 1 × Agregado 2"
     )
 
 
@@ -4278,36 +4345,158 @@ def exibir_p_valores_agregados(
         return
 
 
+    linhas_html = []
+
+
     for resultado in resultados:
 
-        st.markdown(
-            f"**{resultado['rotulo']}**"
-        )
+        p_valor = resultado[
+            "p_valor"
+        ]
 
-        st.markdown(
-            f"<div style='font-size:1.05rem; font-weight:700; "
-            f"margin-top:-0.20rem; margin-bottom:0.05rem;'>"
-            f"p = {formatar_p_valor(resultado['p_valor'])}"
-            f"</div>",
-            unsafe_allow_html=True,
-        )
-
-        st.caption(
-            f"N: {resultado['n_1']} × {resultado['n_2']} · "
-            f"{resultado['teste']}"
+        tem_relevancia = (
+            pd.notna(
+                p_valor
+            )
+            and
+            float(
+                p_valor
+            ) < 0.05
         )
 
 
-    st.caption(
-        "Regra do teste: t de Welch bilateral quando ambos os grupos têm "
-        "N ≥ 30; com pelo menos um grupo menor que 30, teste bilateral de "
-        "permutação da diferença de médias."
+        if pd.isna(
+            p_valor
+        ):
+
+            relevancia = "—"
+            cor_p = "#374151"
+
+        elif tem_relevancia:
+
+            relevancia = "Sim"
+            cor_p = "#2E7D32"
+
+        else:
+
+            relevancia = "Não"
+            cor_p = "#374151"
+
+
+        teste = resultado[
+            "teste"
+        ]
+
+        nome_teste = html.escape(
+            nome_curto_teste_media(
+                teste
+            )
+        )
+
+        explicacao_teste = html.escape(
+            descricao_teste_media(
+                teste
+            ),
+            quote=True,
+        )
+
+        rotulo = html.escape(
+            str(
+                resultado.get(
+                    "rotulo",
+                    "",
+                )
+            )
+        )
+
+        p_formatado = html.escape(
+            formatar_p_valor(
+                p_valor
+            )
+        )
+
+        n_considerado = (
+            f"{int(resultado['n_1'])} × "
+            f"{int(resultado['n_2'])}"
+        )
+
+
+        linhas_html.append(
+            "<tr>"
+            "<td>"
+            f"<span style='font-weight:700;color:{cor_p};'>"
+            f"{p_formatado}</span>"
+            f"<div style='font-size:0.68rem;color:#6B7280;"
+            f"margin-top:2px;'>{rotulo}</div>"
+            "</td>"
+            f"<td>{relevancia}</td>"
+            "<td>"
+            f"<span title='{explicacao_teste}' "
+            "style='cursor:help;text-decoration:underline dotted;"
+            "text-underline-offset:3px;'>"
+            f"{nome_teste}</span>"
+            "</td>"
+            f"<td>{n_considerado}</td>"
+            "</tr>"
+        )
+
+
+    tabela_html = (
+        "<div style='width:100%;overflow-x:auto;margin-top:0.25rem;'>"
+        "<table style='width:100%;border-collapse:collapse;"
+        "font-size:0.76rem;text-align:center;'>"
+        "<thead><tr>"
+        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "p-valor</th>"
+        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "Têm relevância</th>"
+        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "Teste aplicado</th>"
+        "<th style='padding:6px 5px;border-bottom:1px solid #D1D5DB;'>"
+        "N considerado</th>"
+        "</tr></thead>"
+        "<tbody>"
+        + "".join(
+            linhas_html
+        )
+        + "</tbody></table></div>"
+    )
+
+
+    st.markdown(
+        tabela_html,
+        unsafe_allow_html=True,
+    )
+
+
+def _rotulo_composicao_agregado(
+    categorias,
+    n,
+):
+
+    partes = [
+        str(
+            categoria
+        )
+        for categoria
+        in categorias
+    ]
+
+    partes.append(
+        f"({int(n)})"
+    )
+
+
+    return "\n".join(
+        partes
     )
 
 
 def rotulos_n_agregados_valores(
     dados,
     ano_referencia,
+    categorias_grupo_1,
+    categorias_grupo_2,
 ):
 
     contagens = (
@@ -4330,19 +4519,27 @@ def rotulos_n_agregados_valores(
 
 
     return {
-        grupo: (
-            f"{grupo} ({int(contagens.get(grupo, 0))})"
-        )
-        for grupo
-        in [
-            "Agregado 1",
-            "Agregado 2",
-        ]
+        "Agregado 1": _rotulo_composicao_agregado(
+            categorias_grupo_1,
+            contagens.get(
+                "Agregado 1",
+                0,
+            ),
+        ),
+        "Agregado 2": _rotulo_composicao_agregado(
+            categorias_grupo_2,
+            contagens.get(
+                "Agregado 2",
+                0,
+            ),
+        ),
     }
 
 
 def rotulos_n_agregados_delta(
     dados_delta,
+    categorias_grupo_1,
+    categorias_grupo_2,
 ):
 
     contagens = (
@@ -4358,14 +4555,20 @@ def rotulos_n_agregados_delta(
 
 
     return {
-        grupo: (
-            f"{grupo} ({int(contagens.get(grupo, 0))})"
-        )
-        for grupo
-        in [
-            "Agregado 1",
-            "Agregado 2",
-        ]
+        "Agregado 1": _rotulo_composicao_agregado(
+            categorias_grupo_1,
+            contagens.get(
+                "Agregado 1",
+                0,
+            ),
+        ),
+        "Agregado 2": _rotulo_composicao_agregado(
+            categorias_grupo_2,
+            contagens.get(
+                "Agregado 2",
+                0,
+            ),
+        ),
     }
 
 
@@ -7766,6 +7969,8 @@ if pagina == "DISTRIBUIÇÕES":
             mapa_rotulos_agregado = rotulos_n_agregados_valores(
                 dados_agregado,
                 ano_final_agregado,
+                categorias_grupo_1,
+                categorias_grupo_2,
             )
 
 
@@ -7789,8 +7994,8 @@ if pagina == "DISTRIBUIÇÕES":
 
             col_grafico_agregado, col_p_agregado = st.columns(
                 [
-                    4.7,
-                    1.3,
+                    4.0,
+                    2.0,
                 ],
                 gap="medium",
             )
@@ -7805,6 +8010,7 @@ if pagina == "DISTRIBUIÇÕES":
                     variavel_1=variavel_agregado,
                     variavel_2=None,
                     anos=anos_agregado,
+                    rotulos_multilinha=True,
                 )
 
 
@@ -7816,8 +8022,8 @@ if pagina == "DISTRIBUIÇÕES":
                             f"{rotulo_dimensao(variavel_agregado)}"
                         ),
                         subtitle=(
-                            "Agregado 1 e Agregado 2 refletem as combinações "
-                            "selecionadas acima. O N entre parênteses no eixo "
+                            "O eixo mostra diretamente as categorias que compõem "
+                            "cada agregado, uma por linha. O N entre parênteses "
                             f"refere-se a {ano_final_agregado}. O losango e o "
                             "rótulo indicam a média de cada distribuição."
                         ),
@@ -7880,7 +8086,9 @@ if pagina == "DISTRIBUIÇÕES":
         else:
 
             mapa_rotulos_delta_agregado = rotulos_n_agregados_delta(
-                dados_delta_agregado
+                dados_delta_agregado,
+                categorias_grupo_1,
+                categorias_grupo_2,
             )
 
 
@@ -7903,8 +8111,8 @@ if pagina == "DISTRIBUIÇÕES":
 
             col_grafico_delta_ag, col_p_delta_ag = st.columns(
                 [
-                    4.7,
-                    1.3,
+                    4.0,
+                    2.0,
                 ],
                 gap="medium",
             )
@@ -7920,6 +8128,7 @@ if pagina == "DISTRIBUIÇÕES":
                     variavel_2=None,
                     ano_inicial=ano_inicial_agregado,
                     ano_final=ano_final_agregado,
+                    rotulos_multilinha=True,
                 )
 
 
@@ -7932,10 +8141,10 @@ if pagina == "DISTRIBUIÇÕES":
                             f"{ano_final_agregado} − {ano_inicial_agregado}"
                         ),
                         subtitle=(
-                            "Cada delta é calculado por escola. O N entre "
-                            "parênteses é o número de escolas com delta válido. "
-                            "Agregado 1 aparece sempre antes de Agregado 2; "
-                            "o losango e o rótulo indicam a média dos deltas."
+                            "Cada delta é calculado por escola. O eixo mostra "
+                            "diretamente as categorias de cada agregado, uma por "
+                            "linha; o N entre parênteses é o número de escolas com "
+                            "delta válido. O losango e o rótulo indicam a média."
                         ),
                         anchor="middle",
                         fontSize=16,
