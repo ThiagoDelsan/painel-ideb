@@ -70,6 +70,12 @@ st.markdown(
             color: #642329 !important;
         }
 
+        .sidebar-filter-divider {
+            width: 100%;
+            border-top: 1px solid rgba(120, 125, 135, 0.26);
+            margin: 0.42rem 0 0.34rem 0;
+        }
+
         div[data-testid="stButton"] button p {
             font-size: 0.72rem !important;
             white-space: nowrap !important;
@@ -239,7 +245,10 @@ CORES_GRUPOS_DISTRIBUICOES = [
 # RÓTULOS
 # ============================================================
 
-ROTULOS_DIMENSOES = {}
+ROTULOS_DIMENSOES = {
+    "Carga horária": "Carga Horária",
+    "Colégio com Seleção": "Colégio com seleção",
+}
 
 
 def rotulo_dimensao(nome):
@@ -2771,7 +2780,7 @@ def criar_grafico_boxplots(
         sort=ordem_eixo,
         title=titulo_dimensao,
         axis=alt.Axis(
-            labelAngle=-90,
+            labelAngle=0,
             labelFontSize=10,
             titleFontSize=12,
             labelLimit=360,
@@ -3147,7 +3156,7 @@ def criar_grafico_delta_boxplots(
         sort=ordem_eixo,
         title=titulo_dimensao,
         axis=alt.Axis(
-            labelAngle=-90,
+            labelAngle=0,
             labelFontSize=10,
             titleFontSize=12,
             labelLimit=360,
@@ -3522,7 +3531,7 @@ def criar_grafico_barras_medias_agregado(
             variavel
         ),
         axis=alt.Axis(
-            labelAngle=-90,
+            labelAngle=0,
             labelFontSize=10,
             titleFontSize=12,
             labelLimit=360,
@@ -3795,7 +3804,7 @@ def criar_grafico_barras_medias_delta_agregado(
             variavel
         ),
         axis=alt.Axis(
-            labelAngle=-90,
+            labelAngle=0,
             labelFontSize=10,
             titleFontSize=12,
             labelLimit=360,
@@ -8672,7 +8681,7 @@ st.sidebar.markdown(
 
 
 st.sidebar.button(
-    "Limpar todos os filtros",
+    "Limpar filtros",
     width="stretch",
     on_click=limpar_todos_os_filtros,
     key="limpar_todos_filtros",
@@ -8682,21 +8691,17 @@ st.sidebar.button(
 filtros = {}
 
 
-nomes_filtros = [
-    "Tipo de Escola",
-    "PPI",
-    "INSE",
-    "Colégio Militar",
-    "Colégio com Seleção",
-    "Estado",
-    "Região do Brasil",
-    "1º IDEB 100% integral",
-    "Carga horária",
-    "Transição",
-]
+# Mantém os grupos visualmente separados, sem inserir títulos.
+def divisor_filtros_sidebar():
+
+    st.sidebar.markdown(
+        '<div class="sidebar-filter-divider"></div>',
+        unsafe_allow_html=True,
+    )
 
 
-for nome in nomes_filtros:
+# Renderização padronizada dos filtros categóricos.
+def renderizar_filtro_categorico(nome):
 
     opcoes = obter_opcoes_filtro(
         df_completo,
@@ -8728,46 +8733,68 @@ for nome in nomes_filtros:
 
 
 # ============================================================
-# INTEGRAL AGREGADO
+# BLOCO 1 — TIPO DE ESCOLA
 # ============================================================
 
-filtro_tipo_escola = (
-    filtros.get(
-        "Tipo de Escola",
-        [],
-    )
-)
-
-
-mostrar_integral_agregado = (
-    len(
-        filtro_tipo_escola
-    )
-    == 0
-    or
-    CATEGORIA_INTEGRAL_AGREGADA
-    in filtro_tipo_escola
+renderizar_filtro_categorico(
+    "Tipo de Escola"
 )
 
 
 # ============================================================
-# PARTICIPAÇÃO IDEB
+# BLOCO 2 — LOCALIZAÇÃO
 # ============================================================
 
-st.sidebar.markdown(
-    """
-    <div style="
-        font-size:0.72rem;
-        font-weight:600;
-        margin-top:0.50rem;
-        margin-bottom:0.10rem;
-    ">
-        Participação no IDEB
-    </div>
-    """,
-    unsafe_allow_html=True,
+divisor_filtros_sidebar()
+
+renderizar_filtro_categorico(
+    "Região do Brasil"
 )
 
+renderizar_filtro_categorico(
+    "Estado"
+)
+
+
+# ============================================================
+# BLOCO 3 — TRAJETÓRIA / INTEGRAL
+# ============================================================
+
+divisor_filtros_sidebar()
+
+renderizar_filtro_categorico(
+    "Transição"
+)
+
+renderizar_filtro_categorico(
+    "1º IDEB 100% integral"
+)
+
+renderizar_filtro_categorico(
+    "Carga horária"
+)
+
+
+# ============================================================
+# BLOCO 4 — PERFIL
+# ============================================================
+
+divisor_filtros_sidebar()
+
+renderizar_filtro_categorico(
+    "PPI"
+)
+
+renderizar_filtro_categorico(
+    "INSE"
+)
+
+
+# ============================================================
+# BLOCO 5 — IDEB POR EDIÇÃO
+# ============================================================
+
+divisor_filtros_sidebar()
 
 filtro_ideb = {}
 
@@ -8796,23 +8823,10 @@ for ano in ANOS_PAINEL:
 
 
 # ============================================================
-# OFERTA
+# BLOCO 6 — OFERTA
 # ============================================================
 
-st.sidebar.markdown(
-    """
-    <div style="
-        font-size:0.72rem;
-        font-weight:600;
-        margin-top:0.50rem;
-        margin-bottom:0.10rem;
-    ">
-        Oferta
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
+divisor_filtros_sidebar()
 
 filtro_proped = (
     st.sidebar.multiselect(
@@ -8837,6 +8851,92 @@ filtro_ept = (
         placeholder="Todos",
         key="filtro_ept",
     )
+)
+
+
+# ============================================================
+# BLOCO 7 — CARACTERÍSTICAS DA ESCOLA
+# ============================================================
+
+divisor_filtros_sidebar()
+
+renderizar_filtro_categorico(
+    "Colégio Militar"
+)
+
+renderizar_filtro_categorico(
+    "Colégio com Seleção"
+)
+
+
+# ============================================================
+# FILTROS ADICIONAIS
+#
+# Caso novos filtros categóricos sejam adicionados futuramente à
+# lista abaixo e não tenham sido organizados nos blocos anteriores,
+# eles aparecem ao final, conforme a regra do painel.
+# ============================================================
+
+filtros_categoricos_existentes = [
+    "Tipo de Escola",
+    "PPI",
+    "INSE",
+    "Colégio Militar",
+    "Colégio com Seleção",
+    "Estado",
+    "Região do Brasil",
+    "1º IDEB 100% integral",
+    "Carga horária",
+    "Transição",
+]
+
+
+filtros_ja_renderizados = set(
+    filtros.keys()
+)
+
+
+filtros_adicionais = [
+    nome
+    for nome
+    in filtros_categoricos_existentes
+    if nome
+    not in filtros_ja_renderizados
+]
+
+
+if filtros_adicionais:
+
+    divisor_filtros_sidebar()
+
+
+    for nome in filtros_adicionais:
+
+        renderizar_filtro_categorico(
+            nome
+        )
+
+
+# ============================================================
+# INTEGRAL AGREGADO
+# ============================================================
+
+filtro_tipo_escola = (
+    filtros.get(
+        "Tipo de Escola",
+        [],
+    )
+)
+
+
+mostrar_integral_agregado = (
+    len(
+        filtro_tipo_escola
+    )
+    == 0
+    or
+    CATEGORIA_INTEGRAL_AGREGADA
+    in filtro_tipo_escola
 )
 
 
@@ -12006,6 +12106,192 @@ if pagina == "DEMOGRAFIA":
 
 
     # ========================================================
+    # ORDENAÇÃO INTERATIVA POR SEÇÃO DA BARRA
+    #
+    # O gráfico registra a categoria de composição clicada. No
+    # rerun seguinte, os grupos (exceto Consolidado) são ordenados
+    # do maior para o menor percentual nessa categoria.
+    # ========================================================
+
+    def extrair_valor_selecao_demo(objeto, campo):
+
+        if objeto is None:
+
+            return None
+
+
+        if hasattr(
+            objeto,
+            "items",
+        ):
+
+            try:
+
+                itens = list(
+                    objeto.items()
+                )
+
+            except Exception:
+
+                itens = []
+
+
+            for chave, valor in itens:
+
+                if str(
+                    chave
+                ) == campo:
+
+                    if isinstance(
+                        valor,
+                        (list, tuple),
+                    ):
+
+                        return (
+                            valor[0]
+                            if valor
+                            else None
+                        )
+
+
+                    return valor
+
+
+            for _, valor in itens:
+
+                encontrado = extrair_valor_selecao_demo(
+                    valor,
+                    campo,
+                )
+
+
+                if encontrado is not None:
+
+                    return encontrado
+
+
+        if isinstance(
+            objeto,
+            (list, tuple),
+        ):
+
+            for item in objeto:
+
+                encontrado = extrair_valor_selecao_demo(
+                    item,
+                    campo,
+                )
+
+
+                if encontrado is not None:
+
+                    return encontrado
+
+
+        return None
+
+
+    composicao_selecionada_demo = None
+
+
+    estado_grafico_demo = st.session_state.get(
+        "grafico_demografia_interativo"
+    )
+
+
+    if estado_grafico_demo is not None:
+
+        try:
+
+            selecoes_demo = (
+                estado_grafico_demo.selection
+            )
+
+        except Exception:
+
+            selecoes_demo = (
+                estado_grafico_demo.get(
+                    "selection",
+                    {},
+                )
+                if hasattr(
+                    estado_grafico_demo,
+                    "get",
+                )
+                else {}
+            )
+
+
+        selecao_demo_anterior = (
+            selecoes_demo.get(
+                "selecionar_composicao_demo",
+                None,
+            )
+            if hasattr(
+                selecoes_demo,
+                "get",
+            )
+            else None
+        )
+
+
+        composicao_selecionada_demo = (
+            extrair_valor_selecao_demo(
+                selecao_demo_anterior,
+                "Composição",
+            )
+        )
+
+
+    if (
+        composicao_selecionada_demo
+        in ordem_comp
+    ):
+
+        percentuais_para_ordem = (
+            resumo[
+                resumo[
+                    "Composição"
+                ]
+                == composicao_selecionada_demo
+            ]
+            .groupby(
+                "Grupo"
+            )[
+                "Percentual"
+            ]
+            .sum()
+            .to_dict()
+        )
+
+
+        ordem_original_demo = {
+            grupo: indice
+            for indice, grupo
+            in enumerate(
+                ordem_grupos
+            )
+        }
+
+
+        ordem_grupos = sorted(
+            ordem_grupos,
+            key=lambda grupo: (
+                -float(
+                    percentuais_para_ordem.get(
+                        grupo,
+                        0,
+                    )
+                ),
+                ordem_original_demo.get(
+                    grupo,
+                    9999,
+                ),
+            ),
+        )
+
+
+    # ========================================================
     # CONSOLIDADO
     # ========================================================
 
@@ -12153,6 +12439,17 @@ if pagina == "DEMOGRAFIA":
     # ========================================================
     # PERCENTUAIS
     # ========================================================
+
+    selecao_composicao_demo = alt.selection_point(
+        name="selecionar_composicao_demo",
+        fields=[
+            "Composição"
+        ],
+        on="click",
+        clear="dblclick",
+        toggle=False,
+    )
+
 
     barras_pct = (
         alt.Chart(
@@ -12337,6 +12634,8 @@ if pagina == "DEMOGRAFIA":
         barras_pct
         +
         texto_pct
+    ).add_params(
+        selecao_composicao_demo
     ).properties(
         width=520,
         height=altura_demo,
@@ -12496,6 +12795,13 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    st.caption(
+        "Clique em uma seção colorida do gráfico de percentuais para "
+        "ordenar as categorias por essa composição, da maior para a menor. "
+        "Dê um duplo clique para limpar a seleção."
+    )
+
+
     st.altair_chart(
         alt.hconcat(
             graf_pct,
@@ -12509,6 +12815,11 @@ if pagina == "DEMOGRAFIA":
             stroke=None
         ),
         width="stretch",
+        key="grafico_demografia_interativo",
+        on_select="rerun",
+        selection_mode=[
+            "selecionar_composicao_demo"
+        ],
     )
 
 
