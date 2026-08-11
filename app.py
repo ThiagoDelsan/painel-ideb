@@ -1,4 +1,6 @@
 import hmac
+import itertools
+import math
 import re
 import textwrap
 
@@ -3725,6 +3727,690 @@ def preparar_dados_delta_boxplot_agregado(
 
 
 # ============================================================
+# DISTRIBUIÇÕES — TESTES ENTRE AGREGADOS
+# ============================================================
+
+def _limpar_amostra_numerica(valores):
+
+    serie = pd.to_numeric(
+        pd.Series(valores),
+        errors="coerce",
+    ).dropna()
+
+    return serie.to_numpy(
+        dtype=float,
+    )
+
+
+def _p_valor_permutacao_media(
+    amostra_1,
+    amostra_2,
+    max_exatas=20000,
+    n_permutacoes=10000,
+):
+
+    amostra_1 = _limpar_amostra_numerica(
+        amostra_1
+    )
+
+    amostra_2 = _limpar_amostra_numerica(
+        amostra_2
+    )
+
+    n_1 = len(
+        amostra_1
+    )
+
+    n_2 = len(
+        amostra_2
+    )
+
+
+    if n_1 < 2 or n_2 < 2:
+
+        return np.nan
+
+
+    combinado = np.concatenate(
+        [
+            amostra_1,
+            amostra_2,
+        ]
+    )
+
+
+    diferenca_observada = abs(
+        float(
+            np.mean(
+                amostra_1
+            )
+            -
+            np.mean(
+                amostra_2
+            )
+        )
+    )
+
+
+    n_total = n_1 + n_2
+
+
+    try:
+
+        total_combinacoes = math.comb(
+            n_total,
+            n_1,
+        )
+
+    except Exception:
+
+        total_combinacoes = max_exatas + 1
+
+
+    tolerancia = 1e-12
+
+
+    if total_combinacoes <= max_exatas:
+
+        soma_total = float(
+            combinado.sum()
+        )
+
+        extremos = 0
+        total = 0
+
+
+        for indices_grupo_1 in itertools.combinations(
+            range(
+                n_total
+            ),
+            n_1,
+        ):
+
+            soma_1 = float(
+                combinado[
+                    list(
+                        indices_grupo_1
+                    )
+                ].sum()
+            )
+
+            media_1 = soma_1 / n_1
+            media_2 = (
+                soma_total
+                - soma_1
+            ) / n_2
+
+            diferenca = abs(
+                media_1
+                - media_2
+            )
+
+
+            if (
+                diferenca
+                >= diferenca_observada
+                - tolerancia
+            ):
+
+                extremos += 1
+
+
+            total += 1
+
+
+        if total == 0:
+
+            return np.nan
+
+
+        return extremos / total
+
+
+    rng = np.random.default_rng(
+        20260811
+    )
+
+    extremos = 0
+
+
+    for _ in range(
+        n_permutacoes
+    ):
+
+        permutado = rng.permutation(
+            combinado
+        )
+
+        diferenca = abs(
+            float(
+                np.mean(
+                    permutado[
+                        :n_1
+                    ]
+                )
+                -
+                np.mean(
+                    permutado[
+                        n_1:
+                    ]
+                )
+            )
+        )
+
+
+        if (
+            diferenca
+            >= diferenca_observada
+            - tolerancia
+        ):
+
+            extremos += 1
+
+
+    return (
+        extremos
+        + 1
+    ) / (
+        n_permutacoes
+        + 1
+    )
+
+
+def _p_valor_welch(
+    amostra_1,
+    amostra_2,
+):
+
+    amostra_1 = _limpar_amostra_numerica(
+        amostra_1
+    )
+
+    amostra_2 = _limpar_amostra_numerica(
+        amostra_2
+    )
+
+    n_1 = len(
+        amostra_1
+    )
+
+    n_2 = len(
+        amostra_2
+    )
+
+
+    if n_1 < 2 or n_2 < 2:
+
+        return np.nan
+
+
+    media_1 = float(
+        np.mean(
+            amostra_1
+        )
+    )
+
+    media_2 = float(
+        np.mean(
+            amostra_2
+        )
+    )
+
+    variancia_1 = float(
+        np.var(
+            amostra_1,
+            ddof=1,
+        )
+    )
+
+    variancia_2 = float(
+        np.var(
+            amostra_2,
+            ddof=1,
+        )
+    )
+
+
+    parcela_1 = variancia_1 / n_1
+    parcela_2 = variancia_2 / n_2
+
+    erro_quadrado = (
+        parcela_1
+        + parcela_2
+    )
+
+
+    if erro_quadrado <= 0:
+
+        return (
+            1.0
+            if math.isclose(
+                media_1,
+                media_2,
+                rel_tol=1e-12,
+                abs_tol=1e-12,
+            )
+            else 0.0
+        )
+
+
+    estatistica_t = (
+        media_1
+        - media_2
+    ) / math.sqrt(
+        erro_quadrado
+    )
+
+
+    denominador_gl = (
+        (
+            parcela_1 ** 2
+        )
+        /
+        (
+            n_1
+            - 1
+        )
+        +
+        (
+            parcela_2 ** 2
+        )
+        /
+        (
+            n_2
+            - 1
+        )
+    )
+
+
+    if denominador_gl <= 0:
+
+        graus_liberdade = np.inf
+
+    else:
+
+        graus_liberdade = (
+            erro_quadrado ** 2
+        ) / denominador_gl
+
+
+    try:
+
+        from scipy.stats import t as distribuicao_t
+
+        return float(
+            2
+            * distribuicao_t.sf(
+                abs(
+                    estatistica_t
+                ),
+                graus_liberdade,
+            )
+        )
+
+    except Exception:
+
+        # Fallback sem SciPy. Para amostras grandes, a distribuição
+        # t converge rapidamente para a normal padrão.
+        return float(
+            math.erfc(
+                abs(
+                    estatistica_t
+                )
+                /
+                math.sqrt(
+                    2
+                )
+            )
+        )
+
+
+def calcular_teste_media_agregados(
+    amostra_1,
+    amostra_2,
+    limiar_amostra_pequena=30,
+):
+
+    amostra_1 = _limpar_amostra_numerica(
+        amostra_1
+    )
+
+    amostra_2 = _limpar_amostra_numerica(
+        amostra_2
+    )
+
+    n_1 = len(
+        amostra_1
+    )
+
+    n_2 = len(
+        amostra_2
+    )
+
+
+    if n_1 < 2 or n_2 < 2:
+
+        return {
+            "p_valor": np.nan,
+            "teste": "Amostra insuficiente",
+            "n_1": n_1,
+            "n_2": n_2,
+        }
+
+
+    if min(
+        n_1,
+        n_2,
+    ) < limiar_amostra_pequena:
+
+        p_valor = _p_valor_permutacao_media(
+            amostra_1,
+            amostra_2,
+        )
+
+        teste = (
+            "Permutação bilateral da diferença de médias"
+        )
+
+    else:
+
+        p_valor = _p_valor_welch(
+            amostra_1,
+            amostra_2,
+        )
+
+        teste = "t de Welch bilateral"
+
+
+    return {
+        "p_valor": p_valor,
+        "teste": teste,
+        "n_1": n_1,
+        "n_2": n_2,
+    }
+
+
+def calcular_p_valores_agregados_por_ano(
+    dados,
+    anos,
+):
+
+    resultados = []
+
+
+    for ano in sorted(
+        anos
+    ):
+
+        recorte_ano = (
+            dados[
+                dados[
+                    "Ano"
+                ]
+                == str(
+                    ano
+                )
+            ]
+        )
+
+
+        teste = calcular_teste_media_agregados(
+            recorte_ano[
+                recorte_ano[
+                    "Categoria"
+                ]
+                == "Agregado 1"
+            ][
+                "Valor"
+            ],
+            recorte_ano[
+                recorte_ano[
+                    "Categoria"
+                ]
+                == "Agregado 2"
+            ][
+                "Valor"
+            ],
+        )
+
+
+        teste[
+            "rotulo"
+        ] = str(
+            ano
+        )
+
+        resultados.append(
+            teste
+        )
+
+
+    return resultados
+
+
+def calcular_p_valor_agregado_delta(
+    dados_delta,
+    ano_inicial,
+    ano_final,
+):
+
+    teste = calcular_teste_media_agregados(
+        dados_delta[
+            dados_delta[
+                "Categoria"
+            ]
+            == "Agregado 1"
+        ][
+            "Delta"
+        ],
+        dados_delta[
+            dados_delta[
+                "Categoria"
+            ]
+            == "Agregado 2"
+        ][
+            "Delta"
+        ],
+    )
+
+
+    teste[
+        "rotulo"
+    ] = (
+        f"{ano_final} − {ano_inicial}"
+    )
+
+
+    return [
+        teste
+    ]
+
+
+def formatar_p_valor(
+    valor,
+):
+
+    if pd.isna(
+        valor
+    ):
+
+        return "—"
+
+
+    valor = float(
+        valor
+    )
+
+
+    if valor < 0.001:
+
+        return "< 0,001"
+
+
+    return (
+        f"{valor:.3f}"
+        .replace(
+            ".",
+            ",",
+        )
+    )
+
+
+def exibir_p_valores_agregados(
+    resultados,
+):
+
+    st.markdown(
+        "##### Diferença de médias"
+    )
+
+    st.caption(
+        "Agregado 1 × Agregado 2"
+    )
+
+
+    if not resultados:
+
+        st.info(
+            "Sem comparação disponível."
+        )
+
+        return
+
+
+    for resultado in resultados:
+
+        st.markdown(
+            f"**{resultado['rotulo']}**"
+        )
+
+        st.markdown(
+            f"<div style='font-size:1.05rem; font-weight:700; "
+            f"margin-top:-0.20rem; margin-bottom:0.05rem;'>"
+            f"p = {formatar_p_valor(resultado['p_valor'])}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.caption(
+            f"N: {resultado['n_1']} × {resultado['n_2']} · "
+            f"{resultado['teste']}"
+        )
+
+
+    st.caption(
+        "Regra do teste: t de Welch bilateral quando ambos os grupos têm "
+        "N ≥ 30; com pelo menos um grupo menor que 30, teste bilateral de "
+        "permutação da diferença de médias."
+    )
+
+
+def rotulos_n_agregados_valores(
+    dados,
+    ano_referencia,
+):
+
+    contagens = (
+        dados[
+            dados[
+                "Ano"
+            ]
+            == str(
+                ano_referencia
+            )
+        ]
+        .groupby(
+            "Categoria"
+        )[
+            "Cód. INEP"
+        ]
+        .nunique()
+        .to_dict()
+    )
+
+
+    return {
+        grupo: (
+            f"{grupo} ({int(contagens.get(grupo, 0))})"
+        )
+        for grupo
+        in [
+            "Agregado 1",
+            "Agregado 2",
+        ]
+    }
+
+
+def rotulos_n_agregados_delta(
+    dados_delta,
+):
+
+    contagens = (
+        dados_delta
+        .groupby(
+            "Categoria"
+        )[
+            "Cód. INEP"
+        ]
+        .nunique()
+        .to_dict()
+    )
+
+
+    return {
+        grupo: (
+            f"{grupo} ({int(contagens.get(grupo, 0))})"
+        )
+        for grupo
+        in [
+            "Agregado 1",
+            "Agregado 2",
+        ]
+    }
+
+
+def aplicar_rotulos_n_agregados(
+    dados,
+    ordem,
+    mapa_rotulos,
+):
+
+    plot = dados.copy()
+
+    plot[
+        "Categoria"
+    ] = (
+        plot[
+            "Categoria"
+        ]
+        .map(
+            mapa_rotulos
+        )
+        .fillna(
+            plot[
+                "Categoria"
+            ]
+        )
+    )
+
+
+    ordem_plot = [
+        mapa_rotulos.get(
+            grupo,
+            grupo,
+        )
+        for grupo
+        in ordem
+    ]
+
+
+    return (
+        plot,
+        ordem_plot,
+    )
+
+
+# ============================================================
 # MALHA Y
 # ============================================================
 
@@ -6573,11 +7259,10 @@ if pagina == "DISTRIBUIÇÕES":
         )
 
 
-        ag_1, ag_2, ag_3 = st.columns(
+        ag_1, ag_2 = st.columns(
             [
-                1.15,
-                1.35,
                 1.0,
+                1.35,
             ]
         )
 
@@ -6612,18 +7297,6 @@ if pagina == "DISTRIBUIÇÕES":
                 ),
                 format_func=rotulo_dimensao,
                 key="variavel_distrib_agregado",
-            )
-
-
-        with ag_3:
-
-            ordenacao_agregado = st.selectbox(
-                "Ordenação",
-                [
-                    "Número absoluto",
-                    "Delta",
-                ],
-                key="ordenacao_distrib_agregado",
             )
 
 
@@ -7005,92 +7678,30 @@ if pagina == "DISTRIBUIÇÕES":
 
 
         # ====================================================
-        # ORDENAÇÃO DOS DOIS AGREGADOS
+        # ORDEM FIXA DOS DOIS AGREGADOS
         # ====================================================
 
-        if ordenacao_agregado == "Número absoluto":
-
-            ranking_agregado = (
-                dados_agregado[
-                    dados_agregado[
-                        "Ano"
-                    ]
-                    == str(
-                        ano_final_agregado
-                    )
-                ]
-                .groupby(
-                    "Categoria",
-                    as_index=False,
-                )
-                .agg(
-                    Valor_ordem=(
-                        "Valor",
-                        "mean",
-                    )
-                )
-                .sort_values(
-                    "Valor_ordem",
-                    ascending=False,
-                )
-            )
+        # Nesta subseção a ordem é intencionalmente fixa para que
+        # Agregado 1 apareça sempre antes de Agregado 2.
+        categorias_existentes_agregado = set(
+            dados_agregado[
+                "Categoria"
+            ]
+            .astype(str)
+            .unique()
+        ) if not dados_agregado.empty else set()
 
 
-            ordem_agregado = (
-                ranking_agregado[
-                    "Categoria"
-                ]
-                .astype(str)
-                .tolist()
-            )
-
-
-        elif (
-            ano_inicial_agregado is not None
-            and
-            not dados_delta_agregado.empty
-        ):
-
-            ranking_agregado = (
-                dados_delta_agregado
-                .groupby(
-                    "Categoria",
-                    as_index=False,
-                )
-                .agg(
-                    Valor_ordem=(
-                        "Delta",
-                        "mean",
-                    )
-                )
-                .sort_values(
-                    "Valor_ordem",
-                    ascending=False,
-                )
-            )
-
-
-            ordem_agregado = (
-                ranking_agregado[
-                    "Categoria"
-                ]
-                .astype(str)
-                .tolist()
-            )
-
-
-        else:
-
-            ordem_agregado = ordem_padrao_agregado.copy()
-
-
-        for grupo in ordem_padrao_agregado:
-
-            if grupo not in ordem_agregado:
-
-                ordem_agregado.append(
-                    grupo
-                )
+        ordem_agregado = [
+            grupo
+            for grupo
+            in [
+                "Agregado 1",
+                "Agregado 2",
+            ]
+            if grupo
+            in categorias_existentes_agregado
+        ]
 
 
         categorias_delta_agregado = set(
@@ -7105,25 +7716,13 @@ if pagina == "DISTRIBUIÇÕES":
         ordem_delta_agregado = [
             grupo
             for grupo
-            in ordem_agregado
+            in [
+                "Agregado 1",
+                "Agregado 2",
+            ]
             if grupo
             in categorias_delta_agregado
         ]
-
-
-        for grupo in ordem_padrao_delta_agregado:
-
-            if (
-                grupo
-                in categorias_delta_agregado
-                and
-                grupo
-                not in ordem_delta_agregado
-            ):
-
-                ordem_delta_agregado.append(
-                    grupo
-                )
 
 
         # ====================================================
@@ -7139,7 +7738,7 @@ if pagina == "DISTRIBUIÇÕES":
             "Cada posição do eixo representa um dos dois agregados definidos "
             "acima. Para cada ano selecionado, o boxplot usa todas as escolas "
             "que pertencem a qualquer categoria incluída naquele agregado. "
-            f"Ordenação: {ordenacao_agregado}."
+            "A ordem é fixa: Agregado 1 antes de Agregado 2."
         )
 
 
@@ -7164,40 +7763,83 @@ if pagina == "DISTRIBUIÇÕES":
 
         else:
 
-            grafico_agregado = criar_grafico_boxplots(
-                dados=dados_agregado,
-                ordem=ordem_agregado,
-                indicador=indicador_agregado,
-                variavel_1=variavel_agregado,
-                variavel_2=None,
-                anos=anos_agregado,
+            mapa_rotulos_agregado = rotulos_n_agregados_valores(
+                dados_agregado,
+                ano_final_agregado,
             )
 
 
-            grafico_agregado = grafico_agregado.properties(
-                title=alt.TitleParams(
-                    text=(
-                        f"Distribuição de {indicador_agregado} — "
-                        f"categorias agregadas de "
-                        f"{rotulo_dimensao(variavel_agregado)}"
-                    ),
-                    subtitle=(
-                        "Agregado 1 e Agregado 2 refletem as combinações "
-                        "selecionadas acima. O losango e o rótulo indicam "
-                        "a média de cada distribuição."
-                    ),
-                    anchor="middle",
-                    fontSize=16,
-                    subtitleFontSize=11,
-                    subtitlePadding=8,
+            (
+                dados_agregado_plot,
+                ordem_agregado_plot,
+            ) = aplicar_rotulos_n_agregados(
+                dados_agregado,
+                ordem_agregado,
+                mapa_rotulos_agregado,
+            )
+
+
+            testes_agregado_valores = (
+                calcular_p_valores_agregados_por_ano(
+                    dados_agregado,
+                    anos_agregado,
                 )
             )
 
 
-            st.altair_chart(
-                grafico_agregado,
-                width="stretch",
+            col_grafico_agregado, col_p_agregado = st.columns(
+                [
+                    4.7,
+                    1.3,
+                ],
+                gap="medium",
             )
+
+
+            with col_grafico_agregado:
+
+                grafico_agregado = criar_grafico_boxplots(
+                    dados=dados_agregado_plot,
+                    ordem=ordem_agregado_plot,
+                    indicador=indicador_agregado,
+                    variavel_1=variavel_agregado,
+                    variavel_2=None,
+                    anos=anos_agregado,
+                )
+
+
+                grafico_agregado = grafico_agregado.properties(
+                    title=alt.TitleParams(
+                        text=(
+                            f"Distribuição de {indicador_agregado} — "
+                            f"categorias agregadas de "
+                            f"{rotulo_dimensao(variavel_agregado)}"
+                        ),
+                        subtitle=(
+                            "Agregado 1 e Agregado 2 refletem as combinações "
+                            "selecionadas acima. O N entre parênteses no eixo "
+                            f"refere-se a {ano_final_agregado}. O losango e o "
+                            "rótulo indicam a média de cada distribuição."
+                        ),
+                        anchor="middle",
+                        fontSize=16,
+                        subtitleFontSize=11,
+                        subtitlePadding=8,
+                    )
+                )
+
+
+                st.altair_chart(
+                    grafico_agregado,
+                    width="stretch",
+                )
+
+
+            with col_p_agregado:
+
+                exibir_p_valores_agregados(
+                    testes_agregado_valores
+                )
 
 
         # ====================================================
@@ -7237,42 +7879,83 @@ if pagina == "DISTRIBUIÇÕES":
 
         else:
 
-            grafico_delta_agregado = criar_grafico_delta_boxplots(
-                dados=dados_delta_agregado,
-                ordem=ordem_delta_agregado,
-                indicador=indicador_agregado,
-                variavel_1=variavel_agregado,
-                variavel_2=None,
-                ano_inicial=ano_inicial_agregado,
-                ano_final=ano_final_agregado,
+            mapa_rotulos_delta_agregado = rotulos_n_agregados_delta(
+                dados_delta_agregado
             )
 
 
-            grafico_delta_agregado = grafico_delta_agregado.properties(
-                title=alt.TitleParams(
-                    text=(
-                        f"Distribuição dos deltas de {indicador_agregado} — "
-                        f"categorias agregadas de "
-                        f"{rotulo_dimensao(variavel_agregado)} — "
-                        f"{ano_final_agregado} − {ano_inicial_agregado}"
-                    ),
-                    subtitle=(
-                        "Cada delta é calculado por escola. Agregado 1 e "
-                        "Agregado 2 refletem as combinações selecionadas; "
-                        "o losango e o rótulo indicam a média dos deltas."
-                    ),
-                    anchor="middle",
-                    fontSize=16,
-                    subtitleFontSize=11,
-                    subtitlePadding=8,
+            (
+                dados_delta_agregado_plot,
+                ordem_delta_agregado_plot,
+            ) = aplicar_rotulos_n_agregados(
+                dados_delta_agregado,
+                ordem_delta_agregado,
+                mapa_rotulos_delta_agregado,
+            )
+
+
+            testes_agregado_delta = calcular_p_valor_agregado_delta(
+                dados_delta_agregado,
+                ano_inicial_agregado,
+                ano_final_agregado,
+            )
+
+
+            col_grafico_delta_ag, col_p_delta_ag = st.columns(
+                [
+                    4.7,
+                    1.3,
+                ],
+                gap="medium",
+            )
+
+
+            with col_grafico_delta_ag:
+
+                grafico_delta_agregado = criar_grafico_delta_boxplots(
+                    dados=dados_delta_agregado_plot,
+                    ordem=ordem_delta_agregado_plot,
+                    indicador=indicador_agregado,
+                    variavel_1=variavel_agregado,
+                    variavel_2=None,
+                    ano_inicial=ano_inicial_agregado,
+                    ano_final=ano_final_agregado,
                 )
-            )
 
 
-            st.altair_chart(
-                grafico_delta_agregado,
-                width="stretch",
-            )
+                grafico_delta_agregado = grafico_delta_agregado.properties(
+                    title=alt.TitleParams(
+                        text=(
+                            f"Distribuição dos deltas de {indicador_agregado} — "
+                            f"categorias agregadas de "
+                            f"{rotulo_dimensao(variavel_agregado)} — "
+                            f"{ano_final_agregado} − {ano_inicial_agregado}"
+                        ),
+                        subtitle=(
+                            "Cada delta é calculado por escola. O N entre "
+                            "parênteses é o número de escolas com delta válido. "
+                            "Agregado 1 aparece sempre antes de Agregado 2; "
+                            "o losango e o rótulo indicam a média dos deltas."
+                        ),
+                        anchor="middle",
+                        fontSize=16,
+                        subtitleFontSize=11,
+                        subtitlePadding=8,
+                    )
+                )
+
+
+                st.altair_chart(
+                    grafico_delta_agregado,
+                    width="stretch",
+                )
+
+
+            with col_p_delta_ag:
+
+                exibir_p_valores_agregados(
+                    testes_agregado_delta
+                )
 
 
     with tab_todos_distrib:
