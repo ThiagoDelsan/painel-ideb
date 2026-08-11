@@ -37,28 +37,32 @@ st.markdown(
     <style>
 
         .block-container {
-            padding-top: 0.70rem;
+            padding-top: 1.15rem;
             padding-bottom: 1rem;
         }
 
-        /*
-        Evita corte do título "Painel IDEB".
-        */
-        h1 {
-            margin-top: 0 !important;
-            margin-bottom: 0.20rem !important;
-            padding-top: 0.10rem !important;
-            padding-bottom: 0.18rem !important;
-            line-height: 1.18 !important;
-            overflow: visible !important;
+        /* ====================================================
+           TÍTULO PRINCIPAL
+           ==================================================== */
+
+        .panel-main-title {
+            font-size: 2.55rem;
+            font-weight: 760;
+            line-height: 1.25;
+            color: #2f313c;
+            margin-top: 0.20rem;
+            margin-bottom: 0.70rem;
+            padding-top: 0.10rem;
+            padding-bottom: 0.10rem;
+            overflow: visible;
         }
 
-        /*
-        Botões um pouco mais compactos.
-        Ajuda principalmente a navegação superior.
-        */
+        /* ====================================================
+           BOTÕES DE NAVEGAÇÃO
+           ==================================================== */
+
         div[data-testid="stButton"] button p {
-            font-size: 0.74rem !important;
+            font-size: 0.72rem !important;
             white-space: nowrap !important;
         }
 
@@ -1797,6 +1801,31 @@ def preparar_linhas_horizontais(
 
 
 # ============================================================
+# FUNÇÃO DE ESCALA Y COMPARTILHADA
+#
+# paddingInner = 0 deixa as barras dos anos coladas.
+# Os espaços entre categorias continuam sendo definidos pelas
+# linhas fictícias de separação.
+# ============================================================
+
+def escala_y(
+    ordem_linhas,
+    eixo=None,
+):
+
+    return alt.Y(
+        "RowID:N",
+        title=None,
+        sort=ordem_linhas,
+        scale=alt.Scale(
+            paddingInner=0,
+            paddingOuter=0.05,
+        ),
+        axis=eixo,
+    )
+
+
+# ============================================================
 # PRINCIPAIS INDICADORES
 # PAINEL HORIZONTAL
 # ============================================================
@@ -1833,28 +1862,15 @@ def criar_painel_horizontal(
     )
 
 
-    eixo_y_esquerdo = alt.Y(
-        "RowID:N",
-        title=None,
-        sort=ordem_linhas,
-        axis=alt.Axis(
-            labelExpr=(
-                "split(datum.label, '|')[1]"
-            ),
-            labelLimit=105,
-            labelFontSize=10,
-            labelPadding=5,
-            ticks=False,
-            domain=False,
+    eixo_anos = alt.Axis(
+        labelExpr=(
+            "split(datum.label, '|')[1]"
         ),
-    )
-
-
-    eixo_y_oculto = alt.Y(
-        "RowID:N",
-        title=None,
-        sort=ordem_linhas,
-        axis=None,
+        labelLimit=105,
+        labelFontSize=10,
+        labelPadding=5,
+        ticks=False,
+        domain=False,
     )
 
 
@@ -1862,22 +1878,66 @@ def criar_painel_horizontal(
     # SEPARADORES
     # ========================================================
 
-    dados_separadores = (
+    dados_sep_pequeno = (
         plot[
             plot[
                 "TipoLinha"
-            ].isin(
-                [
-                    "separador_pequeno",
-                    "separador_grande",
-                ]
-            )
+            ]
+            == "separador_pequeno"
         ]
     )
 
 
+    dados_sep_grande = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_grande"
+        ]
+    )
+
+
+    def regras_finas():
+
+        return (
+            alt.Chart(
+                dados_sep_pequeno
+            )
+            .mark_rule(
+                strokeWidth=0.75,
+                color="#D5DAE0",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas,
+                    eixo=None,
+                )
+            )
+        )
+
+
+    def regras_grandes():
+
+        return (
+            alt.Chart(
+                dados_sep_grande
+            )
+            .mark_rule(
+                strokeWidth=1.15,
+                color="#C7CDD4",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas,
+                    eixo=None,
+                )
+            )
+        )
+
+
     # ========================================================
-    # COLUNA DE CATEGORIAS
+    # COLUNA DA CATEGORIA
     # ========================================================
 
     textos_categoria = (
@@ -1892,15 +1952,14 @@ def criar_painel_horizontal(
         )
         .encode(
 
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-                axis=None,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
             ),
 
             x=alt.value(
                 largura_categoria
-                - 5
+                - 4
             ),
 
             text=alt.Text(
@@ -1910,28 +1969,12 @@ def criar_painel_horizontal(
     )
 
 
-    # Linha também atravessa a área à esquerda das barras.
-    regras_categoria = (
-        alt.Chart(
-            dados_separadores
-        )
-        .mark_rule(
-            strokeWidth=0.7,
-            color="#D9DDE3",
-        )
-        .encode(
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            )
-        )
-    )
-
-
     graf_categorias = (
         textos_categoria
         +
-        regras_categoria
+        regras_finas()
+        +
+        regras_grandes()
     ).properties(
         width=largura_categoria,
         height=altura,
@@ -1961,12 +2004,15 @@ def criar_painel_horizontal(
             dados_anos
         )
         .mark_bar(
-            height=13,
+            size=20,
             clip=True,
         )
         .encode(
 
-            y=eixo_y_esquerdo,
+            y=escala_y(
+                ordem_linhas,
+                eixo=eixo_anos,
+            ),
 
             x=alt.X(
                 "Média:Q",
@@ -2047,9 +2093,9 @@ def criar_painel_horizontal(
         )
         .encode(
 
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
             ),
 
             x="Média:Q",
@@ -2064,30 +2110,14 @@ def criar_painel_horizontal(
     )
 
 
-    regras_abs = (
-        alt.Chart(
-            dados_separadores
-        )
-        .mark_rule(
-            strokeWidth=0.7,
-            color="#D9DDE3",
-        )
-        .encode(
-
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            ),
-        )
-    )
-
-
     graf_abs = (
         barras_abs
         +
         textos_abs
         +
-        regras_abs
+        regras_finas()
+        +
+        regras_grandes()
     ).properties(
         width=largura_esquerda,
         height=altura,
@@ -2122,12 +2152,15 @@ def criar_painel_horizontal(
             dados_delta
         )
         .mark_bar(
-            height=13,
+            size=20,
             color=COR_DELTA,
         )
         .encode(
 
-            y=eixo_y_oculto,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
+            ),
 
             x=alt.X(
                 "Variação:Q",
@@ -2182,9 +2215,9 @@ def criar_painel_horizontal(
         )
         .encode(
 
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
             ),
 
             x="Variação:Q",
@@ -2219,24 +2252,6 @@ def criar_painel_horizontal(
     )
 
 
-    regras_delta = (
-        alt.Chart(
-            dados_separadores
-        )
-        .mark_rule(
-            strokeWidth=0.7,
-            color="#D9DDE3",
-        )
-        .encode(
-
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            ),
-        )
-    )
-
-
     titulo_delta = (
         (
             f"Variação "
@@ -2257,7 +2272,9 @@ def criar_painel_horizontal(
         +
         linha_zero
         +
-        regras_delta
+        regras_finas()
+        +
+        regras_grandes()
     ).properties(
         width=largura_direita,
         height=altura,
@@ -2270,15 +2287,20 @@ def criar_painel_horizontal(
     )
 
 
+    # spacing=0 faz as linhas atravessarem visualmente
+    # todas as áreas sem interrupção.
     return (
         alt.hconcat(
             graf_categorias,
             graf_abs,
             graf_delta,
-            spacing=8,
+            spacing=0,
         )
         .resolve_scale(
             y="shared"
+        )
+        .configure_view(
+            stroke=None
         )
     )
 
@@ -2870,34 +2892,17 @@ def criar_painel_cruzamentos(
     )
 
 
-    eixo_y_anos = alt.Y(
-        "RowID:N",
-        title=None,
-        sort=ordem_linhas,
-        axis=alt.Axis(
-            labelExpr=(
-                "split(datum.label, '|')[1]"
-            ),
-            labelLimit=98,
-            labelFontSize=9.5,
-            labelPadding=4,
-            ticks=False,
-            domain=False,
+    eixo_anos = alt.Axis(
+        labelExpr=(
+            "split(datum.label, '|')[1]"
         ),
+        labelLimit=98,
+        labelFontSize=9.5,
+        labelPadding=4,
+        ticks=False,
+        domain=False,
     )
 
-
-    eixo_y_oculto = alt.Y(
-        "RowID:N",
-        title=None,
-        sort=ordem_linhas,
-        axis=None,
-    )
-
-
-    # ========================================================
-    # SEPARADORES
-    # ========================================================
 
     separadores_n2 = (
         plot[
@@ -2920,6 +2925,49 @@ def criar_painel_cruzamentos(
 
 
     # ========================================================
+    # FUNÇÕES DAS LINHAS
+    # Usadas em TODAS as colunas para ficarem contínuas.
+    # ========================================================
+
+    def regras_n2():
+
+        return (
+            alt.Chart(
+                separadores_n2
+            )
+            .mark_rule(
+                strokeWidth=0.70,
+                color="#D5DAE0",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas,
+                    eixo=None,
+                )
+            )
+        )
+
+
+    def regras_n1():
+
+        return (
+            alt.Chart(
+                separadores_n1
+            )
+            .mark_rule(
+                strokeWidth=1.70,
+                color="#B9C0C8",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas,
+                    eixo=None,
+                )
+            )
+        )
+
+
+    # ========================================================
     # NÍVEL 1
     # ========================================================
 
@@ -2935,10 +2983,9 @@ def criar_painel_cruzamentos(
         )
         .encode(
 
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-                axis=None,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
             ),
 
             x=alt.value(
@@ -2953,28 +3000,12 @@ def criar_painel_cruzamentos(
     )
 
 
-    # Linhas grossas chegam até a extrema esquerda.
-    linhas_n1_coluna_1 = (
-        alt.Chart(
-            separadores_n1
-        )
-        .mark_rule(
-            strokeWidth=1.6,
-            color="#BFC5CC",
-        )
-        .encode(
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            )
-        )
-    )
-
-
     graf_nivel_1 = (
         textos_nivel_1
         +
-        linhas_n1_coluna_1
+        regras_n2()
+        +
+        regras_n1()
     ).properties(
         width=largura_nivel_1,
         height=altura,
@@ -2993,14 +3024,12 @@ def criar_painel_cruzamentos(
             align="right",
             baseline="middle",
             fontSize=9.5,
-            fontWeight="normal",
         )
         .encode(
 
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-                axis=None,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
             ),
 
             x=alt.value(
@@ -3015,46 +3044,12 @@ def criar_painel_cruzamentos(
     )
 
 
-    linhas_n2_coluna_2 = (
-        alt.Chart(
-            separadores_n2
-        )
-        .mark_rule(
-            strokeWidth=0.65,
-            color="#D9DDE3",
-        )
-        .encode(
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            )
-        )
-    )
-
-
-    linhas_n1_coluna_2 = (
-        alt.Chart(
-            separadores_n1
-        )
-        .mark_rule(
-            strokeWidth=1.6,
-            color="#BFC5CC",
-        )
-        .encode(
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            )
-        )
-    )
-
-
     graf_nivel_2 = (
         textos_nivel_2
         +
-        linhas_n2_coluna_2
+        regras_n2()
         +
-        linhas_n1_coluna_2
+        regras_n1()
     ).properties(
         width=largura_nivel_2,
         height=altura,
@@ -3062,7 +3057,7 @@ def criar_painel_cruzamentos(
 
 
     # ========================================================
-    # BARRAS
+    # ANOS / BARRAS
     # ========================================================
 
     dados_anos = (
@@ -3081,12 +3076,15 @@ def criar_painel_cruzamentos(
             dados_anos
         )
         .mark_bar(
-            height=12,
+            size=19,
             clip=True,
         )
         .encode(
 
-            y=eixo_y_anos,
+            y=escala_y(
+                ordem_linhas,
+                eixo=eixo_anos,
+            ),
 
             x=alt.X(
                 "Média:Q",
@@ -3174,9 +3172,9 @@ def criar_painel_cruzamentos(
         )
         .encode(
 
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
             ),
 
             x="Média:Q",
@@ -3191,50 +3189,14 @@ def criar_painel_cruzamentos(
     )
 
 
-    regras_n2_abs = (
-        alt.Chart(
-            separadores_n2
-        )
-        .mark_rule(
-            strokeWidth=0.65,
-            color="#D9DDE3",
-        )
-        .encode(
-
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            ),
-        )
-    )
-
-
-    regras_n1_abs = (
-        alt.Chart(
-            separadores_n1
-        )
-        .mark_rule(
-            strokeWidth=1.6,
-            color="#BFC5CC",
-        )
-        .encode(
-
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            ),
-        )
-    )
-
-
     graf_abs = (
         barras_abs
         +
         textos_abs
         +
-        regras_n2_abs
+        regras_n2()
         +
-        regras_n1_abs
+        regras_n1()
     ).properties(
         width=largura_esquerda,
         height=altura,
@@ -3269,12 +3231,15 @@ def criar_painel_cruzamentos(
             dados_delta
         )
         .mark_bar(
-            height=12,
+            size=19,
             color=COR_DELTA,
         )
         .encode(
 
-            y=eixo_y_oculto,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
+            ),
 
             x=alt.X(
                 "Variação:Q",
@@ -3336,9 +3301,9 @@ def criar_painel_cruzamentos(
         )
         .encode(
 
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
+            y=escala_y(
+                ordem_linhas,
+                eixo=None,
             ),
 
             x="Variação:Q",
@@ -3373,42 +3338,6 @@ def criar_painel_cruzamentos(
     )
 
 
-    regras_n2_delta = (
-        alt.Chart(
-            separadores_n2
-        )
-        .mark_rule(
-            strokeWidth=0.65,
-            color="#D9DDE3",
-        )
-        .encode(
-
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            ),
-        )
-    )
-
-
-    regras_n1_delta = (
-        alt.Chart(
-            separadores_n1
-        )
-        .mark_rule(
-            strokeWidth=1.6,
-            color="#BFC5CC",
-        )
-        .encode(
-
-            y=alt.Y(
-                "RowID:N",
-                sort=ordem_linhas,
-            ),
-        )
-    )
-
-
     titulo_delta = (
         (
             f"Variação "
@@ -3429,9 +3358,9 @@ def criar_painel_cruzamentos(
         +
         linha_zero
         +
-        regras_n2_delta
+        regras_n2()
         +
-        regras_n1_delta
+        regras_n1()
     ).properties(
         width=largura_direita,
         height=altura,
@@ -3450,10 +3379,13 @@ def criar_painel_cruzamentos(
             graf_nivel_2,
             graf_abs,
             graf_delta,
-            spacing=6,
+            spacing=0,
         )
         .resolve_scale(
             y="shared"
+        )
+        .configure_view(
+            stroke=None
         )
     )
 
@@ -3481,11 +3413,16 @@ except Exception as erro:
 
 
 # ============================================================
-# TÍTULO
+# TÍTULO PRINCIPAL
 # ============================================================
 
-st.title(
-    "Painel IDEB"
+st.markdown(
+    """
+    <div class="panel-main-title">
+        Painel IDEB
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -3500,7 +3437,6 @@ if "pagina" not in st.session_state:
     )
 
 
-# Cinco botões mais espalhados pela largura da tela.
 nav_1, nav_2, nav_3, nav_4, nav_5 = st.columns(
     [
         1.55,
@@ -3839,7 +3775,6 @@ if pagina == "DISTRIBUIÇÕES":
         unsafe_allow_html=True,
     )
 
-    # Página intencionalmente vazia por enquanto.
     st.stop()
 
 
@@ -4553,10 +4488,6 @@ if pagina == "CRUZAMENTOS":
         )
 
 
-    # ========================================================
-    # ANOS
-    # ========================================================
-
     _, bloco_cruz_anos, __ = st.columns(
         [
             1.4,
@@ -4617,11 +4548,6 @@ if pagina == "CRUZAMENTOS":
 
         st.stop()
 
-
-    # ========================================================
-    # DIMENSÕES
-    # Sem linha divisória
-    # ========================================================
 
     opcoes = list(
         EIXOS_DISPONIVEIS.keys()
