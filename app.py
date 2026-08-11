@@ -217,6 +217,24 @@ PALETA_DISTRIBUICOES = [
 ]
 
 
+# Paleta exclusiva dos boxplots da aba Distribuições.
+# O objetivo aqui é manter contraste entre comparações sem usar
+# azul ou marrom, com cores mais esmaecidas para favorecer a
+# leitura dos rótulos de média e N.
+CORES_ANOS_DISTRIBUICOES = {
+    "2017": "#A8CFA8",   # verde pastel
+    "2019": "#CBB7DD",   # lilás pastel
+    "2021": "#F1C7A5",   # pêssego pastel
+    "2023": "#E7B0C0",   # rosa pastel
+    "2025": "#D7D59A",   # oliva/amarelo pastel
+}
+
+CORES_GRUPOS_DISTRIBUICOES = [
+    "#A8CFA8",
+    "#CBB7DD",
+]
+
+
 # ============================================================
 # RÓTULOS
 # ============================================================
@@ -2618,16 +2636,15 @@ def criar_grafico_boxplots(
 
         medias[
             "Rótulo média"
-        ] = medias[
-            "Média"
-        ].apply(
-            lambda valor: (
-                f"{float(valor) * 100:.1f}%"
-                .replace(
-                    ".",
-                    ",",
-                )
-            )
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']) * 100:.1f}%\n"
+                f"N={int(linha['N escolas'])}"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
         )
 
     else:
@@ -2637,16 +2654,15 @@ def criar_grafico_boxplots(
 
         medias[
             "Rótulo média"
-        ] = medias[
-            "Média"
-        ].apply(
-            lambda valor: (
-                f"{float(valor):.1f}"
-                .replace(
-                    ".",
-                    ",",
-                )
-            )
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']):.1f}\n"
+                f"N={int(linha['N escolas'])}"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
         )
 
 
@@ -2718,9 +2734,10 @@ def criar_grafico_boxplots(
     escala_anos = alt.Scale(
         domain=anos_str,
         range=[
-            CORES_ANOS[
-                ano
-            ]
+            CORES_ANOS_DISTRIBUICOES.get(
+                ano,
+                "#A8CFA8",
+            )
             for ano in anos_str
         ],
     )
@@ -2754,6 +2771,7 @@ def criar_grafico_boxplots(
         .mark_boxplot(
             extent=1.5,
             size=tamanho_caixa,
+            opacity=0.58,
         )
         .encode(
             x=eixo_x,
@@ -2838,10 +2856,12 @@ def criar_grafico_boxplots(
             medias
         )
         .mark_text(
-            dy=-12,
-            fontSize=9.5,
+            dy=-18,
+            fontSize=12.5,
             fontWeight="bold",
             color="#2F313C",
+            lineBreak="\n",
+            lineHeight=14,
         )
         .encode(
             x=alt.X(
@@ -2877,7 +2897,7 @@ def criar_grafico_boxplots(
                 f"{titulo_dimensao}"
             ),
             subtitle=(
-                "O losango e o rótulo indicam a média de cada distribuição. "
+                "O losango indica a média; o rótulo mostra a média e, na linha abaixo, o N. "
                 "O Consolidado aparece ao final, à direita."
             ),
             anchor="middle",
@@ -2899,6 +2919,7 @@ def criar_grafico_delta_boxplots(
     rotulos_multilinha=False,
     dominio_y=None,
     altura=430,
+    cores_por_categoria=False,
 ):
 
     if dados.empty:
@@ -2953,16 +2974,15 @@ def criar_grafico_delta_boxplots(
 
         medias[
             "Rótulo média"
-        ] = medias[
-            "Média"
-        ].apply(
-            lambda valor: (
-                f"{float(valor) * 100:+.1f} p.p."
-                .replace(
-                    ".",
-                    ",",
-                )
-            )
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']) * 100:+.1f} p.p.\n"
+                f"N={int(linha['N escolas'])}"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
         )
 
     else:
@@ -2972,16 +2992,15 @@ def criar_grafico_delta_boxplots(
 
         medias[
             "Rótulo média"
-        ] = medias[
-            "Média"
-        ].apply(
-            lambda valor: (
-                f"{float(valor):+.1f}"
-                .replace(
-                    ".",
-                    ",",
-                )
-            )
+        ] = medias.apply(
+            lambda linha: (
+                f"{float(linha['Média']):+.1f}\n"
+                f"N={int(linha['N escolas'])}"
+            ).replace(
+                ".",
+                ",",
+            ),
+            axis=1,
         )
 
 
@@ -3079,6 +3098,46 @@ def criar_grafico_delta_boxplots(
     )
 
 
+    if cores_por_categoria:
+
+        paleta_categorias = [
+            CORES_GRUPOS_DISTRIBUICOES[
+                indice
+                % len(
+                    CORES_GRUPOS_DISTRIBUICOES
+                )
+            ]
+            for indice, _
+            in enumerate(
+                ordem
+            )
+        ]
+
+
+        cor_boxplot_delta = alt.Color(
+            "Categoria:N",
+            sort=ordem,
+            scale=alt.Scale(
+                domain=ordem,
+                range=paleta_categorias,
+            ),
+            legend=None,
+        )
+
+    else:
+
+        cor_boxplot_delta = alt.condition(
+            alt.datum.Categoria
+            == "Consolidado",
+            alt.value(
+                CORES_GRUPOS_DISTRIBUICOES[1]
+            ),
+            alt.value(
+                CORES_GRUPOS_DISTRIBUICOES[0]
+            ),
+        )
+
+
     caixas = (
         alt.Chart(
             dados
@@ -3086,20 +3145,12 @@ def criar_grafico_delta_boxplots(
         .mark_boxplot(
             extent=1.5,
             size=44,
+            opacity=0.58,
         )
         .encode(
             x=eixo_x,
             y=eixo_y,
-            color=alt.condition(
-                alt.datum.Categoria
-                == "Consolidado",
-                alt.value(
-                    "#A67C68"
-                ),
-                alt.value(
-                    "#6C9FCC"
-                ),
-            ),
+            color=cor_boxplot_delta,
             tooltip=[
                 alt.Tooltip(
                     "Categoria:N",
@@ -3156,10 +3207,12 @@ def criar_grafico_delta_boxplots(
             medias
         )
         .mark_text(
-            dy=-13,
-            fontSize=10,
+            dy=-18,
+            fontSize=12.5,
             fontWeight="bold",
             color="#2F313C",
+            lineBreak="\n",
+            lineHeight=14,
         )
         .encode(
             x=alt.X(
@@ -3193,8 +3246,8 @@ def criar_grafico_delta_boxplots(
                 f"{titulo_dimensao} — {ano_final} − {ano_inicial}"
             ),
             subtitle=(
-                "Cada delta é calculado por escola. O losango e o rótulo "
-                "indicam a média dos deltas; o Consolidado aparece ao final."
+                "Cada delta é calculado por escola. O losango indica a média; o rótulo "
+                "mostra a média e, na linha abaixo, o N. O Consolidado aparece ao final."
             ),
             anchor="middle",
             fontSize=16,
@@ -3683,11 +3736,30 @@ def criar_grafico_barras_medias_delta_agregado(
             size=58,
             cornerRadiusTopLeft=2,
             cornerRadiusTopRight=2,
-            color="#6C9FCC",
         )
         .encode(
             x=eixo_x,
             y=eixo_y,
+            color=alt.Color(
+                "Categoria:N",
+                sort=ordem,
+                scale=alt.Scale(
+                    domain=ordem,
+                    range=[
+                        CORES_GRUPOS_DISTRIBUICOES[
+                            indice
+                            % len(
+                                CORES_GRUPOS_DISTRIBUICOES
+                            )
+                        ]
+                        for indice, _
+                        in enumerate(
+                            ordem
+                        )
+                    ],
+                ),
+                legend=None,
+            ),
             tooltip=[
                 alt.Tooltip(
                     "Categoria:N",
@@ -3915,8 +3987,8 @@ def criar_grafico_boxplots_agregados_por_ano(
             "Rótulo média"
         ] = medias.apply(
             lambda linha: (
-                f"{float(linha['Média']) * 100:.1f}% "
-                f"(N={int(linha['N escolas'])})"
+                f"{float(linha['Média']) * 100:.1f}%\n"
+                f"N={int(linha['N escolas'])}"
             ).replace(
                 ".",
                 ",",
@@ -3933,8 +4005,8 @@ def criar_grafico_boxplots_agregados_por_ano(
             "Rótulo média"
         ] = medias.apply(
             lambda linha: (
-                f"{float(linha['Média']):.1f} "
-                f"(N={int(linha['N escolas'])})"
+                f"{float(linha['Média']):.1f}\n"
+                f"N={int(linha['N escolas'])}"
             ).replace(
                 ".",
                 ",",
@@ -3977,10 +4049,7 @@ def criar_grafico_boxplots_agregados_por_ano(
 
     escala_grupos = alt.Scale(
         domain=ordem_grupos,
-        range=[
-            "#6C9FCC",
-            "#A67C68",
-        ][
+        range=CORES_GRUPOS_DISTRIBUICOES[
             :len(
                 ordem_grupos
             )
@@ -4011,6 +4080,7 @@ def criar_grafico_boxplots_agregados_por_ano(
         .mark_boxplot(
             extent=1.5,
             size=38,
+            opacity=0.58,
         )
         .encode(
             x=eixo_x,
@@ -4095,10 +4165,12 @@ def criar_grafico_boxplots_agregados_por_ano(
             medias
         )
         .mark_text(
-            dy=-13,
-            fontSize=9,
+            dy=-18,
+            fontSize=12.5,
             fontWeight="bold",
             color="#2F313C",
+            lineBreak="\n",
+            lineHeight=14,
         )
         .encode(
             x=alt.X(
@@ -4135,7 +4207,7 @@ def criar_grafico_boxplots_agregados_por_ano(
             ),
             subtitle=(
                 "Dentro de cada ano, a 1ª seleção aparece ao lado da 2ª seleção. "
-                "O losango e o rótulo indicam a média; o N aparece junto à média."
+                "O losango indica a média; o rótulo mostra a média e, na linha abaixo, o N."
             ),
             anchor="middle",
             fontSize=16,
@@ -4340,10 +4412,7 @@ def criar_grafico_barras_medias_agregados_por_ano(
 
     escala_grupos = alt.Scale(
         domain=ordem_grupos,
-        range=[
-            "#6C9FCC",
-            "#A67C68",
-        ][
+        range=CORES_GRUPOS_DISTRIBUICOES[
             :len(
                 ordem_grupos
             )
@@ -4476,6 +4545,24 @@ def obter_categorias_agregacao(
     base,
     variavel,
 ):
+
+    # As faixas de IDEB têm um domínio conhecido e fixo. Na
+    # subseção Agregado, elas devem aparecer como possibilidades
+    # mesmo quando alguma faixa não esteja presente no recorte
+    # momentâneo produzido pelos filtros gerais. Isso também evita
+    # que a lista fique vazia ao trocar para uma dimensão Faixa IDEB.
+    if str(variavel).startswith(
+        "Faixa IDEB"
+    ):
+
+        return [
+            categoria
+            for categoria
+            in ORDEM_FAIXA_IDEB
+            if categoria
+            != "Sem resultado"
+        ]
+
 
     if base.empty:
 
@@ -5983,9 +6070,11 @@ def exibir_p_valores_agregados(
 
 def _rotulo_composicao_agregado(
     categorias,
-    n,
+    n=None,
 ):
 
+    # O N deixou de ficar no eixo: ele agora aparece diretamente
+    # no rótulo da média do boxplot, em uma segunda linha.
     partes = [
         str(
             categoria
@@ -5993,10 +6082,6 @@ def _rotulo_composicao_agregado(
         for categoria
         in categorias
     ]
-
-    partes.append(
-        f"({int(n)})"
-    )
 
 
     return "\n".join(
@@ -9613,6 +9698,7 @@ if pagina == "DISTRIBUIÇÕES":
                     rotulos_multilinha=True,
                     dominio_y=dominio_y_delta_agregado,
                     altura=430,
+                    cores_por_categoria=True,
                 )
 
 
@@ -9627,8 +9713,8 @@ if pagina == "DISTRIBUIÇÕES":
                         subtitle=(
                             "Cada delta é calculado por escola. O eixo mostra "
                             "diretamente as categorias de cada agregado, uma por "
-                            "linha; o N entre parênteses é o número de escolas com "
-                            "delta válido. O losango e o rótulo indicam a média."
+                            "linha. O losango indica a média; o rótulo mostra a "
+                            "média e, na linha abaixo, o N de escolas com delta válido."
                         ),
                         anchor="middle",
                         fontSize=16,
