@@ -595,6 +595,7 @@ def formatos_indicador(
             "rotulo": ".1%",
             "tooltip": ".1%",
             "delta": "+.1%",
+            "delta_cruz": "+.2%",
             "baseline": 0.30,
         }
 
@@ -603,6 +604,7 @@ def formatos_indicador(
         "rotulo": ".1f",
         "tooltip": ".1f",
         "delta": "+.1f",
+        "delta_cruz": "+.2f",
         "baseline": 3.0,
     }
 
@@ -1424,24 +1426,8 @@ def grafico_distribuicao_top(
 
 
 # ============================================================
-# PREPARAÇÃO DA VISÃO HORIZONTAL
-#
-# NOVA ESTRUTURA:
-#
-# Consolidado     2025 (...)
-#                 2023 (...)
-#                 2021 (...)
-#
-# ---------------------------
-#
-# Categoria A     2025 (...)
-#                 2023 (...)
-#                 2021 (...)
-#
-# ---------------------------
-#
-# Categoria B ...
-#
+# PRINCIPAIS INDICADORES
+# PREPARAÇÃO DAS LINHAS
 # ============================================================
 
 def preparar_linhas_horizontais(
@@ -1451,10 +1437,6 @@ def preparar_linhas_horizontais(
     ano_inicial,
     ano_final,
 ):
-
-    # ========================================================
-    # ANOS MAIS RECENTES PRIMEIRO
-    # ========================================================
 
     anos_ord = sorted(
         anos,
@@ -1482,10 +1464,6 @@ def preparar_linhas_horizontais(
 
         linhas_categoria = []
 
-
-        # ====================================================
-        # ANOS
-        # ====================================================
 
         for ano in anos_ord:
 
@@ -1579,12 +1557,6 @@ def preparar_linhas_horizontais(
             return
 
 
-        # ====================================================
-        # POSIÇÃO VERTICAL DO NOME DA CATEGORIA
-        #
-        # Usa a linha central do conjunto de anos.
-        # ====================================================
-
         indice_central = (
             len(
                 linhas_categoria
@@ -1593,27 +1565,18 @@ def preparar_linhas_horizontais(
         )
 
 
-        row_categoria = (
-            linhas_categoria[
-                indice_central
-            ]
-        )
-
-
         categorias_labels.append(
             {
                 "RowID":
-                    row_categoria,
+                    linhas_categoria[
+                        indice_central
+                    ],
 
                 "CategoriaLabel":
                     categoria,
             }
         )
 
-
-        # ====================================================
-        # DELTA NA LINHA DO ANO MAIS RECENTE
-        # ====================================================
 
         if (
             ano_inicial is not None
@@ -1685,13 +1648,6 @@ def preparar_linhas_horizontais(
                         break
 
 
-        # ====================================================
-        # ESPAÇAMENTO ENTRE CATEGORIAS
-        #
-        # Consolidado = maior
-        # Demais = menor
-        # ====================================================
-
         quantidade_espacos = (
             2
             if consolidado
@@ -1752,10 +1708,6 @@ def preparar_linhas_horizontais(
             )
 
 
-    # ========================================================
-    # CONSOLIDADO PRIMEIRO
-    # ========================================================
-
     rec_consolidado = (
         dados[
             dados[
@@ -1777,10 +1729,6 @@ def preparar_linhas_horizontais(
             consolidado=True,
         )
 
-
-    # ========================================================
-    # DEMAIS CATEGORIAS
-    # ========================================================
 
     for categoria in categorias:
 
@@ -1812,10 +1760,6 @@ def preparar_linhas_horizontais(
         )
 
 
-    # ========================================================
-    # RETIRA SEPARADORES DO FINAL
-    # ========================================================
-
     while (
         registros
         and
@@ -1843,6 +1787,7 @@ def preparar_linhas_horizontais(
 
 
 # ============================================================
+# PRINCIPAIS INDICADORES
 # PAINEL HORIZONTAL
 # ============================================================
 
@@ -1878,10 +1823,6 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # EIXO Y PRINCIPAL
-    # ========================================================
-
     eixo_y_esquerdo = alt.Y(
         "RowID:N",
         title=None,
@@ -1906,10 +1847,6 @@ def criar_painel_horizontal(
         axis=None,
     )
 
-
-    # ========================================================
-    # COLUNA DOS NOMES DAS CATEGORIAS
-    # ========================================================
 
     graf_categorias = (
         alt.Chart(
@@ -1945,10 +1882,6 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # DADOS DE ANOS
-    # ========================================================
-
     dados_anos = (
         plot[
             plot[
@@ -1958,10 +1891,6 @@ def criar_painel_horizontal(
         ]
     )
 
-
-    # ========================================================
-    # BARRAS ABSOLUTAS
-    # ========================================================
 
     barras_abs = (
         alt.Chart(
@@ -2043,10 +1972,6 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # RÓTULOS DOS VALORES
-    # ========================================================
-
     textos_abs = (
         alt.Chart(
             dados_anos
@@ -2074,10 +1999,6 @@ def criar_painel_horizontal(
         )
     )
 
-
-    # ========================================================
-    # SEPARADORES
-    # ========================================================
 
     dados_separadores = (
         plot[
@@ -2131,10 +2052,6 @@ def criar_painel_horizontal(
         ),
     )
 
-
-    # ========================================================
-    # DELTA
-    # ========================================================
 
     dados_delta = (
         plot[
@@ -2228,10 +2145,6 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # LINHA ZERO
-    # ========================================================
-
     linha_zero = (
         alt.Chart(
             pd.DataFrame(
@@ -2303,18 +2216,1209 @@ def criar_painel_horizontal(
     )
 
 
-    # ========================================================
-    # VISÃO ÚNICA
-    #
-    # Categoria | Ano/N + absoluto | Delta
-    # ========================================================
-
     return (
         alt.hconcat(
             graf_categorias,
             graf_abs,
             graf_delta,
             spacing=8,
+        )
+        .resolve_scale(
+            y="shared"
+        )
+    )
+
+
+# ============================================================
+# CRUZAMENTOS
+#
+# NOVA ESTRUTURA EM TRÊS NÍVEIS:
+#
+# Categoria 1
+#     Categoria 2
+#         Ano
+#
+# ============================================================
+
+def preparar_linhas_cruzamentos(
+    resultado,
+    consolidado,
+    anos,
+    ordem_nivel_1,
+    ordem_nivel_2,
+    ano_inicial,
+    ano_final,
+):
+
+    anos_ord = sorted(
+        anos,
+        reverse=True,
+    )
+
+
+    registros = []
+
+    labels_nivel_1 = []
+
+    labels_nivel_2 = []
+
+    ordem_linhas = []
+
+    contador = 0
+
+
+    # ========================================================
+    # AUXILIAR — ADICIONA UM ANO
+    # ========================================================
+
+    def adicionar_ano(
+        nivel_1,
+        nivel_2,
+        ano,
+        media,
+        n_escolas,
+        delta=np.nan,
+    ):
+
+        nonlocal contador
+
+
+        texto_ano = (
+            f"{ano} "
+            f"({int(n_escolas):,})"
+        ).replace(
+            ",",
+            ".",
+        )
+
+
+        row_id = (
+            f"{contador:05d}|"
+            f"{texto_ano}"
+        )
+
+
+        contador += 1
+
+
+        registros.append(
+            {
+                "RowID":
+                    row_id,
+
+                "TipoLinha":
+                    "ano",
+
+                "Nivel1":
+                    nivel_1,
+
+                "Nivel2":
+                    nivel_2,
+
+                "Ano":
+                    str(
+                        ano
+                    ),
+
+                "Média":
+                    media,
+
+                "N escolas":
+                    n_escolas,
+
+                "Variação":
+                    delta,
+            }
+        )
+
+
+        ordem_linhas.append(
+            row_id
+        )
+
+
+        return row_id
+
+
+    # ========================================================
+    # AUXILIAR — SEPARADOR
+    # ========================================================
+
+    def adicionar_separador(
+        tipo,
+    ):
+
+        nonlocal contador
+
+
+        row_id = (
+            f"{contador:05d}|"
+        )
+
+
+        contador += 1
+
+
+        registros.append(
+            {
+                "RowID":
+                    row_id,
+
+                "TipoLinha":
+                    tipo,
+
+                "Nivel1":
+                    None,
+
+                "Nivel2":
+                    None,
+
+                "Ano":
+                    None,
+
+                "Média":
+                    np.nan,
+
+                "N escolas":
+                    np.nan,
+
+                "Variação":
+                    np.nan,
+            }
+        )
+
+
+        ordem_linhas.append(
+            row_id
+        )
+
+
+    # ========================================================
+    # CONSOLIDADO
+    #
+    # Trata como um bloco especial no topo.
+    # ========================================================
+
+    if (
+        consolidado is not None
+        and
+        not consolidado.empty
+    ):
+
+        linhas_cons = []
+
+
+        for ano in anos_ord:
+
+            rec = (
+                consolidado[
+                    consolidado[
+                        "Ano"
+                    ]
+                    == str(
+                        ano
+                    )
+                ]
+            )
+
+
+            if rec.empty:
+
+                continue
+
+
+            delta = np.nan
+
+
+            if (
+                ano_inicial is not None
+                and
+                ano
+                == ano_final
+            ):
+
+                rec_ini = (
+                    consolidado[
+                        consolidado[
+                            "Ano"
+                        ]
+                        == str(
+                            ano_inicial
+                        )
+                    ]
+                )
+
+
+                rec_fim = rec
+
+
+                if (
+                    not rec_ini.empty
+                    and
+                    not rec_fim.empty
+                ):
+
+                    delta = (
+                        rec_fim[
+                            "Média"
+                        ].iloc[0]
+                        -
+                        rec_ini[
+                            "Média"
+                        ].iloc[0]
+                    )
+
+
+            row = adicionar_ano(
+                nivel_1="Consolidado",
+                nivel_2="Total",
+                ano=ano,
+                media=rec[
+                    "Média"
+                ].iloc[0],
+                n_escolas=rec[
+                    "N escolas"
+                ].iloc[0],
+                delta=delta,
+            )
+
+
+            linhas_cons.append(
+                row
+            )
+
+
+        if linhas_cons:
+
+            labels_nivel_1.append(
+                {
+                    "RowID":
+                        linhas_cons[
+                            len(
+                                linhas_cons
+                            )
+                            // 2
+                        ],
+
+                    "Label":
+                        "Consolidado",
+                }
+            )
+
+
+            labels_nivel_2.append(
+                {
+                    "RowID":
+                        linhas_cons[
+                            len(
+                                linhas_cons
+                            )
+                            // 2
+                        ],
+
+                    "Label":
+                        "Total",
+                }
+            )
+
+
+            # Espaço maior depois do consolidado
+            adicionar_separador(
+                "separador_nivel_1"
+            )
+
+            adicionar_separador(
+                "espaco_grande"
+            )
+
+
+    # ========================================================
+    # DEMAIS NÍVEIS
+    # ========================================================
+
+    for nivel_1 in ordem_nivel_1:
+
+        base_n1 = (
+            resultado[
+                resultado[
+                    "Categoria_1"
+                ].astype(str)
+                == str(
+                    nivel_1
+                )
+            ]
+            .copy()
+        )
+
+
+        if base_n1.empty:
+
+            continue
+
+
+        linhas_nivel_1 = []
+
+
+        # ====================================================
+        # SEGUNDA DIMENSÃO
+        # ====================================================
+
+        niveis_2_presentes = (
+            base_n1[
+                "Categoria_2"
+            ]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+
+        ordem_n2_local = [
+            n2
+            for n2
+            in ordem_nivel_2
+            if n2
+            in niveis_2_presentes
+        ]
+
+
+        for n2_extra in niveis_2_presentes:
+
+            if n2_extra not in ordem_n2_local:
+
+                ordem_n2_local.append(
+                    n2_extra
+                )
+
+
+        for idx_n2, nivel_2 in enumerate(
+            ordem_n2_local
+        ):
+
+            base_n2 = (
+                base_n1[
+                    base_n1[
+                        "Categoria_2"
+                    ].astype(str)
+                    == str(
+                        nivel_2
+                    )
+                ]
+                .copy()
+            )
+
+
+            if base_n2.empty:
+
+                continue
+
+
+            linhas_nivel_2 = []
+
+
+            # ================================================
+            # DELTA DESTE CRUZAMENTO
+            # ================================================
+
+            delta_grupo = np.nan
+
+
+            if ano_inicial is not None:
+
+                rec_ini = (
+                    base_n2[
+                        base_n2[
+                            "Ano"
+                        ]
+                        == str(
+                            ano_inicial
+                        )
+                    ]
+                )
+
+
+                rec_fim = (
+                    base_n2[
+                        base_n2[
+                            "Ano"
+                        ]
+                        == str(
+                            ano_final
+                        )
+                    ]
+                )
+
+
+                if (
+                    not rec_ini.empty
+                    and
+                    not rec_fim.empty
+                ):
+
+                    delta_grupo = (
+                        rec_fim[
+                            "Média"
+                        ].iloc[0]
+                        -
+                        rec_ini[
+                            "Média"
+                        ].iloc[0]
+                    )
+
+
+            # ================================================
+            # ANOS
+            # ================================================
+
+            for ano in anos_ord:
+
+                rec = (
+                    base_n2[
+                        base_n2[
+                            "Ano"
+                        ]
+                        == str(
+                            ano
+                        )
+                    ]
+                )
+
+
+                if rec.empty:
+
+                    continue
+
+
+                delta_linha = (
+                    delta_grupo
+                    if ano
+                    == ano_final
+                    else np.nan
+                )
+
+
+                row = adicionar_ano(
+                    nivel_1=nivel_1,
+                    nivel_2=nivel_2,
+                    ano=ano,
+                    media=rec[
+                        "Média"
+                    ].iloc[0],
+                    n_escolas=rec[
+                        "N escolas"
+                    ].iloc[0],
+                    delta=delta_linha,
+                )
+
+
+                linhas_nivel_2.append(
+                    row
+                )
+
+                linhas_nivel_1.append(
+                    row
+                )
+
+
+            # ================================================
+            # LABEL DA SEGUNDA DIMENSÃO
+            # ================================================
+
+            if linhas_nivel_2:
+
+                labels_nivel_2.append(
+                    {
+                        "RowID":
+                            linhas_nivel_2[
+                                len(
+                                    linhas_nivel_2
+                                )
+                                // 2
+                            ],
+
+                        "Label":
+                            str(
+                                nivel_2
+                            ),
+                    }
+                )
+
+
+            # ================================================
+            # SEPARAÇÃO ENTRE SUBNÍVEIS
+            # ================================================
+
+            if idx_n2 < (
+                len(
+                    ordem_n2_local
+                )
+                - 1
+            ):
+
+                adicionar_separador(
+                    "separador_nivel_2"
+                )
+
+
+        # ====================================================
+        # LABEL DO NÍVEL 1
+        # ====================================================
+
+        if linhas_nivel_1:
+
+            labels_nivel_1.append(
+                {
+                    "RowID":
+                        linhas_nivel_1[
+                            len(
+                                linhas_nivel_1
+                            )
+                            // 2
+                        ],
+
+                    "Label":
+                        str(
+                            nivel_1
+                        ),
+                }
+            )
+
+
+        # ====================================================
+        # LINHA MAIS FORTE ENTRE NÍVEIS 1
+        # ====================================================
+
+        adicionar_separador(
+            "separador_nivel_1"
+        )
+
+
+    # ========================================================
+    # REMOVE SEPARADORES FINAIS
+    # ========================================================
+
+    while (
+        registros
+        and
+        registros[-1][
+            "TipoLinha"
+        ]
+        in {
+            "separador_nivel_1",
+            "separador_nivel_2",
+            "espaco_grande",
+        }
+    ):
+
+        registros.pop()
+
+        ordem_linhas.pop()
+
+
+    return (
+        pd.DataFrame(
+            registros
+        ),
+        pd.DataFrame(
+            labels_nivel_1
+        ),
+        pd.DataFrame(
+            labels_nivel_2
+        ),
+        ordem_linhas,
+    )
+
+
+# ============================================================
+# CRUZAMENTOS
+# PAINEL HORIZONTAL EM TRÊS NÍVEIS
+# ============================================================
+
+def criar_painel_cruzamentos(
+    plot,
+    labels_nivel_1,
+    labels_nivel_2,
+    ordem_linhas,
+    indicador,
+    variavel_1,
+    variavel_2,
+    ano_inicial,
+    ano_final,
+    largura_nivel_1=105,
+    largura_nivel_2=120,
+    largura_esquerda=335,
+    largura_direita=190,
+):
+
+    formatos = formatos_indicador(
+        indicador
+    )
+
+
+    baseline = formatos[
+        "baseline"
+    ]
+
+
+    altura = max(
+        300,
+        len(
+            plot
+        )
+        * 19,
+    )
+
+
+    # ========================================================
+    # ESCALA Y
+    # ========================================================
+
+    eixo_y_anos = alt.Y(
+        "RowID:N",
+        title=None,
+        sort=ordem_linhas,
+        axis=alt.Axis(
+            labelExpr=(
+                "split(datum.label, '|')[1]"
+            ),
+            labelLimit=98,
+            labelFontSize=9.5,
+            labelPadding=4,
+            ticks=False,
+            domain=False,
+        ),
+    )
+
+
+    eixo_y_oculto = alt.Y(
+        "RowID:N",
+        title=None,
+        sort=ordem_linhas,
+        axis=None,
+    )
+
+
+    # ========================================================
+    # COLUNA DA PRIMEIRA DIMENSÃO
+    # ========================================================
+
+    graf_nivel_1 = (
+        alt.Chart(
+            labels_nivel_1
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=10,
+            fontWeight="bold",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+                axis=None,
+            ),
+
+            x=alt.value(
+                largura_nivel_1
+                - 4
+            ),
+
+            text=alt.Text(
+                "Label:N"
+            ),
+        )
+        .properties(
+            width=largura_nivel_1,
+            height=altura,
+        )
+    )
+
+
+    # ========================================================
+    # COLUNA DA SEGUNDA DIMENSÃO
+    # ========================================================
+
+    graf_nivel_2 = (
+        alt.Chart(
+            labels_nivel_2
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=9.5,
+            fontWeight="normal",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+                axis=None,
+            ),
+
+            x=alt.value(
+                largura_nivel_2
+                - 4
+            ),
+
+            text=alt.Text(
+                "Label:N"
+            ),
+        )
+        .properties(
+            width=largura_nivel_2,
+            height=altura,
+        )
+    )
+
+
+    # ========================================================
+    # DADOS DAS BARRAS
+    # ========================================================
+
+    dados_anos = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "ano"
+        ]
+        .copy()
+    )
+
+
+    # ========================================================
+    # BARRAS ABSOLUTAS
+    # ========================================================
+
+    barras_abs = (
+        alt.Chart(
+            dados_anos
+        )
+        .mark_bar(
+            height=12,
+            clip=True,
+        )
+        .encode(
+
+            y=eixo_y_anos,
+
+            x=alt.X(
+                "Média:Q",
+                title=None,
+                scale=alt.Scale(
+                    domainMin=baseline,
+                    zero=False,
+                    nice=True,
+                ),
+                axis=alt.Axis(
+                    labels=False,
+                    ticks=False,
+                    domain=False,
+                    grid=False,
+                    title=None,
+                ),
+            ),
+
+            x2=alt.datum(
+                baseline
+            ),
+
+            color=alt.Color(
+                "Ano:N",
+                title=None,
+                scale=alt.Scale(
+                    domain=ORDEM_ANOS_STR,
+                    range=ESCALA_CORES_ANOS,
+                ),
+                sort=ORDEM_ANOS_STR,
+                legend=alt.Legend(
+                    orient="top",
+                    direction="horizontal",
+                    title=None,
+                    columns=5,
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Nivel1:N",
+                    title=rotulo_dimensao(
+                        variavel_1
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Nivel2:N",
+                    title=rotulo_dimensao(
+                        variavel_2
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Ano:N",
+                    title="Ano",
+                ),
+
+                alt.Tooltip(
+                    "N escolas:Q",
+                    title="Escolas",
+                    format=",",
+                ),
+
+                alt.Tooltip(
+                    "Média:Q",
+                    title=indicador,
+                    format=formatos[
+                        "tooltip"
+                    ],
+                ),
+            ],
+        )
+    )
+
+
+    # ========================================================
+    # RÓTULOS ABSOLUTOS
+    # ========================================================
+
+    textos_abs = (
+        alt.Chart(
+            dados_anos
+        )
+        .mark_text(
+            align="left",
+            dx=4,
+            fontSize=9.5,
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+
+            x="Média:Q",
+
+            text=alt.Text(
+                "Média:Q",
+                format=formatos[
+                    "rotulo"
+                ],
+            ),
+        )
+    )
+
+
+    # ========================================================
+    # SEPARADORES FINOS
+    # ========================================================
+
+    separadores_n2 = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_nivel_2"
+        ]
+    )
+
+
+    regras_n2_abs = (
+        alt.Chart(
+            separadores_n2
+        )
+        .mark_rule(
+            strokeWidth=0.65,
+            color="#D9DDE3",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+        )
+    )
+
+
+    # ========================================================
+    # SEPARADORES GROSSOS
+    # ========================================================
+
+    separadores_n1 = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_nivel_1"
+        ]
+    )
+
+
+    regras_n1_abs = (
+        alt.Chart(
+            separadores_n1
+        )
+        .mark_rule(
+            strokeWidth=1.6,
+            color="#BFC5CC",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+        )
+    )
+
+
+    graf_abs = (
+        barras_abs
+        +
+        textos_abs
+        +
+        regras_n2_abs
+        +
+        regras_n1_abs
+    ).properties(
+        width=largura_esquerda,
+        height=altura,
+        title=alt.TitleParams(
+            text=(
+                f"Média ponderada de "
+                f"{indicador}"
+            ),
+            anchor="middle",
+            fontSize=16,
+            fontWeight="bold",
+        ),
+    )
+
+
+    # ========================================================
+    # DELTA
+    # ========================================================
+
+    dados_delta = (
+        plot[
+            plot[
+                "Variação"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    barras_delta = (
+        alt.Chart(
+            dados_delta
+        )
+        .mark_bar(
+            height=12,
+            color=COR_DELTA,
+        )
+        .encode(
+
+            y=eixo_y_oculto,
+
+            x=alt.X(
+                "Variação:Q",
+                title=None,
+                axis=alt.Axis(
+                    labels=False,
+                    ticks=False,
+                    domain=False,
+                    grid=False,
+                    title=None,
+                ),
+            ),
+
+            x2=alt.datum(
+                0
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Nivel1:N",
+                    title=rotulo_dimensao(
+                        variavel_1
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Nivel2:N",
+                    title=rotulo_dimensao(
+                        variavel_2
+                    ),
+                ),
+
+                alt.Tooltip(
+                    "Variação:Q",
+                    title="Variação",
+                    format=formatos[
+                        "delta_cruz"
+                    ],
+                ),
+            ],
+        )
+    )
+
+
+    # ========================================================
+    # DELTA COM 2 CASAS DECIMAIS
+    # ========================================================
+
+    textos_delta = (
+        alt.Chart(
+            dados_delta
+        )
+        .mark_text(
+            dx=alt.expr(
+                "datum.Variação >= 0 "
+                "? 4 : -4"
+            ),
+            align=alt.expr(
+                "datum.Variação >= 0 "
+                "? 'left' : 'right'"
+            ),
+            fontSize=9.5,
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+
+            x="Variação:Q",
+
+            text=alt.Text(
+                "Variação:Q",
+                format=formatos[
+                    "delta_cruz"
+                ],
+            ),
+        )
+    )
+
+
+    # ========================================================
+    # ZERO
+    # ========================================================
+
+    linha_zero = (
+        alt.Chart(
+            pd.DataFrame(
+                {
+                    "zero": [
+                        0
+                    ]
+                }
+            )
+        )
+        .mark_rule(
+            color="#8A8A8A",
+            strokeWidth=0.8,
+        )
+        .encode(
+            x="zero:Q"
+        )
+    )
+
+
+    # ========================================================
+    # SEPARADORES NO DELTA
+    # ========================================================
+
+    regras_n2_delta = (
+        alt.Chart(
+            separadores_n2
+        )
+        .mark_rule(
+            strokeWidth=0.65,
+            color="#D9DDE3",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+        )
+    )
+
+
+    regras_n1_delta = (
+        alt.Chart(
+            separadores_n1
+        )
+        .mark_rule(
+            strokeWidth=1.6,
+            color="#BFC5CC",
+        )
+        .encode(
+
+            y=alt.Y(
+                "RowID:N",
+                sort=ordem_linhas,
+            ),
+        )
+    )
+
+
+    titulo_delta = (
+        (
+            f"Variação "
+            f"{ano_final} − "
+            f"{ano_inicial}"
+        )
+        if ano_inicial
+        is not None
+        else
+        "Variação"
+    )
+
+
+    graf_delta = (
+        barras_delta
+        +
+        textos_delta
+        +
+        linha_zero
+        +
+        regras_n2_delta
+        +
+        regras_n1_delta
+    ).properties(
+        width=largura_direita,
+        height=altura,
+        title=alt.TitleParams(
+            text=titulo_delta,
+            anchor="middle",
+            fontSize=16,
+            fontWeight="bold",
+        ),
+    )
+
+
+    # ========================================================
+    # VISÃO FINAL
+    #
+    # Nível 1 | Nível 2 | Ano | Valor | Delta
+    # ========================================================
+
+    return (
+        alt.hconcat(
+            graf_nivel_1,
+            graf_nivel_2,
+            graf_abs,
+            graf_delta,
+            spacing=6,
         )
         .resolve_scale(
             y="shared"
@@ -3384,6 +4488,10 @@ if pagina == "CRUZAMENTOS":
         )
 
 
+    # ========================================================
+    # ANOS
+    # ========================================================
+
     _, bloco_cruz_anos, __ = st.columns(
         [
             1.4,
@@ -3445,6 +4553,10 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
+    # ========================================================
+    # DIMENSÕES
+    # ========================================================
+
     st.markdown(
         '<hr class="soft-divider">',
         unsafe_allow_html=True,
@@ -3504,6 +4616,10 @@ if pagina == "CRUZAMENTOS":
         )
 
 
+    # ========================================================
+    # RESULTADO
+    # ========================================================
+
     resultado_cruz = (
         media_ponderada_duas_dimensoes(
             base=df,
@@ -3536,6 +4652,10 @@ if pagina == "CRUZAMENTOS":
         st.stop()
 
 
+    # ========================================================
+    # ANOS DE REFERÊNCIA
+    # ========================================================
+
     anos_ord_cruz = sorted(
         anos_cruz
     )
@@ -3556,70 +4676,95 @@ if pagina == "CRUZAMENTOS":
     )
 
 
-    resultado_cruz[
-        "Categoria"
-    ] = (
+    # ========================================================
+    # ORDEM NATURAL DOS DOIS NÍVEIS
+    # ========================================================
+
+    ordem_nivel_1 = ordenar_dimensao(
         resultado_cruz[
             "Categoria_1"
-        ].astype(str)
-        +
-        " → "
-        +
+        ]
+        .dropna()
+        .unique(),
+        variavel_1,
+    )
+
+
+    ordem_nivel_2 = ordenar_dimensao(
         resultado_cruz[
             "Categoria_2"
-        ].astype(str)
-    )
-
-
-    base_cruz_simples = (
-        resultado_cruz[
-            [
-                "Ano",
-                "Categoria",
-                "Média",
-                "N escolas",
-                "Matrículas",
-            ]
         ]
-        .copy()
+        .dropna()
+        .unique(),
+        variavel_2,
     )
 
 
-    categorias_cruz = (
-        base_cruz_simples[
-            "Categoria"
-        ]
-        .drop_duplicates()
-        .tolist()
-    )
-
+    # ========================================================
+    # ORDENAÇÃO POR VALOR ABSOLUTO OU DELTA
+    #
+    # A ordenação afeta o primeiro nível.
+    # Dentro dele, o segundo nível mantém ordem natural.
+    # ========================================================
 
     if ordenacao_cruz == "Número absoluto":
 
-        ordem_cruz = (
-            base_cruz_simples[
-                base_cruz_simples[
+        ranking_n1 = (
+            resultado_cruz[
+                resultado_cruz[
                     "Ano"
                 ]
                 == str(
                     ano_final_cruz
                 )
             ]
+            .groupby(
+                "Categoria_1",
+                as_index=False,
+            )[
+                "Média"
+            ]
+            .mean()
             .sort_values(
                 "Média",
                 ascending=False,
-            )[
-                "Categoria"
+            )
+        )
+
+
+        ordem_temp = (
+            ranking_n1[
+                "Categoria_1"
             ]
+            .astype(str)
             .tolist()
         )
 
 
-    elif ano_ini_cruz is not None:
+        ordem_nivel_1 = (
+            ordem_temp
+            +
+            [
+                x
+                for x
+                in ordem_nivel_1
+                if x
+                not in ordem_temp
+            ]
+        )
 
-        pivot_cruz = (
-            base_cruz_simples[
-                base_cruz_simples[
+
+    elif (
+        ordenacao_cruz
+        == "Delta"
+        and
+        ano_ini_cruz
+        is not None
+    ):
+
+        pivot_delta = (
+            resultado_cruz[
+                resultado_cruz[
                     "Ano"
                 ].isin(
                     [
@@ -3633,7 +4778,10 @@ if pagina == "CRUZAMENTOS":
                 )
             ]
             .pivot(
-                index="Categoria",
+                index=[
+                    "Categoria_1",
+                    "Categoria_2",
+                ],
                 columns="Ano",
                 values="Média",
             )
@@ -3641,108 +4789,114 @@ if pagina == "CRUZAMENTOS":
         )
 
 
+        col_ini = str(
+            ano_ini_cruz
+        )
+
+
+        col_fim = str(
+            ano_final_cruz
+        )
+
+
         if (
-            str(
-                ano_ini_cruz
-            )
-            in pivot_cruz.columns
+            col_ini
+            in pivot_delta.columns
             and
-            str(
-                ano_final_cruz
-            )
-            in pivot_cruz.columns
+            col_fim
+            in pivot_delta.columns
         ):
 
-            pivot_cruz[
+            pivot_delta[
                 "Delta"
             ] = (
-                pivot_cruz[
-                    str(
-                        ano_final_cruz
-                    )
+                pivot_delta[
+                    col_fim
                 ]
                 -
-                pivot_cruz[
-                    str(
-                        ano_ini_cruz
-                    )
+                pivot_delta[
+                    col_ini
                 ]
             )
 
 
-            ordem_cruz = (
-                pivot_cruz
+            ranking_n1 = (
+                pivot_delta
+                .groupby(
+                    "Categoria_1",
+                    as_index=False,
+                )[
+                    "Delta"
+                ]
+                .mean()
                 .sort_values(
                     "Delta",
                     ascending=False,
-                )[
-                    "Categoria"
+                )
+            )
+
+
+            ordem_temp = (
+                ranking_n1[
+                    "Categoria_1"
                 ]
+                .astype(str)
                 .tolist()
             )
 
 
-        else:
-
-            ordem_cruz = (
-                categorias_cruz
+            ordem_nivel_1 = (
+                ordem_temp
+                +
+                [
+                    x
+                    for x
+                    in ordem_nivel_1
+                    if x
+                    not in ordem_temp
+                ]
             )
 
 
-    else:
-
-        ordem_cruz = (
-            categorias_cruz
-        )
-
-
-    for categoria in categorias_cruz:
-
-        if categoria not in ordem_cruz:
-
-            ordem_cruz.append(
-                categoria
-            )
-
-
-    dados_cruz = pd.concat(
-        [
-            consolidado_cruz,
-            base_cruz_simples,
-        ],
-        ignore_index=True,
-    )
-
+    # ========================================================
+    # PREPARA MALHA DE TRÊS NÍVEIS
+    # ========================================================
 
     (
         plot_cruz,
-        labels_cruz,
+        labels_n1,
+        labels_n2,
         ordem_linhas_cruz,
-    ) = preparar_linhas_horizontais(
-        dados=dados_cruz,
+    ) = preparar_linhas_cruzamentos(
+        resultado=resultado_cruz,
+        consolidado=consolidado_cruz,
         anos=anos_cruz,
-        categorias=ordem_cruz,
+        ordem_nivel_1=ordem_nivel_1,
+        ordem_nivel_2=ordem_nivel_2,
         ano_inicial=ano_ini_cruz,
         ano_final=ano_final_cruz,
     )
 
 
+    # ========================================================
+    # GRÁFICO
+    # ========================================================
+
     painel_cruz = (
-        criar_painel_horizontal(
+        criar_painel_cruzamentos(
             plot=plot_cruz,
-            labels_categorias=labels_cruz,
+            labels_nivel_1=labels_n1,
+            labels_nivel_2=labels_n2,
             ordem_linhas=ordem_linhas_cruz,
             indicador=indicador_cruz,
-            eixo_nome=(
-                f"{rotulo_dimensao(variavel_1)} "
-                f"→ "
-                f"{rotulo_dimensao(variavel_2)}"
-            ),
+            variavel_1=variavel_1,
+            variavel_2=variavel_2,
             ano_inicial=ano_ini_cruz,
             ano_final=ano_final_cruz,
-            largura_categoria=150,
-            largura_esquerda=365,
-            largura_direita=205,
+            largura_nivel_1=105,
+            largura_nivel_2=120,
+            largura_esquerda=335,
+            largura_direita=190,
         )
     )
 
@@ -4071,7 +5225,6 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    # Consolidado também no topo
     ordem_barras = (
         [
             "Consolidado"
