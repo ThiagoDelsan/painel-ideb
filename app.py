@@ -5580,12 +5580,23 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    # ========================================================
+    # ALTURA / ESPAÇAMENTO VERTICAL
+    #
+    # As categorias regulares ficam mais próximas entre si.
+    # O Consolidado continua visualmente separado porque há
+    # uma categoria dummy (GRUPO_ESPACO) logo após ele.
+    # ========================================================
+
+    ALTURA_LINHA_DEMO = 38
+
+
     altura_demo = max(
-        275,
+        240,
         len(
             ordem_barras
         )
-        * 48,
+        * ALTURA_LINHA_DEMO,
     )
 
 
