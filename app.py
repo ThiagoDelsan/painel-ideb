@@ -3083,6 +3083,647 @@ def criar_grafico_delta_boxplots(
     )
 
 
+
+# ============================================================
+# DISTRIBUIÇÕES — AGREGAÇÃO DE CATEGORIAS
+# ============================================================
+
+def obter_categorias_agregacao(
+    base,
+    variavel,
+):
+
+    if base.empty:
+
+        return []
+
+
+    temp = criar_variavel_eixo(
+        base,
+        variavel,
+    )
+
+
+    categorias = (
+        temp[
+            "Categoria"
+        ]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+
+
+    return ordenar_dimensao(
+        categorias,
+        variavel,
+    )
+
+
+def preparar_dados_boxplot_agregado(
+    base,
+    indicador,
+    variavel,
+    anos,
+    categorias_grupo_1,
+    categorias_grupo_2,
+):
+
+    anos = sorted(
+        list(
+            dict.fromkeys(
+                int(
+                    ano
+                )
+                for ano in anos
+            )
+        )
+    )
+
+
+    recorte = (
+        base[
+            base[
+                "Ano"
+            ].isin(
+                anos
+            )
+        ]
+        .copy()
+    )
+
+
+    if recorte.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Ano",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Valor",
+                ]
+            ),
+            [],
+        )
+
+
+    recorte[
+        indicador
+    ] = pd.to_numeric(
+        recorte[
+            indicador
+        ],
+        errors="coerce",
+    )
+
+
+    recorte = (
+        recorte[
+            recorte[
+                indicador
+            ].notna()
+        ]
+        .drop_duplicates(
+            subset=[
+                "Cód. INEP",
+                "Ano",
+            ],
+            keep="first",
+        )
+        .copy()
+    )
+
+
+    if recorte.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Ano",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Valor",
+                ]
+            ),
+            [],
+        )
+
+
+    temp = criar_variavel_eixo(
+        recorte,
+        variavel,
+    )
+
+
+    recorte[
+        "Categoria original"
+    ] = temp[
+        "Categoria"
+    ].values
+
+
+    recorte = (
+        recorte[
+            recorte[
+                "Categoria original"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    recorte[
+        "Categoria original"
+    ] = (
+        recorte[
+            "Categoria original"
+        ]
+        .astype(str)
+    )
+
+
+    mapa_grupos = {
+        str(
+            categoria
+        ): "Agregado 1"
+        for categoria
+        in categorias_grupo_1
+    }
+
+
+    mapa_grupos.update(
+        {
+            str(
+                categoria
+            ): "Agregado 2"
+            for categoria
+            in categorias_grupo_2
+        }
+    )
+
+
+    recorte[
+        "Categoria"
+    ] = (
+        recorte[
+            "Categoria original"
+        ]
+        .map(
+            mapa_grupos
+        )
+    )
+
+
+    recorte = (
+        recorte[
+            recorte[
+                "Categoria"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    if recorte.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Ano",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Valor",
+                ]
+            ),
+            [],
+        )
+
+
+    recorte[
+        "Categoria_1"
+    ] = recorte[
+        "Categoria"
+    ]
+
+
+    recorte[
+        "Categoria_2"
+    ] = ""
+
+
+    dados = recorte[
+        [
+            "Cód. INEP",
+            "Ano",
+            "Categoria_1",
+            "Categoria_2",
+            "Categoria",
+            "Categoria original",
+            indicador,
+        ]
+    ].copy()
+
+
+    dados = dados.rename(
+        columns={
+            indicador: "Valor"
+        }
+    )
+
+
+    dados[
+        "Ano"
+    ] = (
+        dados[
+            "Ano"
+        ]
+        .astype(int)
+        .astype(str)
+    )
+
+
+    categorias_existentes = set(
+        dados[
+            "Categoria"
+        ]
+        .astype(str)
+        .unique()
+    )
+
+
+    ordem = [
+        grupo
+        for grupo
+        in [
+            "Agregado 1",
+            "Agregado 2",
+        ]
+        if grupo
+        in categorias_existentes
+    ]
+
+
+    return (
+        dados,
+        ordem,
+    )
+
+
+def preparar_dados_delta_boxplot_agregado(
+    base,
+    indicador,
+    variavel,
+    ano_inicial,
+    ano_final,
+    categorias_grupo_1,
+    categorias_grupo_2,
+):
+
+    anos_delta = [
+        int(
+            ano_inicial
+        ),
+        int(
+            ano_final
+        ),
+    ]
+
+
+    recorte = (
+        base[
+            base[
+                "Ano"
+            ].isin(
+                anos_delta
+            )
+        ]
+        .copy()
+    )
+
+
+    if recorte.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    recorte[
+        indicador
+    ] = pd.to_numeric(
+        recorte[
+            indicador
+        ],
+        errors="coerce",
+    )
+
+
+    recorte = (
+        recorte[
+            recorte[
+                indicador
+            ].notna()
+        ]
+        .drop_duplicates(
+            subset=[
+                "Cód. INEP",
+                "Ano",
+            ],
+            keep="first",
+        )
+        .copy()
+    )
+
+
+    pivot = (
+        recorte[
+            [
+                "Cód. INEP",
+                "Ano",
+                indicador,
+            ]
+        ]
+        .pivot(
+            index="Cód. INEP",
+            columns="Ano",
+            values=indicador,
+        )
+    )
+
+
+    if (
+        ano_inicial
+        not in pivot.columns
+        or
+        ano_final
+        not in pivot.columns
+    ):
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    pivot = (
+        pivot[
+            [
+                ano_inicial,
+                ano_final,
+            ]
+        ]
+        .dropna()
+        .reset_index()
+    )
+
+
+    if pivot.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    pivot[
+        "Delta"
+    ] = (
+        pivot[
+            ano_final
+        ]
+        -
+        pivot[
+            ano_inicial
+        ]
+    )
+
+
+    deltas_escola = pivot[
+        [
+            "Cód. INEP",
+            "Delta",
+        ]
+    ].copy()
+
+
+    # A composição dos grupos do delta usa a categoria da escola
+    # no ano mais recente da comparação, em linha com a regra das
+    # demais comparações do painel.
+    base_final = (
+        recorte[
+            recorte[
+                "Ano"
+            ]
+            == ano_final
+        ]
+        .merge(
+            deltas_escola,
+            on="Cód. INEP",
+            how="inner",
+            validate="one_to_one",
+        )
+    )
+
+
+    if base_final.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    temp = criar_variavel_eixo(
+        base_final,
+        variavel,
+    )
+
+
+    base_final[
+        "Categoria original"
+    ] = temp[
+        "Categoria"
+    ].values
+
+
+    base_final = (
+        base_final[
+            base_final[
+                "Categoria original"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    base_final[
+        "Categoria original"
+    ] = (
+        base_final[
+            "Categoria original"
+        ]
+        .astype(str)
+    )
+
+
+    mapa_grupos = {
+        str(
+            categoria
+        ): "Agregado 1"
+        for categoria
+        in categorias_grupo_1
+    }
+
+
+    mapa_grupos.update(
+        {
+            str(
+                categoria
+            ): "Agregado 2"
+            for categoria
+            in categorias_grupo_2
+        }
+    )
+
+
+    base_final[
+        "Categoria"
+    ] = (
+        base_final[
+            "Categoria original"
+        ]
+        .map(
+            mapa_grupos
+        )
+    )
+
+
+    base_final = (
+        base_final[
+            base_final[
+                "Categoria"
+            ].notna()
+        ]
+        .copy()
+    )
+
+
+    if base_final.empty:
+
+        return (
+            pd.DataFrame(
+                columns=[
+                    "Cód. INEP",
+                    "Categoria_1",
+                    "Categoria_2",
+                    "Categoria",
+                    "Categoria original",
+                    "Delta",
+                ]
+            ),
+            [],
+        )
+
+
+    base_final[
+        "Categoria_1"
+    ] = base_final[
+        "Categoria"
+    ]
+
+
+    base_final[
+        "Categoria_2"
+    ] = ""
+
+
+    dados = base_final[
+        [
+            "Cód. INEP",
+            "Categoria_1",
+            "Categoria_2",
+            "Categoria",
+            "Categoria original",
+            "Delta",
+        ]
+    ].copy()
+
+
+    categorias_existentes = set(
+        dados[
+            "Categoria"
+        ]
+        .astype(str)
+        .unique()
+    )
+
+
+    ordem = [
+        grupo
+        for grupo
+        in [
+            "Agregado 1",
+            "Agregado 2",
+        ]
+        if grupo
+        in categorias_existentes
+    ]
+
+
+    return (
+        dados,
+        ordem,
+    )
+
+
 # ============================================================
 # MALHA Y
 # ============================================================
@@ -5330,284 +5971,250 @@ if pagina == "DISTRIBUIÇÕES":
     )
 
 
-    same_schools_distrib = st.toggle(
-        "SAME SCHOOLS",
-        value=False,
-        key="same_schools_distrib",
-    )
-
-
-    opcoes_distribuicoes = list(
-        EIXOS_DISPONIVEIS.keys()
-    )
-
-
-    SEM_ESCOLHA_DISTRIB = "<vazio>"
-
-
-    dist_1, dist_2, dist_3, dist_4 = st.columns(
+    tab_todos_distrib, tab_agregado_distrib = st.tabs(
         [
-            1.15,
-            1.25,
-            1.25,
-            1.0,
+            "Todos",
+            "Agregado",
         ]
     )
 
 
-    with dist_1:
+    # ========================================================
+    # SUBSEÇÃO — TODOS
+    # ========================================================
 
-        indicador_distribuicoes = st.selectbox(
-            "Indicador",
+    def render_distribuicoes_todos():
+
+        same_schools_distrib = st.toggle(
+            "SAME SCHOOLS",
+            value=False,
+            key="same_schools_distrib",
+        )
+
+
+        opcoes_distribuicoes = list(
+            EIXOS_DISPONIVEIS.keys()
+        )
+
+
+        SEM_ESCOLHA_DISTRIB = "<vazio>"
+
+
+        dist_1, dist_2, dist_3, dist_4 = st.columns(
             [
-                "IDEB",
-                "N(LP)",
-                "N(M)",
-                "N",
-                "Rendimento",
-            ],
-            key="indicador_distribuicoes",
+                1.15,
+                1.25,
+                1.25,
+                1.0,
+            ]
         )
 
 
-    with dist_2:
+        with dist_1:
 
-        variavel_1_distribuicoes = st.selectbox(
-            "1ª dimensão",
-            options=opcoes_distribuicoes,
-            index=(
-                opcoes_distribuicoes.index(
-                    "INSE"
-                )
-                if "INSE"
-                in opcoes_distribuicoes
-                else 0
-            ),
-            format_func=rotulo_dimensao,
-            key="variavel_1_distribuicoes",
-        )
-
-
-    opcoes_2_distribuicoes = [
-        SEM_ESCOLHA_DISTRIB,
-        *[
-            item
-            for item
-            in opcoes_distribuicoes
-            if item
-            != variavel_1_distribuicoes
-        ],
-    ]
-
-
-    with dist_3:
-
-        indice_padrao_var_2_distrib = (
-            opcoes_2_distribuicoes.index(
-                "PPI"
+            indicador_distribuicoes = st.selectbox(
+                "Indicador",
+                [
+                    "IDEB",
+                    "N(LP)",
+                    "N(M)",
+                    "N",
+                    "Rendimento",
+                ],
+                key="indicador_distribuicoes",
             )
-            if "PPI"
-            in opcoes_2_distribuicoes
-            else 0
-        )
 
 
-        variavel_2_distribuicoes = st.selectbox(
-            "2ª dimensão",
-            options=opcoes_2_distribuicoes,
-            index=indice_padrao_var_2_distrib,
-            format_func=(
-                lambda valor:
-                    SEM_ESCOLHA_DISTRIB
-                    if valor
-                    == SEM_ESCOLHA_DISTRIB
-                    else rotulo_dimensao(
-                        valor
+        with dist_2:
+
+            variavel_1_distribuicoes = st.selectbox(
+                "1ª dimensão",
+                options=opcoes_distribuicoes,
+                index=(
+                    opcoes_distribuicoes.index(
+                        "INSE"
                     )
-            ),
-            key="variavel_2_distribuicoes",
-        )
+                    if "INSE"
+                    in opcoes_distribuicoes
+                    else 0
+                ),
+                format_func=rotulo_dimensao,
+                key="variavel_1_distribuicoes",
+            )
 
 
-    with dist_4:
-
-        ordenacao_distribuicoes = st.selectbox(
-            "Ordenação",
-            [
-                "Número absoluto",
-                "Delta",
+        opcoes_2_distribuicoes = [
+            SEM_ESCOLHA_DISTRIB,
+            *[
+                item
+                for item
+                in opcoes_distribuicoes
+                if item
+                != variavel_1_distribuicoes
             ],
-            key="ordenacao_distribuicoes",
-        )
-
-
-    variavel_2_boxplot = (
-        None
-        if variavel_2_distribuicoes
-        == SEM_ESCOLHA_DISTRIB
-        else variavel_2_distribuicoes
-    )
-
-
-    _, bloco_distrib_anos, __ = st.columns(
-        [
-            1.3,
-            3.4,
-            1.3,
         ]
-    )
 
 
-    with bloco_distrib_anos:
+        with dist_3:
 
-        cols_distrib = st.columns(5)
-
-
-        defaults_distrib = {
-            2017: False,
-            2019: False,
-            2021: False,
-            2023: True,
-            2025: True,
-        }
-
-
-        selecao_distrib = {}
-
-
-        for col, ano in zip(
-            cols_distrib,
-            ANOS_PAINEL,
-        ):
-
-            with col:
-
-                selecao_distrib[
-                    ano
-                ] = st.checkbox(
-                    str(
-                        ano
-                    ),
-                    value=defaults_distrib[
-                        ano
-                    ],
-                    key=f"distrib_ano_{ano}",
+            indice_padrao_var_2_distrib = (
+                opcoes_2_distribuicoes.index(
+                    "PPI"
                 )
+                if "PPI"
+                in opcoes_2_distribuicoes
+                else 0
+            )
 
 
-    anos_distribuicoes = [
-        ano
-        for ano, ativo
-        in selecao_distrib.items()
-        if ativo
-    ]
+            variavel_2_distribuicoes = st.selectbox(
+                "2ª dimensão",
+                options=opcoes_2_distribuicoes,
+                index=indice_padrao_var_2_distrib,
+                format_func=(
+                    lambda valor:
+                        SEM_ESCOLHA_DISTRIB
+                        if valor
+                        == SEM_ESCOLHA_DISTRIB
+                        else rotulo_dimensao(
+                            valor
+                        )
+                ),
+                key="variavel_2_distribuicoes",
+            )
 
 
-    if not anos_distribuicoes:
+        with dist_4:
 
-        st.warning(
-            "Selecione pelo menos um ano."
+            ordenacao_distribuicoes = st.selectbox(
+                "Ordenação",
+                [
+                    "Número absoluto",
+                    "Delta",
+                ],
+                key="ordenacao_distribuicoes",
+            )
+
+
+        variavel_2_boxplot = (
+            None
+            if variavel_2_distribuicoes
+            == SEM_ESCOLHA_DISTRIB
+            else variavel_2_distribuicoes
         )
 
-        st.stop()
+
+        _, bloco_distrib_anos, __ = st.columns(
+            [
+                1.3,
+                3.4,
+                1.3,
+            ]
+        )
 
 
-    anos_distribuicoes = sorted(
-        anos_distribuicoes
-    )
+        with bloco_distrib_anos:
+
+            cols_distrib = st.columns(5)
 
 
-    ano_final_distrib = (
-        anos_distribuicoes[-1]
-    )
+            defaults_distrib = {
+                2017: False,
+                2019: False,
+                2021: False,
+                2023: True,
+                2025: True,
+            }
 
 
-    ano_inicial_distrib = (
-        anos_distribuicoes[-2]
-        if len(
+            selecao_distrib = {}
+
+
+            for col, ano in zip(
+                cols_distrib,
+                ANOS_PAINEL,
+            ):
+
+                with col:
+
+                    selecao_distrib[
+                        ano
+                    ] = st.checkbox(
+                        str(
+                            ano
+                        ),
+                        value=defaults_distrib[
+                            ano
+                        ],
+                        key=f"distrib_ano_{ano}",
+                    )
+
+
+        anos_distribuicoes = [
+            ano
+            for ano, ativo
+            in selecao_distrib.items()
+            if ativo
+        ]
+
+
+        if not anos_distribuicoes:
+
+            st.warning(
+                "Selecione pelo menos um ano."
+            )
+
+            return
+
+
+        anos_distribuicoes = sorted(
             anos_distribuicoes
         )
-        >= 2
-        else None
-    )
 
 
-    # ========================================================
-    # SAME SCHOOLS
-    #
-    # Quando ativo, mantém no universo apenas escolas com valor
-    # válido do indicador em TODOS os anos selecionados, seguindo
-    # a mesma regra usada em Principais Indicadores.
-    # ========================================================
-
-    df_distribuicoes = df.copy()
-
-
-    if same_schools_distrib:
-
-        df_distribuicoes = filtrar_same_schools(
-            df_distribuicoes,
-            indicador_distribuicoes,
-            anos_distribuicoes,
+        ano_final_distrib = (
+            anos_distribuicoes[-1]
         )
 
 
-    # ========================================================
-    # PREPARA VALORES ABSOLUTOS
-    # ========================================================
-
-    try:
-
-        dados_boxplot, ordem_padrao_boxplot = preparar_dados_boxplot(
-            base=df_distribuicoes,
-            indicador=indicador_distribuicoes,
-            variavel_1=variavel_1_distribuicoes,
-            variavel_2=variavel_2_boxplot,
-            anos=anos_distribuicoes,
-            incluir_integral_agregado=(
-                mostrar_integral_agregado
-            ),
+        ano_inicial_distrib = (
+            anos_distribuicoes[-2]
+            if len(
+                anos_distribuicoes
+            )
+            >= 2
+            else None
         )
 
 
-    except Exception as erro:
+        # ====================================================
+        # SAME SCHOOLS
+        # ====================================================
 
-        st.error(
-            "Não foi possível preparar as distribuições."
-        )
-
-        st.exception(
-            erro
-        )
-
-        st.stop()
+        df_distribuicoes = df.copy()
 
 
-    # ========================================================
-    # PREPARA DELTAS
-    #
-    # Quando há mais de dois anos, utiliza as duas edições mais
-    # recentes selecionadas, como nas demais páginas do painel.
-    # ========================================================
+        if same_schools_distrib:
 
-    dados_delta_boxplot = pd.DataFrame()
-    ordem_padrao_delta = []
+            df_distribuicoes = filtrar_same_schools(
+                df_distribuicoes,
+                indicador_distribuicoes,
+                anos_distribuicoes,
+            )
 
 
-    if ano_inicial_distrib is not None:
+        # ====================================================
+        # PREPARA VALORES ABSOLUTOS
+        # ====================================================
 
         try:
 
-            (
-                dados_delta_boxplot,
-                ordem_padrao_delta,
-            ) = preparar_dados_delta_boxplot(
+            dados_boxplot, ordem_padrao_boxplot = preparar_dados_boxplot(
                 base=df_distribuicoes,
                 indicador=indicador_distribuicoes,
                 variavel_1=variavel_1_distribuicoes,
                 variavel_2=variavel_2_boxplot,
-                ano_inicial=ano_inicial_distrib,
-                ano_final=ano_final_distrib,
+                anos=anos_distribuicoes,
                 incluir_integral_agregado=(
                     mostrar_integral_agregado
                 ),
@@ -5617,302 +6224,1065 @@ if pagina == "DISTRIBUIÇÕES":
         except Exception as erro:
 
             st.error(
-                "Não foi possível preparar os deltas das distribuições."
+                "Não foi possível preparar as distribuições."
             )
 
             st.exception(
                 erro
             )
 
-            st.stop()
+            return
 
 
-    # ========================================================
-    # ORDENAÇÃO
-    #
-    # Número absoluto: média das escolas no ano mais recente.
-    # Delta: média dos deltas entre as duas edições mais recentes.
-    # O Consolidado permanece sempre no final, à direita.
-    # ========================================================
+        # ====================================================
+        # PREPARA DELTAS
+        # ====================================================
 
-    ordem_base = [
-        categoria
-        for categoria
-        in ordem_padrao_boxplot
-        if categoria
-        != "Consolidado"
-    ]
+        dados_delta_boxplot = pd.DataFrame()
+        ordem_padrao_delta = []
 
 
-    if ordenacao_distribuicoes == "Número absoluto":
+        if ano_inicial_distrib is not None:
 
-        ranking_distribuicoes = (
-            dados_boxplot[
+            try:
+
                 (
-                    dados_boxplot[
-                        "Ano"
-                    ]
-                    == str(
-                        ano_final_distrib
+                    dados_delta_boxplot,
+                    ordem_padrao_delta,
+                ) = preparar_dados_delta_boxplot(
+                    base=df_distribuicoes,
+                    indicador=indicador_distribuicoes,
+                    variavel_1=variavel_1_distribuicoes,
+                    variavel_2=variavel_2_boxplot,
+                    ano_inicial=ano_inicial_distrib,
+                    ano_final=ano_final_distrib,
+                    incluir_integral_agregado=(
+                        mostrar_integral_agregado
+                    ),
+                )
+
+
+            except Exception as erro:
+
+                st.error(
+                    "Não foi possível preparar os deltas das distribuições."
+                )
+
+                st.exception(
+                    erro
+                )
+
+                return
+
+
+        # ====================================================
+        # ORDENAÇÃO
+        # ====================================================
+
+        ordem_base = [
+            categoria
+            for categoria
+            in ordem_padrao_boxplot
+            if categoria
+            != "Consolidado"
+        ]
+
+
+        if ordenacao_distribuicoes == "Número absoluto":
+
+            ranking_distribuicoes = (
+                dados_boxplot[
+                    (
+                        dados_boxplot[
+                            "Ano"
+                        ]
+                        == str(
+                            ano_final_distrib
+                        )
+                    )
+                    &
+                    (
+                        dados_boxplot[
+                            "Categoria"
+                        ]
+                        != "Consolidado"
+                    )
+                ]
+                .groupby(
+                    "Categoria",
+                    as_index=False,
+                )
+                .agg(
+                    Valor_ordem=(
+                        "Valor",
+                        "mean",
                     )
                 )
-                &
-                (
-                    dados_boxplot[
+                .sort_values(
+                    "Valor_ordem",
+                    ascending=False,
+                )
+            )
+
+
+            ordem_rank = (
+                ranking_distribuicoes[
+                    "Categoria"
+                ]
+                .astype(str)
+                .tolist()
+            )
+
+
+        elif (
+            ano_inicial_distrib is not None
+            and
+            not dados_delta_boxplot.empty
+        ):
+
+            ranking_distribuicoes = (
+                dados_delta_boxplot[
+                    dados_delta_boxplot[
                         "Categoria"
                     ]
                     != "Consolidado"
+                ]
+                .groupby(
+                    "Categoria",
+                    as_index=False,
                 )
-            ]
-            .groupby(
-                "Categoria",
-                as_index=False,
-            )
-            .agg(
-                Valor_ordem=(
-                    "Valor",
-                    "mean",
+                .agg(
+                    Valor_ordem=(
+                        "Delta",
+                        "mean",
+                    )
+                )
+                .sort_values(
+                    "Valor_ordem",
+                    ascending=False,
                 )
             )
-            .sort_values(
-                "Valor_ordem",
-                ascending=False,
-            )
-        )
 
 
-        ordem_rank = (
-            ranking_distribuicoes[
-                "Categoria"
-            ]
-            .astype(str)
-            .tolist()
-        )
-
-
-    elif (
-        ano_inicial_distrib is not None
-        and
-        not dados_delta_boxplot.empty
-    ):
-
-        ranking_distribuicoes = (
-            dados_delta_boxplot[
-                dados_delta_boxplot[
+            ordem_rank = (
+                ranking_distribuicoes[
                     "Categoria"
                 ]
-                != "Consolidado"
+                .astype(str)
+                .tolist()
+            )
+
+
+        else:
+
+            ordem_rank = ordem_base.copy()
+
+
+        ordem_boxplot = (
+            ordem_rank
+            +
+            [
+                categoria
+                for categoria
+                in ordem_base
+                if categoria
+                not in ordem_rank
             ]
-            .groupby(
-                "Categoria",
-                as_index=False,
-            )
-            .agg(
-                Valor_ordem=(
-                    "Delta",
-                    "mean",
-                )
-            )
-            .sort_values(
-                "Valor_ordem",
-                ascending=False,
-            )
         )
 
 
-        ordem_rank = (
-            ranking_distribuicoes[
+        if (
+            "Consolidado"
+            in dados_boxplot[
+                "Categoria"
+            ].astype(str).unique()
+        ):
+
+            ordem_boxplot.append(
+                "Consolidado"
+            )
+
+
+        categorias_delta_existentes = set(
+            dados_delta_boxplot[
                 "Categoria"
             ]
             .astype(str)
-            .tolist()
-        )
+            .unique()
+        ) if not dados_delta_boxplot.empty else set()
 
 
-    else:
-
-        # Com somente um ano não existe delta. Nesse caso,
-        # preserva a ordem estrutural das dimensões.
-        ordem_rank = ordem_base.copy()
-
-
-    ordem_boxplot = (
-        ordem_rank
-        +
-        [
+        ordem_delta_boxplot = [
             categoria
             for categoria
-            in ordem_base
+            in ordem_boxplot
             if categoria
-            not in ordem_rank
-        ]
-    )
-
-
-    if (
-        "Consolidado"
-        in dados_boxplot[
-            "Categoria"
-        ].astype(str).unique()
-    ):
-
-        ordem_boxplot.append(
-            "Consolidado"
-        )
-
-
-    # Usa a mesma ordem no gráfico de deltas para facilitar a
-    # comparação visual entre os dois gráficos.
-    categorias_delta_existentes = set(
-        dados_delta_boxplot[
-            "Categoria"
-        ]
-        .astype(str)
-        .unique()
-    ) if not dados_delta_boxplot.empty else set()
-
-
-    ordem_delta_boxplot = [
-        categoria
-        for categoria
-        in ordem_boxplot
-        if categoria
-        in categorias_delta_existentes
-        and categoria
-        != "Consolidado"
-    ]
-
-
-    for categoria in ordem_padrao_delta:
-
-        if (
-            categoria
-            != "Consolidado"
-            and
-            categoria
             in categorias_delta_existentes
-            and
-            categoria
-            not in ordem_delta_boxplot
-        ):
+            and categoria
+            != "Consolidado"
+        ]
+
+
+        for categoria in ordem_padrao_delta:
+
+            if (
+                categoria
+                != "Consolidado"
+                and
+                categoria
+                in categorias_delta_existentes
+                and
+                categoria
+                not in ordem_delta_boxplot
+            ):
+
+                ordem_delta_boxplot.append(
+                    categoria
+                )
+
+
+        if "Consolidado" in categorias_delta_existentes:
 
             ordem_delta_boxplot.append(
-                categoria
+                "Consolidado"
             )
 
 
-    if "Consolidado" in categorias_delta_existentes:
+        # ====================================================
+        # GRÁFICO 1 — VALORES ABSOLUTOS
+        # ====================================================
 
-        ordem_delta_boxplot.append(
-            "Consolidado"
+        st.markdown(
+            "#### Distribuições dos valores"
         )
+
+
+        caption_valores = (
+            "Os boxplots mostram a distribuição entre escolas em cada ano "
+            "selecionado. O losango representa a média de cada distribuição. "
+            f"Ordenação: {ordenacao_distribuicoes}."
+        )
+
+
+        if same_schools_distrib:
+
+            caption_valores += (
+                " SAME SCHOOLS ativo: são consideradas apenas escolas com "
+                "resultado válido em todos os anos selecionados."
+            )
+
+
+        st.caption(
+            caption_valores
+        )
+
+
+        if dados_boxplot.empty:
+
+            st.info(
+                "Não há dados disponíveis para a combinação selecionada."
+            )
+
+        else:
+
+            grafico_boxplots = criar_grafico_boxplots(
+                dados=dados_boxplot,
+                ordem=ordem_boxplot,
+                indicador=indicador_distribuicoes,
+                variavel_1=variavel_1_distribuicoes,
+                variavel_2=variavel_2_boxplot,
+                anos=anos_distribuicoes,
+            )
+
+
+            st.altair_chart(
+                grafico_boxplots,
+                width="stretch",
+            )
+
+
+        # ====================================================
+        # GRÁFICO 2 — DELTAS
+        # ====================================================
+
+        st.markdown(
+            "#### Distribuições dos deltas"
+        )
+
+
+        if ano_inicial_distrib is None:
+
+            st.info(
+                "Selecione pelo menos dois anos para visualizar "
+                "a distribuição dos deltas."
+            )
+
+            return
+
+
+        st.caption(
+            f"Delta calculado como {ano_final_distrib} − "
+            f"{ano_inicial_distrib}. Quando mais de dois anos estão "
+            "selecionados, são usadas as duas edições mais recentes. "
+            f"As dimensões de cada escola são consideradas em "
+            f"{ano_final_distrib}."
+        )
+
+
+        if dados_delta_boxplot.empty:
+
+            st.info(
+                "Não há escolas com resultados válidos nos dois anos "
+                "mais recentes selecionados para calcular os deltas."
+            )
+
+        else:
+
+            grafico_delta_boxplots = criar_grafico_delta_boxplots(
+                dados=dados_delta_boxplot,
+                ordem=ordem_delta_boxplot,
+                indicador=indicador_distribuicoes,
+                variavel_1=variavel_1_distribuicoes,
+                variavel_2=variavel_2_boxplot,
+                ano_inicial=ano_inicial_distrib,
+                ano_final=ano_final_distrib,
+            )
+
+
+            st.altair_chart(
+                grafico_delta_boxplots,
+                width="stretch",
+            )
 
 
     # ========================================================
-    # GRÁFICO 1 — VALORES ABSOLUTOS
+    # SUBSEÇÃO — AGREGADO
     # ========================================================
 
-    st.markdown(
-        "#### Distribuições dos valores"
-    )
+    def render_distribuicoes_agregado():
 
-
-    caption_valores = (
-        "Os boxplots mostram a distribuição entre escolas em cada ano "
-        "selecionado. O losango representa a média de cada distribuição. "
-        f"Ordenação: {ordenacao_distribuicoes}."
-    )
-
-
-    if same_schools_distrib:
-
-        caption_valores += (
-            " SAME SCHOOLS ativo: são consideradas apenas escolas com "
-            "resultado válido em todos os anos selecionados."
+        same_schools_agregado = st.toggle(
+            "SAME SCHOOLS",
+            value=False,
+            key="same_schools_distrib_agregado",
         )
 
 
-    st.caption(
-        caption_valores
-    )
-
-
-    if dados_boxplot.empty:
-
-        st.info(
-            "Não há dados disponíveis para a combinação selecionada."
-        )
-
-    else:
-
-        grafico_boxplots = criar_grafico_boxplots(
-            dados=dados_boxplot,
-            ordem=ordem_boxplot,
-            indicador=indicador_distribuicoes,
-            variavel_1=variavel_1_distribuicoes,
-            variavel_2=variavel_2_boxplot,
-            anos=anos_distribuicoes,
+        opcoes_agregado = list(
+            EIXOS_DISPONIVEIS.keys()
         )
 
 
-        st.altair_chart(
-            grafico_boxplots,
-            width="stretch",
+        ag_1, ag_2, ag_3 = st.columns(
+            [
+                1.15,
+                1.35,
+                1.0,
+            ]
         )
 
 
-    # ========================================================
-    # GRÁFICO 2 — DELTAS
-    # ========================================================
+        with ag_1:
 
-    st.markdown(
-        "#### Distribuições dos deltas"
-    )
+            indicador_agregado = st.selectbox(
+                "Indicador",
+                [
+                    "IDEB",
+                    "N(LP)",
+                    "N(M)",
+                    "N",
+                    "Rendimento",
+                ],
+                key="indicador_distrib_agregado",
+            )
 
 
-    if ano_inicial_distrib is None:
+        with ag_2:
 
-        st.info(
-            "Selecione pelo menos dois anos para visualizar "
-            "a distribuição dos deltas."
+            variavel_agregado = st.selectbox(
+                "Dimensão",
+                options=opcoes_agregado,
+                index=(
+                    opcoes_agregado.index(
+                        "INSE"
+                    )
+                    if "INSE"
+                    in opcoes_agregado
+                    else 0
+                ),
+                format_func=rotulo_dimensao,
+                key="variavel_distrib_agregado",
+            )
+
+
+        with ag_3:
+
+            ordenacao_agregado = st.selectbox(
+                "Ordenação",
+                [
+                    "Número absoluto",
+                    "Delta",
+                ],
+                key="ordenacao_distrib_agregado",
+            )
+
+
+        _, bloco_agregado_anos, __ = st.columns(
+            [
+                1.3,
+                3.4,
+                1.3,
+            ]
         )
 
-        st.stop()
+
+        with bloco_agregado_anos:
+
+            cols_agregado = st.columns(5)
 
 
-    st.caption(
-        f"Delta calculado como {ano_final_distrib} − "
-        f"{ano_inicial_distrib}. Quando mais de dois anos estão "
-        "selecionados, são usadas as duas edições mais recentes. "
-        f"As dimensões de cada escola são consideradas em "
-        f"{ano_final_distrib}."
-    )
+            defaults_agregado = {
+                2017: False,
+                2019: False,
+                2021: False,
+                2023: True,
+                2025: True,
+            }
 
 
-    if dados_delta_boxplot.empty:
+            selecao_agregado_anos = {}
 
-        st.info(
-            "Não há escolas com resultados válidos nos dois anos "
-            "mais recentes selecionados para calcular os deltas."
+
+            for col, ano in zip(
+                cols_agregado,
+                ANOS_PAINEL,
+            ):
+
+                with col:
+
+                    selecao_agregado_anos[
+                        ano
+                    ] = st.checkbox(
+                        str(
+                            ano
+                        ),
+                        value=defaults_agregado[
+                            ano
+                        ],
+                        key=f"agregado_ano_{ano}",
+                    )
+
+
+        anos_agregado = [
+            ano
+            for ano, ativo
+            in selecao_agregado_anos.items()
+            if ativo
+        ]
+
+
+        if not anos_agregado:
+
+            st.warning(
+                "Selecione pelo menos um ano."
+            )
+
+            return
+
+
+        anos_agregado = sorted(
+            anos_agregado
         )
 
-    else:
 
-        grafico_delta_boxplots = criar_grafico_delta_boxplots(
-            dados=dados_delta_boxplot,
-            ordem=ordem_delta_boxplot,
-            indicador=indicador_distribuicoes,
-            variavel_1=variavel_1_distribuicoes,
-            variavel_2=variavel_2_boxplot,
-            ano_inicial=ano_inicial_distrib,
-            ano_final=ano_final_distrib,
+        ano_final_agregado = anos_agregado[-1]
+
+
+        ano_inicial_agregado = (
+            anos_agregado[-2]
+            if len(
+                anos_agregado
+            )
+            >= 2
+            else None
         )
 
 
-        st.altair_chart(
-            grafico_delta_boxplots,
-            width="stretch",
+        # As listas mostram as categorias atômicas da dimensão.
+        # Categorias compostas já existentes no painel, como
+        # "Integral (Mista + 100%)", não são adicionadas aqui para
+        # evitar sobreposição de escolas entre os dois agregados.
+        categorias_agregado = obter_categorias_agregacao(
+            df,
+            variavel_agregado,
         )
+
+
+        if not categorias_agregado:
+
+            st.info(
+                "Não há categorias disponíveis para a dimensão selecionada."
+            )
+
+            return
+
+
+        # Ao mudar a dimensão, limpa as escolhas dos dois agregados.
+        if (
+            st.session_state.get(
+                "_dimensao_distrib_agregado_ativa"
+            )
+            != variavel_agregado
+        ):
+
+            st.session_state.pop(
+                "categorias_distrib_agregado_1",
+                None,
+            )
+
+            st.session_state.pop(
+                "categorias_distrib_agregado_2",
+                None,
+            )
+
+            st.session_state[
+                "_dimensao_distrib_agregado_ativa"
+            ] = variavel_agregado
+
+
+        # Também remove da sessão categorias que tenham desaparecido
+        # por causa dos filtros gerais do painel.
+        for chave_grupo in [
+            "categorias_distrib_agregado_1",
+            "categorias_distrib_agregado_2",
+        ]:
+
+            if chave_grupo in st.session_state:
+
+                st.session_state[
+                    chave_grupo
+                ] = [
+                    valor
+                    for valor
+                    in st.session_state[
+                        chave_grupo
+                    ]
+                    if valor
+                    in categorias_agregado
+                ]
+
+
+        selecao_previa_1 = st.session_state.get(
+            "categorias_distrib_agregado_1",
+            [],
+        )
+
+
+        selecao_previa_2 = st.session_state.get(
+            "categorias_distrib_agregado_2",
+            [],
+        )
+
+
+        # Segurança extra: caso exista uma sobreposição vinda de um
+        # estado antigo da sessão, o Agregado 1 tem precedência.
+        sobreposicao_previa = set(
+            selecao_previa_1
+        ).intersection(
+            selecao_previa_2
+        )
+
+
+        if sobreposicao_previa:
+
+            st.session_state[
+                "categorias_distrib_agregado_2"
+            ] = [
+                valor
+                for valor
+                in selecao_previa_2
+                if valor
+                not in sobreposicao_previa
+            ]
+
+            selecao_previa_2 = st.session_state[
+                "categorias_distrib_agregado_2"
+            ]
+
+
+        st.markdown(
+            "#### Composição dos agregados"
+        )
+
+
+        st.caption(
+            "Escolha livremente quais categorias entram em cada agregado. "
+            "Não é necessário utilizar todas as categorias. Uma categoria "
+            "selecionada em um agregado fica indisponível no outro."
+        )
+
+
+        col_grupo_1, col_grupo_2 = st.columns(2)
+
+
+        with col_grupo_1:
+
+            opcoes_grupo_1 = [
+                categoria
+                for categoria
+                in categorias_agregado
+                if categoria
+                not in selecao_previa_2
+            ]
+
+
+            categorias_grupo_1 = st.multiselect(
+                "Agregado 1",
+                options=opcoes_grupo_1,
+                placeholder="Selecione as categorias",
+                key="categorias_distrib_agregado_1",
+            )
+
+
+        with col_grupo_2:
+
+            opcoes_grupo_2 = [
+                categoria
+                for categoria
+                in categorias_agregado
+                if categoria
+                not in categorias_grupo_1
+            ]
+
+
+            categorias_grupo_2 = st.multiselect(
+                "Agregado 2",
+                options=opcoes_grupo_2,
+                placeholder="Selecione as categorias",
+                key="categorias_distrib_agregado_2",
+            )
+
+
+        sobreposicao = set(
+            categorias_grupo_1
+        ).intersection(
+            categorias_grupo_2
+        )
+
+
+        if sobreposicao:
+
+            st.error(
+                "A mesma categoria não pode fazer parte dos dois agregados."
+            )
+
+            return
+
+
+        if (
+            not categorias_grupo_1
+            or
+            not categorias_grupo_2
+        ):
+
+            st.info(
+                "Selecione pelo menos uma categoria em cada agregado "
+                "para gerar os gráficos."
+            )
+
+            return
+
+
+        composicao_1 = " + ".join(
+            str(
+                categoria
+            )
+            for categoria
+            in categorias_grupo_1
+        )
+
+
+        composicao_2 = " + ".join(
+            str(
+                categoria
+            )
+            for categoria
+            in categorias_grupo_2
+        )
+
+
+        st.caption(
+            f"Agregado 1: {composicao_1}  |  "
+            f"Agregado 2: {composicao_2}"
+        )
+
+
+        # ====================================================
+        # SAME SCHOOLS
+        # ====================================================
+
+        df_agregado = df.copy()
+
+
+        if same_schools_agregado:
+
+            df_agregado = filtrar_same_schools(
+                df_agregado,
+                indicador_agregado,
+                anos_agregado,
+            )
+
+
+        # ====================================================
+        # VALORES ABSOLUTOS
+        # ====================================================
+
+        try:
+
+            (
+                dados_agregado,
+                ordem_padrao_agregado,
+            ) = preparar_dados_boxplot_agregado(
+                base=df_agregado,
+                indicador=indicador_agregado,
+                variavel=variavel_agregado,
+                anos=anos_agregado,
+                categorias_grupo_1=categorias_grupo_1,
+                categorias_grupo_2=categorias_grupo_2,
+            )
+
+
+        except Exception as erro:
+
+            st.error(
+                "Não foi possível preparar as distribuições agregadas."
+            )
+
+            st.exception(
+                erro
+            )
+
+            return
+
+
+        # ====================================================
+        # DELTAS
+        # ====================================================
+
+        dados_delta_agregado = pd.DataFrame()
+        ordem_padrao_delta_agregado = []
+
+
+        if ano_inicial_agregado is not None:
+
+            try:
+
+                (
+                    dados_delta_agregado,
+                    ordem_padrao_delta_agregado,
+                ) = preparar_dados_delta_boxplot_agregado(
+                    base=df_agregado,
+                    indicador=indicador_agregado,
+                    variavel=variavel_agregado,
+                    ano_inicial=ano_inicial_agregado,
+                    ano_final=ano_final_agregado,
+                    categorias_grupo_1=categorias_grupo_1,
+                    categorias_grupo_2=categorias_grupo_2,
+                )
+
+
+            except Exception as erro:
+
+                st.error(
+                    "Não foi possível preparar os deltas agregados."
+                )
+
+                st.exception(
+                    erro
+                )
+
+                return
+
+
+        # ====================================================
+        # ORDENAÇÃO DOS DOIS AGREGADOS
+        # ====================================================
+
+        if ordenacao_agregado == "Número absoluto":
+
+            ranking_agregado = (
+                dados_agregado[
+                    dados_agregado[
+                        "Ano"
+                    ]
+                    == str(
+                        ano_final_agregado
+                    )
+                ]
+                .groupby(
+                    "Categoria",
+                    as_index=False,
+                )
+                .agg(
+                    Valor_ordem=(
+                        "Valor",
+                        "mean",
+                    )
+                )
+                .sort_values(
+                    "Valor_ordem",
+                    ascending=False,
+                )
+            )
+
+
+            ordem_agregado = (
+                ranking_agregado[
+                    "Categoria"
+                ]
+                .astype(str)
+                .tolist()
+            )
+
+
+        elif (
+            ano_inicial_agregado is not None
+            and
+            not dados_delta_agregado.empty
+        ):
+
+            ranking_agregado = (
+                dados_delta_agregado
+                .groupby(
+                    "Categoria",
+                    as_index=False,
+                )
+                .agg(
+                    Valor_ordem=(
+                        "Delta",
+                        "mean",
+                    )
+                )
+                .sort_values(
+                    "Valor_ordem",
+                    ascending=False,
+                )
+            )
+
+
+            ordem_agregado = (
+                ranking_agregado[
+                    "Categoria"
+                ]
+                .astype(str)
+                .tolist()
+            )
+
+
+        else:
+
+            ordem_agregado = ordem_padrao_agregado.copy()
+
+
+        for grupo in ordem_padrao_agregado:
+
+            if grupo not in ordem_agregado:
+
+                ordem_agregado.append(
+                    grupo
+                )
+
+
+        categorias_delta_agregado = set(
+            dados_delta_agregado[
+                "Categoria"
+            ]
+            .astype(str)
+            .unique()
+        ) if not dados_delta_agregado.empty else set()
+
+
+        ordem_delta_agregado = [
+            grupo
+            for grupo
+            in ordem_agregado
+            if grupo
+            in categorias_delta_agregado
+        ]
+
+
+        for grupo in ordem_padrao_delta_agregado:
+
+            if (
+                grupo
+                in categorias_delta_agregado
+                and
+                grupo
+                not in ordem_delta_agregado
+            ):
+
+                ordem_delta_agregado.append(
+                    grupo
+                )
+
+
+        # ====================================================
+        # GRÁFICO 1 — VALORES ABSOLUTOS AGREGADOS
+        # ====================================================
+
+        st.markdown(
+            "#### Distribuições dos valores"
+        )
+
+
+        caption_agregado = (
+            "Cada posição do eixo representa um dos dois agregados definidos "
+            "acima. Para cada ano selecionado, o boxplot usa todas as escolas "
+            "que pertencem a qualquer categoria incluída naquele agregado. "
+            f"Ordenação: {ordenacao_agregado}."
+        )
+
+
+        if same_schools_agregado:
+
+            caption_agregado += (
+                " SAME SCHOOLS ativo: são consideradas apenas escolas com "
+                "resultado válido em todos os anos selecionados."
+            )
+
+
+        st.caption(
+            caption_agregado
+        )
+
+
+        if dados_agregado.empty:
+
+            st.info(
+                "Não há dados disponíveis para os agregados selecionados."
+            )
+
+        else:
+
+            grafico_agregado = criar_grafico_boxplots(
+                dados=dados_agregado,
+                ordem=ordem_agregado,
+                indicador=indicador_agregado,
+                variavel_1=variavel_agregado,
+                variavel_2=None,
+                anos=anos_agregado,
+            )
+
+
+            grafico_agregado = grafico_agregado.properties(
+                title=alt.TitleParams(
+                    text=(
+                        f"Distribuição de {indicador_agregado} — "
+                        f"categorias agregadas de "
+                        f"{rotulo_dimensao(variavel_agregado)}"
+                    ),
+                    subtitle=(
+                        "Agregado 1 e Agregado 2 refletem as combinações "
+                        "selecionadas acima. O losango e o rótulo indicam "
+                        "a média de cada distribuição."
+                    ),
+                    anchor="middle",
+                    fontSize=16,
+                    subtitleFontSize=11,
+                    subtitlePadding=8,
+                )
+            )
+
+
+            st.altair_chart(
+                grafico_agregado,
+                width="stretch",
+            )
+
+
+        # ====================================================
+        # GRÁFICO 2 — DELTAS AGREGADOS
+        # ====================================================
+
+        st.markdown(
+            "#### Distribuições dos deltas"
+        )
+
+
+        if ano_inicial_agregado is None:
+
+            st.info(
+                "Selecione pelo menos dois anos para visualizar "
+                "a distribuição dos deltas."
+            )
+
+            return
+
+
+        st.caption(
+            f"Delta calculado como {ano_final_agregado} − "
+            f"{ano_inicial_agregado}. Quando mais de dois anos estão "
+            "selecionados, são usadas as duas edições mais recentes. "
+            f"A categoria usada para definir o agregado de cada escola é "
+            f"a observada em {ano_final_agregado}."
+        )
+
+
+        if dados_delta_agregado.empty:
+
+            st.info(
+                "Não há escolas com resultados válidos nos dois anos "
+                "mais recentes selecionados para calcular os deltas."
+            )
+
+        else:
+
+            grafico_delta_agregado = criar_grafico_delta_boxplots(
+                dados=dados_delta_agregado,
+                ordem=ordem_delta_agregado,
+                indicador=indicador_agregado,
+                variavel_1=variavel_agregado,
+                variavel_2=None,
+                ano_inicial=ano_inicial_agregado,
+                ano_final=ano_final_agregado,
+            )
+
+
+            grafico_delta_agregado = grafico_delta_agregado.properties(
+                title=alt.TitleParams(
+                    text=(
+                        f"Distribuição dos deltas de {indicador_agregado} — "
+                        f"categorias agregadas de "
+                        f"{rotulo_dimensao(variavel_agregado)} — "
+                        f"{ano_final_agregado} − {ano_inicial_agregado}"
+                    ),
+                    subtitle=(
+                        "Cada delta é calculado por escola. Agregado 1 e "
+                        "Agregado 2 refletem as combinações selecionadas; "
+                        "o losango e o rótulo indicam a média dos deltas."
+                    ),
+                    anchor="middle",
+                    fontSize=16,
+                    subtitleFontSize=11,
+                    subtitlePadding=8,
+                )
+            )
+
+
+            st.altair_chart(
+                grafico_delta_agregado,
+                width="stretch",
+            )
+
+
+    with tab_todos_distrib:
+
+        render_distribuicoes_todos()
+
+
+    with tab_agregado_distrib:
+
+        render_distribuicoes_agregado()
 
 
     st.stop()
