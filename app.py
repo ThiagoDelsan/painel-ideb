@@ -8865,23 +8865,23 @@ same_schools_ativo = st.sidebar.toggle(
 
 
 # SAME SCHOOLS agora significa manter somente as escolas cuja
-# classificação em Categorias_Same_School é diferente de "-".
+# classificação na coluna Transicao é diferente de "-".
 df_base_filtros = df_completo.copy()
 
 
 if same_schools_ativo:
 
-    if "Categorias_Same_School" not in df_base_filtros.columns:
+    if "Transicao" not in df_base_filtros.columns:
 
         st.error(
-            "A coluna Categorias_Same_School não foi encontrada na base."
+            "A coluna Transicao não foi encontrada na base carregada da aba Escolas_2025."
         )
         st.stop()
 
 
     valores_same_school = (
         df_base_filtros[
-            "Categorias_Same_School"
+            "Transicao"
         ]
         .astype("string")
         .str.strip()
@@ -8991,7 +8991,7 @@ renderizar_filtro_categorico(
 espaco_filtros_sidebar()
 
 renderizar_filtro_categorico(
-    "Categorias_Same_School"
+    "Categorias Same Schools"
 )
 
 renderizar_filtro_categorico(
@@ -9115,7 +9115,7 @@ filtros_categoricos_existentes = [
     "Região do Brasil",
     "1º IDEB 100% integral",
     "Carga horária",
-    "Categorias_Same_School",
+    "Categorias Same Schools",
 ]
 
 
