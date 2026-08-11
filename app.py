@@ -5330,6 +5330,13 @@ if pagina == "DISTRIBUIÇÕES":
     )
 
 
+    same_schools_distrib = st.toggle(
+        "SAME SCHOOLS",
+        value=False,
+        key="same_schools_distrib",
+    )
+
+
     opcoes_distribuicoes = list(
         EIXOS_DISPONIVEIS.keys()
     )
@@ -5338,11 +5345,12 @@ if pagina == "DISTRIBUIÇÕES":
     SEM_ESCOLHA_DISTRIB = "<vazio>"
 
 
-    dist_1, dist_2, dist_3 = st.columns(
+    dist_1, dist_2, dist_3, dist_4 = st.columns(
         [
-            1.05,
-            1.35,
-            1.35,
+            1.15,
+            1.25,
+            1.25,
+            1.0,
         ]
     )
 
@@ -5418,6 +5426,18 @@ if pagina == "DISTRIBUIÇÕES":
                     )
             ),
             key="variavel_2_distribuicoes",
+        )
+
+
+    with dist_4:
+
+        ordenacao_distribuicoes = st.selectbox(
+            "Ordenação",
+            [
+                "Número absoluto",
+                "Delta",
+            ],
+            key="ordenacao_distribuicoes",
         )
 
 
@@ -5497,10 +5517,49 @@ if pagina == "DISTRIBUIÇÕES":
     )
 
 
+    ano_final_distrib = (
+        anos_distribuicoes[-1]
+    )
+
+
+    ano_inicial_distrib = (
+        anos_distribuicoes[-2]
+        if len(
+            anos_distribuicoes
+        )
+        >= 2
+        else None
+    )
+
+
+    # ========================================================
+    # SAME SCHOOLS
+    #
+    # Quando ativo, mantém no universo apenas escolas com valor
+    # válido do indicador em TODOS os anos selecionados, seguindo
+    # a mesma regra usada em Principais Indicadores.
+    # ========================================================
+
+    df_distribuicoes = df.copy()
+
+
+    if same_schools_distrib:
+
+        df_distribuicoes = filtrar_same_schools(
+            df_distribuicoes,
+            indicador_distribuicoes,
+            anos_distribuicoes,
+        )
+
+
+    # ========================================================
+    # PREPARA VALORES ABSOLUTOS
+    # ========================================================
+
     try:
 
-        dados_boxplot, ordem_boxplot = preparar_dados_boxplot(
-            base=df,
+        dados_boxplot, ordem_padrao_boxplot = preparar_dados_boxplot(
+            base=df_distribuicoes,
             indicador=indicador_distribuicoes,
             variavel_1=variavel_1_distribuicoes,
             variavel_2=variavel_2_boxplot,
@@ -5524,14 +5583,257 @@ if pagina == "DISTRIBUIÇÕES":
         st.stop()
 
 
+    # ========================================================
+    # PREPARA DELTAS
+    #
+    # Quando há mais de dois anos, utiliza as duas edições mais
+    # recentes selecionadas, como nas demais páginas do painel.
+    # ========================================================
+
+    dados_delta_boxplot = pd.DataFrame()
+    ordem_padrao_delta = []
+
+
+    if ano_inicial_distrib is not None:
+
+        try:
+
+            (
+                dados_delta_boxplot,
+                ordem_padrao_delta,
+            ) = preparar_dados_delta_boxplot(
+                base=df_distribuicoes,
+                indicador=indicador_distribuicoes,
+                variavel_1=variavel_1_distribuicoes,
+                variavel_2=variavel_2_boxplot,
+                ano_inicial=ano_inicial_distrib,
+                ano_final=ano_final_distrib,
+                incluir_integral_agregado=(
+                    mostrar_integral_agregado
+                ),
+            )
+
+
+        except Exception as erro:
+
+            st.error(
+                "Não foi possível preparar os deltas das distribuições."
+            )
+
+            st.exception(
+                erro
+            )
+
+            st.stop()
+
+
+    # ========================================================
+    # ORDENAÇÃO
+    #
+    # Número absoluto: média das escolas no ano mais recente.
+    # Delta: média dos deltas entre as duas edições mais recentes.
+    # O Consolidado permanece sempre no final, à direita.
+    # ========================================================
+
+    ordem_base = [
+        categoria
+        for categoria
+        in ordem_padrao_boxplot
+        if categoria
+        != "Consolidado"
+    ]
+
+
+    if ordenacao_distribuicoes == "Número absoluto":
+
+        ranking_distribuicoes = (
+            dados_boxplot[
+                (
+                    dados_boxplot[
+                        "Ano"
+                    ]
+                    == str(
+                        ano_final_distrib
+                    )
+                )
+                &
+                (
+                    dados_boxplot[
+                        "Categoria"
+                    ]
+                    != "Consolidado"
+                )
+            ]
+            .groupby(
+                "Categoria",
+                as_index=False,
+            )
+            .agg(
+                Valor_ordem=(
+                    "Valor",
+                    "mean",
+                )
+            )
+            .sort_values(
+                "Valor_ordem",
+                ascending=False,
+            )
+        )
+
+
+        ordem_rank = (
+            ranking_distribuicoes[
+                "Categoria"
+            ]
+            .astype(str)
+            .tolist()
+        )
+
+
+    elif (
+        ano_inicial_distrib is not None
+        and
+        not dados_delta_boxplot.empty
+    ):
+
+        ranking_distribuicoes = (
+            dados_delta_boxplot[
+                dados_delta_boxplot[
+                    "Categoria"
+                ]
+                != "Consolidado"
+            ]
+            .groupby(
+                "Categoria",
+                as_index=False,
+            )
+            .agg(
+                Valor_ordem=(
+                    "Delta",
+                    "mean",
+                )
+            )
+            .sort_values(
+                "Valor_ordem",
+                ascending=False,
+            )
+        )
+
+
+        ordem_rank = (
+            ranking_distribuicoes[
+                "Categoria"
+            ]
+            .astype(str)
+            .tolist()
+        )
+
+
+    else:
+
+        # Com somente um ano não existe delta. Nesse caso,
+        # preserva a ordem estrutural das dimensões.
+        ordem_rank = ordem_base.copy()
+
+
+    ordem_boxplot = (
+        ordem_rank
+        +
+        [
+            categoria
+            for categoria
+            in ordem_base
+            if categoria
+            not in ordem_rank
+        ]
+    )
+
+
+    if (
+        "Consolidado"
+        in dados_boxplot[
+            "Categoria"
+        ].astype(str).unique()
+    ):
+
+        ordem_boxplot.append(
+            "Consolidado"
+        )
+
+
+    # Usa a mesma ordem no gráfico de deltas para facilitar a
+    # comparação visual entre os dois gráficos.
+    categorias_delta_existentes = set(
+        dados_delta_boxplot[
+            "Categoria"
+        ]
+        .astype(str)
+        .unique()
+    ) if not dados_delta_boxplot.empty else set()
+
+
+    ordem_delta_boxplot = [
+        categoria
+        for categoria
+        in ordem_boxplot
+        if categoria
+        in categorias_delta_existentes
+        and categoria
+        != "Consolidado"
+    ]
+
+
+    for categoria in ordem_padrao_delta:
+
+        if (
+            categoria
+            != "Consolidado"
+            and
+            categoria
+            in categorias_delta_existentes
+            and
+            categoria
+            not in ordem_delta_boxplot
+        ):
+
+            ordem_delta_boxplot.append(
+                categoria
+            )
+
+
+    if "Consolidado" in categorias_delta_existentes:
+
+        ordem_delta_boxplot.append(
+            "Consolidado"
+        )
+
+
+    # ========================================================
+    # GRÁFICO 1 — VALORES ABSOLUTOS
+    # ========================================================
+
     st.markdown(
         "#### Distribuições dos valores"
     )
 
 
-    st.caption(
+    caption_valores = (
         "Os boxplots mostram a distribuição entre escolas em cada ano "
-        "selecionado. O losango representa a média de cada distribuição."
+        "selecionado. O losango representa a média de cada distribuição. "
+        f"Ordenação: {ordenacao_distribuicoes}."
+    )
+
+
+    if same_schools_distrib:
+
+        caption_valores += (
+            " SAME SCHOOLS ativo: são consideradas apenas escolas com "
+            "resultado válido em todos os anos selecionados."
+        )
+
+
+    st.caption(
+        caption_valores
     )
 
 
@@ -5559,14 +5861,16 @@ if pagina == "DISTRIBUIÇÕES":
         )
 
 
+    # ========================================================
+    # GRÁFICO 2 — DELTAS
+    # ========================================================
+
     st.markdown(
         "#### Distribuições dos deltas"
     )
 
 
-    if len(
-        anos_distribuicoes
-    ) < 2:
+    if ano_inicial_distrib is None:
 
         st.info(
             "Selecione pelo menos dois anos para visualizar "
@@ -5576,10 +5880,6 @@ if pagina == "DISTRIBUIÇÕES":
         st.stop()
 
 
-    ano_final_distrib = anos_distribuicoes[-1]
-    ano_inicial_distrib = anos_distribuicoes[-2]
-
-
     st.caption(
         f"Delta calculado como {ano_final_distrib} − "
         f"{ano_inicial_distrib}. Quando mais de dois anos estão "
@@ -5587,36 +5887,6 @@ if pagina == "DISTRIBUIÇÕES":
         f"As dimensões de cada escola são consideradas em "
         f"{ano_final_distrib}."
     )
-
-
-    try:
-
-        dados_delta_boxplot, ordem_delta_boxplot = (
-            preparar_dados_delta_boxplot(
-                base=df,
-                indicador=indicador_distribuicoes,
-                variavel_1=variavel_1_distribuicoes,
-                variavel_2=variavel_2_boxplot,
-                ano_inicial=ano_inicial_distrib,
-                ano_final=ano_final_distrib,
-                incluir_integral_agregado=(
-                    mostrar_integral_agregado
-                ),
-            )
-        )
-
-
-    except Exception as erro:
-
-        st.error(
-            "Não foi possível preparar os deltas das distribuições."
-        )
-
-        st.exception(
-            erro
-        )
-
-        st.stop()
 
 
     if dados_delta_boxplot.empty:
