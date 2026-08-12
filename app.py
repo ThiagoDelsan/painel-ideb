@@ -41,86 +41,202 @@ st.markdown(
     """
     <style>
 
+        :root {
+            --ink-900: #243247;
+            --ink-700: #42526A;
+            --ink-500: #6B7A90;
+            --line-200: #E3E8EF;
+            --line-300: #D6DEE8;
+            --surface-50: #F8FAFC;
+            --surface-100: #F4F7FA;
+            --blue-700: #245F9C;
+            --blue-100: #EAF3FB;
+        }
+
+        html, body, [class*="css"] {
+            font-family: "Segoe UI", Inter, -apple-system, BlinkMacSystemFont,
+                         "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .stApp {
+            color: var(--ink-900);
+        }
+
         .block-container {
-            padding-top: 2.15rem;
-            padding-bottom: 2rem;
+            max-width: 1580px;
+            padding-top: 1.35rem;
+            padding-bottom: 2.6rem;
+            padding-left: 2.1rem;
+            padding-right: 2.1rem;
         }
 
         .panel-main-title {
             display: block;
-            font-size: 2.55rem;
+            font-size: 2.15rem;
             font-weight: 760;
-            line-height: 1.22;
-            color: #2f313c;
-            margin: 0 0 0.90rem 0;
-            padding: 0.35rem 0 0.25rem 0;
+            line-height: 1.15;
+            letter-spacing: -0.035em;
+            color: var(--ink-900);
+            margin: 0 0 0.85rem 0;
+            padding: 0.20rem 0 0.15rem 0;
             overflow: visible;
+        }
+
+        /* Hierarquia tipográfica mais limpa. */
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--ink-900);
+            letter-spacing: -0.012em;
+        }
+
+        p, .stCaption, [data-testid="stCaptionContainer"] {
+            color: var(--ink-700);
+        }
+
+        [data-testid="stCaptionContainer"] {
+            font-size: 0.78rem;
+            line-height: 1.35;
+        }
+
+        /* Botões: superfície neutra, borda discreta e foco claro. */
+        div[data-testid="stButton"] button {
+            min-height: 2.35rem;
+            border-radius: 9px !important;
+            border: 1px solid var(--line-300) !important;
+            background: #FFFFFF;
+            color: var(--ink-700);
+            box-shadow: none !important;
+            transition: background-color 120ms ease, border-color 120ms ease,
+                        color 120ms ease;
+        }
+
+        div[data-testid="stButton"] button:hover {
+            background: var(--surface-50);
+            border-color: #BFCAD6 !important;
+            color: var(--ink-900);
+        }
+
+        div[data-testid="stButton"] button p {
+            font-size: 0.77rem !important;
+            font-weight: 650;
+            letter-spacing: 0.01em;
+            white-space: nowrap !important;
         }
 
         /* Botão exclusivo para limpar filtros. */
         .st-key-limpar_todos_filtros button {
-            background-color: #F8D7DA !important;
-            border-color: #E8B4B8 !important;
+            background-color: #FBE5E7 !important;
+            border-color: #EEC3C7 !important;
             color: #7A2E34 !important;
         }
 
         .st-key-limpar_todos_filtros button:hover {
-            background-color: #F3C7CB !important;
-            border-color: #DFA1A6 !important;
+            background-color: #F7D8DB !important;
+            border-color: #E4AFB4 !important;
             color: #642329 !important;
         }
 
+        /* Campos de seleção: visual consistente e compacto. */
+        div[data-baseweb="select"] > div {
+            border-radius: 8px !important;
+            border-color: var(--line-300) !important;
+            box-shadow: none !important;
+        }
 
-        div[data-testid="stButton"] button p {
-            font-size: 0.72rem !important;
-            white-space: nowrap !important;
+        div[data-baseweb="select"] > div:hover {
+            border-color: #B9C6D4 !important;
+        }
+
+        [data-testid="stSelectbox"] label,
+        [data-testid="stMultiSelect"] label,
+        [data-testid="stNumberInput"] label,
+        [data-testid="stCheckbox"] label,
+        [data-testid="stToggle"] label {
+            color: var(--ink-700) !important;
+            font-weight: 600 !important;
+        }
+
+        /* Tabs: menos "componente" e mais navegação editorial. */
+        button[data-baseweb="tab"] {
+            font-size: 0.82rem !important;
+            font-weight: 650 !important;
+            color: var(--ink-500) !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        button[data-baseweb="tab"][aria-selected="true"] {
+            color: var(--ink-900) !important;
+        }
+
+        div[data-baseweb="tab-border"] {
+            background-color: var(--line-200) !important;
+        }
+
+        /* Alertas mais leves visualmente. */
+        [data-testid="stAlert"] {
+            border-radius: 10px;
+            border-width: 1px;
+        }
+
+        /* Gráficos no app: respiro e sem molduras pesadas. */
+        [data-testid="stVegaLiteChart"] {
+            border-radius: 10px;
         }
 
         /* ====================================================
            SIDEBAR
            ==================================================== */
 
+        section[data-testid="stSidebar"] {
+            border-right: 1px solid var(--line-200);
+        }
+
         section[data-testid="stSidebar"] .block-container {
-            padding-top: 0.85rem;
-            padding-left: 0.70rem;
-            padding-right: 0.70rem;
+            padding-top: 1rem;
+            padding-left: 0.85rem;
+            padding-right: 0.85rem;
+            padding-bottom: 1.4rem;
         }
 
         section[data-testid="stSidebar"] h3 {
-            font-size: 0.90rem !important;
+            font-size: 0.98rem !important;
+            font-weight: 750 !important;
             margin-top: 0 !important;
-            margin-bottom: 0.35rem !important;
+            margin-bottom: 0.55rem !important;
+            color: var(--ink-900) !important;
         }
 
         section[data-testid="stSidebar"] label {
-            font-size: 0.70rem !important;
-            line-height: 0.95rem !important;
-            margin-bottom: 0.08rem !important;
+            font-size: 0.76rem !important;
+            line-height: 1.05rem !important;
+            margin-bottom: 0.10rem !important;
+            color: var(--ink-700) !important;
         }
 
         section[data-testid="stSidebar"]
         div[data-testid="stVerticalBlock"] {
-            gap: 0.20rem !important;
+            gap: 0.24rem !important;
         }
 
         section[data-testid="stSidebar"] .stMultiSelect {
             margin-top: 0 !important;
-            margin-bottom: 0.05rem !important;
+            margin-bottom: 0.08rem !important;
         }
 
         section[data-testid="stSidebar"]
         div[data-baseweb="select"] {
-            font-size: 0.74rem !important;
-            min-height: 32px !important;
+            font-size: 0.78rem !important;
+            min-height: 34px !important;
         }
 
         section[data-testid="stSidebar"] input {
-            font-size: 0.73rem !important;
+            font-size: 0.77rem !important;
         }
 
         section[data-testid="stSidebar"]
         span[data-baseweb="tag"] {
-            font-size: 0.68rem !important;
+            font-size: 0.71rem !important;
+            border-radius: 6px !important;
         }
 
         /* ====================================================
@@ -129,17 +245,19 @@ st.markdown(
 
         .login-title {
             text-align: center;
-            font-size: 34px;
-            font-weight: 750;
+            font-size: 32px;
+            font-weight: 760;
+            letter-spacing: -0.03em;
+            color: var(--ink-900);
             margin-top: 10vh;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             line-height: 1.2;
         }
 
         .login-subtitle {
             text-align: center;
             font-size: 14px;
-            color: #6b7280;
+            color: var(--ink-500);
             margin-bottom: 22px;
         }
 
@@ -172,11 +290,11 @@ ORDEM_ANOS_STR = [
 
 
 CORES_ANOS = {
-    "2017": "#D9DDE2",
-    "2019": "#747A82",
-    "2021": "#9AA5AD",
-    "2023": "#76B7E5",
-    "2025": "#1F5A96",
+    "2017": "#D8DEE8",
+    "2019": "#9CA7B4",
+    "2021": "#7FB5AE",
+    "2023": "#78B7E5",
+    "2025": "#245F9C",
 }
 
 
@@ -186,7 +304,7 @@ ESCALA_CORES_ANOS = [
 ]
 
 
-COR_DELTA = "#A67C68"
+COR_DELTA = "#667E8E"
 
 
 CATEGORIA_INTEGRAL_AGREGADA = (
@@ -205,34 +323,33 @@ ORDEM_FAIXA_IDEB = [
 
 
 PALETA_DISTRIBUICOES = [
-    "#4E79A7",
-    "#F28E2B",
-    "#59A14F",
-    "#EDC948",
-    "#B07AA1",
-    "#76B7B2",
-    "#E15759",
-    "#9C755F",
-    "#7F7F7F",
-    "#86BCB6",
+    "#4F7CAC",  # azul médio
+    "#72B7B2",  # verde-água
+    "#88A96B",  # verde sálvia
+    "#D8B85F",  # mostarda suave
+    "#A88DB7",  # lilás
+    "#D99CA7",  # rosa queimado claro
+    "#9F8A76",  # taupe
+    "#8794A5",  # cinza azulado
+    "#9FC3E2",  # azul claro
+    "#B7C7A8",  # sálvia claro
 ]
 
 
-# Paleta exclusiva dos boxplots da aba Distribuições.
-# O objetivo aqui é manter contraste entre comparações sem usar
-# azul ou marrom, com cores mais esmaecidas para favorecer a
-# leitura dos rótulos de média e N.
+# Paleta auxiliar da aba Distribuições.
+# Os boxplots permanecem em azul, enquanto comparações entre grupos
+# usam tons complementares suaves para manter boa leitura dos rótulos.
 CORES_ANOS_DISTRIBUICOES = {
-    "2017": "#A8CFA8",   # verde pastel
-    "2019": "#CBB7DD",   # lilás pastel
-    "2021": "#F1C7A5",   # pêssego pastel
-    "2023": "#E7B0C0",   # rosa pastel
-    "2025": "#D7D59A",   # oliva/amarelo pastel
+    "2017": "#A9C8E3",
+    "2019": "#91B8D8",
+    "2021": "#7DA8CB",
+    "2023": "#6B98BD",
+    "2025": "#5B89AF",
 }
 
 CORES_GRUPOS_DISTRIBUICOES = [
-    "#A8CFA8",
-    "#CBB7DD",
+    "#78A9D1",
+    "#6FAFA8",
 ]
 
 
@@ -1739,7 +1856,7 @@ def grafico_barra_100_top(
         .mark_text(
             baseline="middle",
             align="center",
-            fontSize=11.5,
+            fontSize=12,
         )
         .encode(
 
@@ -2950,8 +3067,8 @@ def criar_grafico_boxplots(
         title=titulo_dimensao,
         axis=alt.Axis(
             labelAngle=0,
-            labelFontSize=10,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             labelLimit=360,
             labelPadding=10,
             labelOverlap=False,
@@ -2979,8 +3096,8 @@ def criar_grafico_boxplots(
         scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
-            labelFontSize=11,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             tickCount=6,
         ),
     )
@@ -3015,7 +3132,7 @@ def criar_grafico_boxplots(
             extent=1.5,
             size=tamanho_caixa,
             opacity=0.48,
-            color="#76B7E5",
+            color="#78AEDA",
         )
         .encode(
             x=eixo_x,
@@ -3135,7 +3252,7 @@ def criar_grafico_boxplots(
                 "O losango e o rótulo indicam a média; o N aparece no eixo X."
             ),
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             subtitleFontSize=11,
             subtitlePadding=8,
         ),
@@ -3326,8 +3443,8 @@ def criar_grafico_delta_boxplots(
         title=titulo_dimensao,
         axis=alt.Axis(
             labelAngle=0,
-            labelFontSize=10,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             labelLimit=360,
             labelPadding=10,
             labelOverlap=False,
@@ -3357,8 +3474,8 @@ def criar_grafico_delta_boxplots(
         scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
-            labelFontSize=11,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             tickCount=6,
         ),
     )
@@ -3399,7 +3516,7 @@ def criar_grafico_delta_boxplots(
             extent=1.5,
             size=44,
             opacity=0.48,
-            color="#76B7E5",
+            color="#78AEDA",
         )
         .encode(
             x=eixo_x,
@@ -3504,7 +3621,7 @@ def criar_grafico_delta_boxplots(
                 "a média; o N de escolas com delta válido aparece no eixo X."
             ),
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             subtitleFontSize=11,
             subtitlePadding=8,
         ),
@@ -3701,8 +3818,8 @@ def criar_grafico_barras_medias_agregado(
         ),
         axis=alt.Axis(
             labelAngle=0,
-            labelFontSize=10,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             labelLimit=360,
             labelPadding=10,
             labelOverlap=False,
@@ -3717,8 +3834,8 @@ def criar_grafico_barras_medias_agregado(
         scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
-            labelFontSize=11,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             tickCount=6,
         ),
     )
@@ -3732,8 +3849,8 @@ def criar_grafico_barras_medias_agregado(
             size=48,
             cornerRadiusTopLeft=2,
             cornerRadiusTopRight=2,
-            color="#4E86B8",
-            opacity=0.82,
+            color="#5B8DB8",
+            opacity=0.88,
         )
         .encode(
             x=eixo_x,
@@ -3974,8 +4091,8 @@ def criar_grafico_barras_medias_delta_agregado(
         ),
         axis=alt.Axis(
             labelAngle=0,
-            labelFontSize=10,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             labelLimit=360,
             labelPadding=10,
             labelOverlap=False,
@@ -3990,8 +4107,8 @@ def criar_grafico_barras_medias_delta_agregado(
         scale=escala_y,
         axis=alt.Axis(
             format=formato_eixo,
-            labelFontSize=11,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             tickCount=6,
         ),
     )
@@ -4032,8 +4149,8 @@ def criar_grafico_barras_medias_delta_agregado(
             size=48,
             cornerRadiusTopLeft=2,
             cornerRadiusTopRight=2,
-            color="#4E86B8",
-            opacity=0.82,
+            color="#5B8DB8",
+            opacity=0.88,
         )
         .encode(
             x=eixo_x,
@@ -4311,8 +4428,8 @@ def criar_grafico_boxplots_agregados_por_ano(
         title="Ano",
         axis=alt.Axis(
             labelAngle=0,
-            labelFontSize=11,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             labelPadding=8,
         ),
     )
@@ -4368,8 +4485,8 @@ def criar_grafico_boxplots_agregados_por_ano(
                 scale=escala_y,
                 axis=alt.Axis(
                     format=formato_eixo,
-                    labelFontSize=11,
-                    titleFontSize=12,
+                    labelFontSize=11.5,
+                    titleFontSize=12.5,
                     tickCount=6,
                 ),
             ),
@@ -4443,7 +4560,7 @@ def criar_grafico_boxplots_agregados_por_ano(
         )
         .mark_text(
             dy=-18,
-            fontSize=12.5,
+            fontSize=13.5,
             fontWeight="bold",
             color="#2F313C",
             lineBreak="\n",
@@ -4487,7 +4604,7 @@ def criar_grafico_boxplots_agregados_por_ano(
                 "O losango indica a média; o rótulo mostra a média e, na linha abaixo, o N."
             ),
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             subtitleFontSize=11,
             subtitlePadding=8,
         ),
@@ -4674,8 +4791,8 @@ def criar_grafico_barras_medias_agregados_por_ano(
         title="Ano",
         axis=alt.Axis(
             labelAngle=0,
-            labelFontSize=11,
-            titleFontSize=12,
+            labelFontSize=11.5,
+            titleFontSize=12.5,
             labelPadding=8,
         ),
     )
@@ -4731,8 +4848,8 @@ def criar_grafico_barras_medias_agregados_por_ano(
                 scale=escala_y,
                 axis=alt.Axis(
                     format=formato_eixo,
-                    labelFontSize=11,
-                    titleFontSize=12,
+                    labelFontSize=11.5,
+                    titleFontSize=12.5,
                     tickCount=6,
                 ),
             ),
@@ -6307,7 +6424,7 @@ def exibir_p_valores_categoria_vs_demais(
 
         linhas_html.append(
             "<tr>"
-            f"<td>{ano}</td>"
+            f"<td style='padding:8px 7px;border-bottom:1px solid #EEF1F5;'>{ano}</td>"
             f"<td style='text-align:left;padding-left:10px;'>{comparacao}</td>"
             "<td>"
             f"<span style='font-weight:700;color:{cor_p};'>"
@@ -6326,16 +6443,17 @@ def exibir_p_valores_categoria_vs_demais(
             "text-underline-offset:3px;'>"
             f"{nome_teste}</span>"
             "</td>"
-            f"<td>{n_considerado}</td>"
+            f"<td style='padding:8px 7px;border-bottom:1px solid #EEF1F5;'>{n_considerado}</td>"
             "</tr>"
         )
 
 
     tabela_html = (
-        "<div style='width:96%;max-width:1180px;margin:0.25rem auto 0;"
-        "overflow-x:auto;'>"
+        "<div style='width:94%;max-width:1180px;margin:0.45rem auto 0;"
+        "overflow-x:auto;background:#FFFFFF;border:1px solid #E1E7EE;"
+        "border-radius:10px;'>"
         "<table style='width:100%;border-collapse:collapse;"
-        "font-size:0.78rem;text-align:center;table-layout:fixed;'>"
+        "font-size:0.79rem;text-align:center;table-layout:fixed;color:#42526A;'>"
         "<colgroup>"
         "<col style='width:8%;'>"
         "<col style='width:24%;'>"
@@ -6346,13 +6464,13 @@ def exibir_p_valores_categoria_vs_demais(
         "<col style='width:10%;'>"
         "</colgroup>"
         "<thead><tr>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>Ano</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>Comparação</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>p-valor</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>Relevância Estatística</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>Diferença entre médias<br>(categoria − demais)</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>Teste aplicado</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>N considerado<br>(categoria × demais)</th>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>Ano</th>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>Comparação</th>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>p-valor</th>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>Relevância Estatística</th>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>Diferença entre médias<br>(categoria − demais)</th>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>Teste aplicado</th>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>N considerado<br>(categoria × demais)</th>"
         "</tr></thead>"
         "<tbody>"
         + "".join(
@@ -6651,7 +6769,7 @@ def exibir_p_valores_agregados(
 
         linhas_html.append(
             "<tr>"
-            f"<td>{ano}</td>"
+            f"<td style='padding:8px 7px;border-bottom:1px solid #EEF1F5;'>{ano}</td>"
             "<td>"
             f"<span style='font-weight:700;color:{cor_p};'>"
             f"{p_formatado}</span>"
@@ -6669,16 +6787,17 @@ def exibir_p_valores_agregados(
             "text-underline-offset:3px;'>"
             f"{nome_teste}</span>"
             "</td>"
-            f"<td>{n_considerado}</td>"
+            f"<td style='padding:8px 7px;border-bottom:1px solid #EEF1F5;'>{n_considerado}</td>"
             "</tr>"
         )
 
 
     tabela_html = (
-        "<div style='width:90%;max-width:1040px;margin:0.25rem auto 0;"
-        "overflow-x:auto;'>"
+        "<div style='width:88%;max-width:1040px;margin:0.45rem auto 0;"
+        "overflow-x:auto;background:#FFFFFF;border:1px solid #E1E7EE;"
+        "border-radius:10px;'>"
         "<table style='width:100%;border-collapse:collapse;"
-        "font-size:0.78rem;text-align:center;table-layout:fixed;'>"
+        "font-size:0.79rem;text-align:center;table-layout:fixed;color:#42526A;'>"
         "<colgroup>"
         "<col style='width:10%;'>"
         "<col style='width:13%;'>"
@@ -6688,17 +6807,17 @@ def exibir_p_valores_agregados(
         "<col style='width:16%;'>"
         "</colgroup>"
         "<thead><tr>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>"
         "Ano</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>"
         "p-valor</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>"
         "Relevância Estatística</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>"
         "Diferença entre médias (2 − 1)</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>"
         "Teste aplicado</th>"
-        "<th style='padding:7px 6px;border-bottom:1px solid #D1D5DB;'>"
+        "<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;'>"
         "N considerado</th>"
         "</tr></thead>"
         "<tbody>"
@@ -7319,7 +7438,7 @@ def criar_painel_horizontal(
             )
             .mark_rule(
                 strokeWidth=0.75,
-                color="#D5DAE0",
+                color="#E1E6EC",
             )
             .encode(
                 y=escala_y(
@@ -7337,7 +7456,7 @@ def criar_painel_horizontal(
             )
             .mark_rule(
                 strokeWidth=1.15,
-                color="#C5CBD2",
+                color="#C9D1DA",
             )
             .encode(
                 y=escala_y(
@@ -7354,7 +7473,7 @@ def criar_painel_horizontal(
         .mark_text(
             align="right",
             baseline="middle",
-            fontSize=12.5,
+            fontSize=13.5,
             fontWeight="bold",
         )
         .encode(
@@ -7392,7 +7511,7 @@ def criar_painel_horizontal(
         .mark_text(
             align="center",
             baseline="middle",
-            fontSize=10.5,
+            fontSize=11,
             color="#7B8498",
         )
         .encode(
@@ -7520,7 +7639,7 @@ def criar_painel_horizontal(
         .mark_text(
             align="left",
             dx=4,
-            fontSize=9.5,
+            fontSize=11,
         )
         .encode(
 
@@ -7557,7 +7676,7 @@ def criar_painel_horizontal(
                 f"{indicador}"
             ),
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             fontWeight="bold",
         ),
     )
@@ -7616,7 +7735,7 @@ def criar_painel_horizontal(
             align=alt.expr(
                 "datum.Variação >= 0 ? 'left' : 'right'"
             ),
-            fontSize=9.5,
+            fontSize=11,
         )
         .encode(
 
@@ -7685,7 +7804,7 @@ def criar_painel_horizontal(
         title=alt.TitleParams(
             text=titulo_delta,
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             fontWeight="bold",
         ),
     )
@@ -7806,7 +7925,7 @@ def criar_painel_horizontal(
                 )
                 .mark_rule(
                     strokeWidth=0.75,
-                    color="#D5DAE0",
+                    color="#E1E6EC",
                 )
                 .encode(
                     y=escala_y(
@@ -7824,7 +7943,7 @@ def criar_painel_horizontal(
                 )
                 .mark_rule(
                     strokeWidth=1.15,
-                    color="#C5CBD2",
+                    color="#C9D1DA",
                 )
                 .encode(
                     y=escala_y(
@@ -7841,7 +7960,7 @@ def criar_painel_horizontal(
             .mark_text(
                 align="right",
                 baseline="middle",
-                fontSize=12.5,
+                fontSize=13.5,
                 fontWeight="bold",
             )
             .encode(
@@ -7904,7 +8023,7 @@ def criar_painel_horizontal(
                 align=alt.expr(
                     "datum.Variação >= 0 ? 'left' : 'right'"
                 ),
-                fontSize=10.5,
+                fontSize=11,
             )
             .encode(
                 y=escala_y(
@@ -7941,7 +8060,7 @@ def criar_painel_horizontal(
             title=alt.TitleParams(
                 text=titulo_delta,
                 anchor="middle",
-                fontSize=16,
+                fontSize=17,
                 fontWeight="bold",
             ),
         )
@@ -8571,7 +8690,7 @@ def criar_painel_cruzamentos(
             )
             .mark_rule(
                 strokeWidth=0.70,
-                color="#D5DAE0",
+                color="#E1E6EC",
             )
             .encode(
                 y=escala_y(
@@ -8589,7 +8708,7 @@ def criar_painel_cruzamentos(
             )
             .mark_rule(
                 strokeWidth=1.65,
-                color="#B9C0C8",
+                color="#C3CCD6",
             )
             .encode(
                 y=escala_y(
@@ -8606,7 +8725,7 @@ def criar_painel_cruzamentos(
         .mark_text(
             align="right",
             baseline="middle",
-            fontSize=12.5,
+            fontSize=13.5,
             fontWeight="bold",
         )
         .encode(
@@ -8642,7 +8761,7 @@ def criar_painel_cruzamentos(
         .mark_text(
             align="right",
             baseline="middle",
-            fontSize=11.5,
+            fontSize=12,
         )
         .encode(
 
@@ -8679,7 +8798,7 @@ def criar_painel_cruzamentos(
         .mark_text(
             align="center",
             baseline="middle",
-            fontSize=10.5,
+            fontSize=11,
             color="#7B8498",
         )
         .encode(
@@ -8780,7 +8899,7 @@ def criar_painel_cruzamentos(
         .mark_text(
             align="left",
             dx=4,
-            fontSize=9.2,
+            fontSize=10.2,
         )
         .encode(
 
@@ -8817,7 +8936,7 @@ def criar_painel_cruzamentos(
                 f"{indicador}"
             ),
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             fontWeight="bold",
         ),
     )
@@ -8876,7 +8995,7 @@ def criar_painel_cruzamentos(
             align=alt.expr(
                 "datum.Variação >= 0 ? 'left' : 'right'"
             ),
-            fontSize=9.2,
+            fontSize=10.2,
         )
         .encode(
 
@@ -8945,7 +9064,7 @@ def criar_painel_cruzamentos(
         title=alt.TitleParams(
             text=titulo_delta,
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             fontWeight="bold",
         ),
     )
@@ -9125,7 +9244,7 @@ def criar_painel_cruzamentos(
                 )
                 .mark_rule(
                     strokeWidth=0.70,
-                    color="#D5DAE0",
+                    color="#E1E6EC",
                 )
                 .encode(
                     y=escala_y(
@@ -9143,7 +9262,7 @@ def criar_painel_cruzamentos(
                 )
                 .mark_rule(
                     strokeWidth=1.65,
-                    color="#B9C0C8",
+                    color="#C3CCD6",
                 )
                 .encode(
                     y=escala_y(
@@ -9160,7 +9279,7 @@ def criar_painel_cruzamentos(
             .mark_text(
                 align="right",
                 baseline="middle",
-                fontSize=12.5,
+                fontSize=13.5,
                 fontWeight="bold",
             )
             .encode(
@@ -9188,7 +9307,7 @@ def criar_painel_cruzamentos(
             .mark_text(
                 align="right",
                 baseline="middle",
-                fontSize=11.5,
+                fontSize=12,
             )
             .encode(
                 y=escala_y(
@@ -9250,7 +9369,7 @@ def criar_painel_cruzamentos(
                 align=alt.expr(
                     "datum.Variação >= 0 ? 'left' : 'right'"
                 ),
-                fontSize=10.5,
+                fontSize=11,
             )
             .encode(
                 y=escala_y(
@@ -9287,7 +9406,7 @@ def criar_painel_cruzamentos(
             title=alt.TitleParams(
                 text=titulo_delta,
                 anchor="middle",
-                fontSize=16,
+                fontSize=17,
                 fontWeight="bold",
             ),
         )
@@ -9462,14 +9581,14 @@ if chave_nav_ativa:
         f"""
         <style>
             .st-key-{chave_nav_ativa} button {{
-                background-color: #DFF1E2 !important;
-                border-color: #A9D5B0 !important;
+                background-color: #E3F2E6 !important;
+                border-color: #B7DABD !important;
                 color: #245C2D !important;
                 font-weight: 700 !important;
             }}
 
             .st-key-{chave_nav_ativa} button:hover {{
-                background-color: #D3EBD7 !important;
+                background-color: #D8EDDC !important;
                 border-color: #91C99B !important;
                 color: #1F5127 !important;
             }}
@@ -9547,9 +9666,15 @@ COR_FUNDO_PAINEL = (
 )
 
 COR_FUNDO_HEADER = (
-    "rgba(238, 247, 255, 0.94)"
+    "rgba(238, 247, 255, 0.96)"
     if same_schools_ativo
-    else "rgba(255, 255, 255, 0.94)"
+    else "rgba(255, 255, 255, 0.96)"
+)
+
+COR_FUNDO_SIDEBAR = (
+    "#E8F2FB"
+    if same_schools_ativo
+    else "#F7F9FC"
 )
 
 
@@ -9563,6 +9688,11 @@ st.markdown(
 
         [data-testid="stHeader"] {{
             background-color: {COR_FUNDO_HEADER} !important;
+            backdrop-filter: blur(8px);
+        }}
+
+        section[data-testid="stSidebar"] {{
+            background-color: {COR_FUNDO_SIDEBAR} !important;
         }}
     </style>
     """,
@@ -9571,10 +9701,61 @@ st.markdown(
 
 
 def aplicar_fundo_grafico(grafico):
-    """Mantém o fundo dos gráficos sincronizado com SAME SCHOOLS."""
+    """Padroniza o visual dos gráficos e sincroniza o fundo com SAME SCHOOLS.
 
-    return grafico.properties(
-        background=COR_FUNDO_PAINEL
+    A configuração é aplicada no nível superior para que o mesmo gráfico
+    mantenha tipografia, espaçamento e contraste adequados quando exportado.
+    """
+
+    return (
+        grafico
+        .properties(
+            background=COR_FUNDO_PAINEL,
+            padding=12,
+        )
+        .configure_view(
+            stroke=None,
+        )
+        .configure_axis(
+            labelFont="Segoe UI",
+            titleFont="Segoe UI",
+            labelColor="#536278",
+            titleColor="#334155",
+            labelFontSize=11.5,
+            titleFontSize=12.5,
+            titleFontWeight=600,
+            domainColor="#CBD5E1",
+            domainWidth=0.8,
+            tickColor="#CBD5E1",
+            tickWidth=0.8,
+            gridColor="#E7ECF2",
+            gridOpacity=0.72,
+            labelPadding=6,
+            titlePadding=10,
+        )
+        .configure_title(
+            font="Segoe UI",
+            color="#27364A",
+            fontSize=17,
+            fontWeight=700,
+            subtitleFont="Segoe UI",
+            subtitleColor="#6B7A90",
+            subtitleFontSize=11,
+            subtitleFontWeight=400,
+            subtitlePadding=7,
+            offset=12,
+        )
+        .configure_legend(
+            labelFont="Segoe UI",
+            titleFont="Segoe UI",
+            labelColor="#536278",
+            titleColor="#334155",
+            labelFontSize=11.5,
+            titleFontSize=11.5,
+            titleFontWeight=600,
+            symbolSize=85,
+            padding=8,
+        )
     )
 
 
@@ -9909,8 +10090,10 @@ if pagina == "DISTRIBUIÇÕES":
         """
         <div style="
             text-align:center;
-            font-size:25px;
-            font-weight:700;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
             margin-top:8px;
             margin-bottom:8px;
         ">
@@ -10447,6 +10630,7 @@ if pagina == "DISTRIBUIÇÕES":
                     aplicar_fundo_grafico(
                         grafico_boxplots
                     ),
+                theme=None,
                 width="stretch",
             )
 
@@ -10519,6 +10703,7 @@ if pagina == "DISTRIBUIÇÕES":
                     aplicar_fundo_grafico(
                         grafico_delta_boxplots
                     ),
+                theme=None,
                 width="stretch",
             )
 
@@ -11126,7 +11311,7 @@ if pagina == "DISTRIBUIÇÕES":
                             "O losango e o rótulo indicam a média; o N aparece no eixo X."
                         ),
                         anchor="middle",
-                        fontSize=16,
+                        fontSize=17,
                         subtitleFontSize=11,
                         subtitlePadding=8,
                     )
@@ -11137,6 +11322,7 @@ if pagina == "DISTRIBUIÇÕES":
                         aplicar_fundo_grafico(
                             grafico_agregado
                         ),
+                    theme=None,
                     width="stretch",
                 )
 
@@ -11163,6 +11349,7 @@ if pagina == "DISTRIBUIÇÕES":
                         aplicar_fundo_grafico(
                             grafico_medias_agregado
                         ),
+                    theme=None,
                     width="stretch",
                 )
 
@@ -11291,7 +11478,7 @@ if pagina == "DISTRIBUIÇÕES":
                             "válido aparece no eixo X."
                         ),
                         anchor="middle",
-                        fontSize=16,
+                        fontSize=17,
                         subtitleFontSize=11,
                         subtitlePadding=8,
                     )
@@ -11302,6 +11489,7 @@ if pagina == "DISTRIBUIÇÕES":
                         aplicar_fundo_grafico(
                             grafico_delta_agregado
                         ),
+                    theme=None,
                     width="stretch",
                 )
 
@@ -11327,6 +11515,7 @@ if pagina == "DISTRIBUIÇÕES":
                         aplicar_fundo_grafico(
                             grafico_medias_delta_agregado
                         ),
+                    theme=None,
                     width="stretch",
                 )
 
@@ -11360,8 +11549,10 @@ if pagina == "MELHORES ESCOLAS":
         """
         <div style="
             text-align:center;
-            font-size:25px;
-            font-weight:700;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
             margin-top:8px;
             margin-bottom:8px;
         ">
@@ -11810,6 +12001,7 @@ if pagina == "MELHORES ESCOLAS":
                 ],
                 )
             ),
+            theme=None,
             width="stretch",
         )
 
@@ -11829,6 +12021,7 @@ if pagina == "MELHORES ESCOLAS":
                     ),
                 )
             ),
+            theme=None,
             width="stretch",
         )
 
@@ -11848,6 +12041,7 @@ if pagina == "MELHORES ESCOLAS":
                     ),
                 )
             ),
+            theme=None,
             width="stretch",
         )
 
@@ -12056,7 +12250,7 @@ if pagina == "MELHORES ESCOLAS":
         overflow-y: auto;
         overflow-x: hidden;
         border: 1px solid #E5E7EB;
-        border-radius: 6px;
+        border-radius: 10px;
         margin-top: 0.25rem;
         margin-bottom: 0.75rem;
     }}
@@ -12066,7 +12260,7 @@ if pagina == "MELHORES ESCOLAS":
         max-width: 100% !important;
         border-collapse: collapse;
         table-layout: fixed;
-        font-size: 8.2px !important;
+        font-size: 9.0px !important;
         line-height: 1.08;
         margin: 0 !important;
     }}
@@ -12075,7 +12269,7 @@ if pagina == "MELHORES ESCOLAS":
     table.tabela-melhores-escolas td {{
         text-align: center !important;
         vertical-align: middle !important;
-        padding: 3px 2px !important;
+        padding: 5px 3px !important;
         border-bottom: 1px solid #ECEFF2;
         white-space: normal !important;
         overflow-wrap: anywhere;
@@ -12086,13 +12280,21 @@ if pagina == "MELHORES ESCOLAS":
         position: sticky;
         top: 0;
         z-index: 2;
-        background: #F6F7F9;
-        font-size: 8.0px !important;
+        background: #F4F7FA;
+        font-size: 8.8px !important;
         font-weight: 700;
         color: #343741;
     }}
 
     /* Nome da escola recebe mais espaço; posição e código, menos. */
+    table.tabela-melhores-escolas tbody tr:nth-child(even) {
+        background: #FAFBFC;
+    }
+
+    table.tabela-melhores-escolas tbody tr:hover {
+        background: #F1F6FA;
+    }
+
     table.tabela-melhores-escolas th:nth-child(1),
     table.tabela-melhores-escolas td:nth-child(1) {{
         width: 4.5%;
@@ -12133,8 +12335,10 @@ if pagina == "PRINCIPAIS INDICADORES":
         """
         <div style="
             text-align:center;
-            font-size:25px;
-            font-weight:700;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
             margin-bottom:0.25rem;
         ">
             PRINCIPAIS INDICADORES
@@ -12877,6 +13081,7 @@ if pagina == "PRINCIPAIS INDICADORES":
             aplicar_fundo_grafico(
                 painel_cruz
             ),
+            theme=None,
             width="stretch",
         )
 
@@ -12894,8 +13099,10 @@ if pagina == "DEMOGRAFIA":
         """
         <div style="
             text-align:center;
-            font-size:25px;
-            font-weight:700;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
             margin-bottom:0.5rem;
         ">
             DEMOGRAFIA
@@ -13503,7 +13710,7 @@ if pagina == "DEMOGRAFIA":
                         f"'{GRUPO_ESPACO}' "
                         f"? '' : datum.label"
                     ),
-                    labelFontSize=11,
+                    labelFontSize=11.5,
                     labelLimit=175,
                     ticks=False,
                     domain=False,
@@ -13606,7 +13813,7 @@ if pagina == "DEMOGRAFIA":
         .mark_text(
             align="center",
             baseline="middle",
-            fontSize=11.5,
+            fontSize=12,
         )
         .encode(
 
@@ -13668,7 +13875,7 @@ if pagina == "DEMOGRAFIA":
                 f"{rotulo_dimensao(variavel_comp)}"
             ),
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             fontWeight="bold",
         ),
     )
@@ -13728,7 +13935,7 @@ if pagina == "DEMOGRAFIA":
         )
         .mark_bar(
             height=24,
-            color="#6C9FCC",
+            color="#5F91BD",
         )
         .encode(
 
@@ -13781,7 +13988,7 @@ if pagina == "DEMOGRAFIA":
         .mark_text(
             align="left",
             dx=6,
-            fontSize=10,
+            fontSize=11,
             fontWeight="bold",
         )
         .encode(
@@ -13812,7 +14019,7 @@ if pagina == "DEMOGRAFIA":
         title=alt.TitleParams(
             text="Número de escolas",
             anchor="middle",
-            fontSize=16,
+            fontSize=17,
             fontWeight="bold",
         ),
     )
@@ -13852,6 +14059,7 @@ if pagina == "DEMOGRAFIA":
             aplicar_fundo_grafico(
                 grafico_demografia_completo
             ),
+            theme=None,
             width="stretch",
             key="grafico_demografia_interativo",
             on_select="rerun",
