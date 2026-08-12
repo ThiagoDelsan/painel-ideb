@@ -9711,7 +9711,15 @@ def aplicar_fundo_grafico(grafico):
         grafico
         .properties(
             background=COR_FUNDO_PAINEL,
-            padding=12,
+            # Streamlit manipula o padding do Vega-Lite como um objeto.
+            # Usar um número simples (ex.: 12) faz o frontend tentar
+            # acessar padding.bottom em um número e gera TypeError.
+            padding={
+                "left": 12,
+                "right": 12,
+                "top": 12,
+                "bottom": 12,
+            },
         )
         .configure_view(
             stroke=None,
