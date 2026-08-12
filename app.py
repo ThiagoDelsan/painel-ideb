@@ -10553,7 +10553,7 @@ def _montar_formula_historia_uma_dimensao(
                 text=titulo_formula,
                 anchor="middle",
                 fontSize=19,
-                fontWeight=750,
+                fontWeight=700,
                 color="#27364A",
             )
         )
@@ -10983,7 +10983,7 @@ def _montar_formula_historia_duas_dimensoes(
                 text=titulo_formula,
                 anchor="middle",
                 fontSize=19,
-                fontWeight=750,
+                fontWeight=700,
                 color="#27364A",
             )
         )
