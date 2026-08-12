@@ -10150,11 +10150,103 @@ def _preparar_bloco_historia_duas_dimensoes(
     }
 
 
+def _grafico_parentese_formula(
+    simbolo,
+    altura,
+    largura=34,
+):
+
+    dados = pd.DataFrame(
+        {
+            "simbolo": [
+                simbolo
+            ]
+        }
+    )
+
+
+    # O tamanho acompanha a altura do bloco, para o parêntese
+    # enquadrar visualmente todas as barras da fórmula.
+    tamanho_fonte = max(
+        110,
+        int(
+            altura
+            * 0.82
+        ),
+    )
+
+
+    return (
+        alt.Chart(
+            dados
+        )
+        .mark_text(
+            fontSize=tamanho_fonte,
+            fontWeight=300,
+            color="#64748B",
+            baseline="middle",
+            align="center",
+        )
+        .encode(
+            x=alt.value(
+                largura
+                / 2
+            ),
+            y=alt.value(
+                altura
+                / 2
+            ),
+            text="simbolo:N",
+        )
+        .properties(
+            width=largura,
+            height=altura,
+        )
+    )
+
+
 def _grafico_simbolo_formula(
     simbolo,
     altura,
     largura=None,
 ):
+
+    # Tokens compostos usados na segunda fórmula da História do Ano.
+    # Os parênteses são renderizados separadamente para poderem ocupar
+    # praticamente toda a altura do conjunto de barras.
+    if simbolo == "= (":
+
+        return alt.hconcat(
+            _grafico_simbolo_formula(
+                "=",
+                altura=altura,
+                largura=38,
+            ),
+            _grafico_parentese_formula(
+                "(",
+                altura=altura,
+                largura=34,
+            ),
+            spacing=0,
+        )
+
+
+    if simbolo == ") ÷ 2":
+
+        return alt.hconcat(
+            _grafico_parentese_formula(
+                ")",
+                altura=altura,
+                largura=34,
+            ),
+            _grafico_simbolo_formula(
+                "÷ 2",
+                altura=altura,
+                largura=58,
+            ),
+            spacing=0,
+        )
+
 
     if largura is None:
 
@@ -11371,6 +11463,7 @@ def _criar_matriz_mapa_calor(
     categorias,
     titulo,
     subtitulo=None,
+    mostrar_rotulos_linhas=True,
 ):
 
     ordem = [
@@ -11421,10 +11514,13 @@ def _criar_matriz_mapa_calor(
             ]
 
 
-    tamanho_celula = 74
+    tamanho_celula = 48
     tamanho = max(
-        360,
-        len(ordem) * tamanho_celula,
+        300,
+        min(
+            430,
+            len(ordem) * tamanho_celula,
+        ),
     )
 
 
@@ -11456,6 +11552,7 @@ def _criar_matriz_mapa_calor(
                 sort=ordem,
                 title=None,
                 axis=alt.Axis(
+                    labels=mostrar_rotulos_linhas,
                     labelFontSize=11,
                     labelLimit=170,
                     ticks=False,
@@ -15633,13 +15730,13 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_2
                 ),
                 simbolos=[
-                    "=  (",
-                    "×",
+                    "= (",
+                    "+",
                     ") ÷ 2",
                 ],
                 ano=historia_ano,
                 titulo_formula=[
-                    "          N(LP) × N(M)",
+                    "          N(LP) + N(M)",
                     "N =       ─────────────",
                     "                 2",
                 ],
@@ -15727,13 +15824,13 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_2
                 ),
                 simbolos=[
-                    "=  (",
-                    "×",
+                    "= (",
+                    "+",
                     ") ÷ 2",
                 ],
                 ano=historia_ano,
                 titulo_formula=[
-                    "          N(LP) × N(M)",
+                    "          N(LP) + N(M)",
                     "N =       ─────────────",
                     "                 2",
                 ],
@@ -15977,6 +16074,9 @@ if pagina == "MAPA DE CALOR":
     ]
 
 
+    graficos_mapa = []
+
+
     for indice_matriz, (
         tipo_mapa,
         titulo_mapa,
@@ -15990,6 +16090,15 @@ if pagina == "MAPA DE CALOR":
         )
 
 
+        # Em cada linha de matrizes, os rótulos das linhas aparecem
+        # somente na primeira matriz. Como todas usam a mesma ordem,
+        # isso reduz ruído sem perder informação.
+        mostrar_rotulos = indice_matriz in {
+            1,
+            4,
+        }
+
+
         grafico_matriz = _criar_matriz_mapa_calor(
             dados=dados_matriz,
             categorias=categorias_mapa,
@@ -15998,35 +16107,95 @@ if pagina == "MAPA DE CALOR":
                 f"{rotulo_dimensao(variavel_mapa)}: "
                 f"{ano_inicial_mapa} nas linhas × {ano_final_mapa} nas colunas"
             ),
+            mostrar_rotulos_linhas=mostrar_rotulos,
         )
 
 
-        col_mapa_esq, col_mapa_centro, col_mapa_dir = st.columns(
+        graficos_mapa.append(
+            grafico_matriz
+        )
+
+
+    # Primeira linha: as três matrizes de desempenho lado a lado.
+    mapa_top_1, mapa_top_2, mapa_top_3 = st.columns(
+        [
+            1,
+            1,
+            1,
+        ],
+        gap="small",
+    )
+
+
+    for indice, (
+        coluna,
+        grafico,
+    ) in enumerate(
+        zip(
             [
-                0.8,
-                8.4,
-                0.8,
-            ]
-        )
+                mapa_top_1,
+                mapa_top_2,
+                mapa_top_3,
+            ],
+            graficos_mapa[:3],
+        ),
+        start=1,
+    ):
 
-
-        with col_mapa_centro:
+        with coluna:
 
             st.altair_chart(
                 aplicar_fundo_grafico(
-                    grafico_matriz
+                    grafico
                 ),
                 theme=None,
                 width="stretch",
-                key=f"mapa_calor_matriz_{indice_matriz}",
+                key=f"mapa_calor_matriz_{indice}",
             )
 
 
-        if indice_matriz < len(especificacoes_mapa):
+    st.markdown(
+        '<div style="height:1.0rem;"></div>',
+        unsafe_allow_html=True,
+    )
 
-            st.markdown(
-                '<div style="height:0.75rem;"></div>',
-                unsafe_allow_html=True,
+
+    # Segunda linha: as matrizes de volume lado a lado e centralizadas,
+    # usando a mesma largura relativa das matrizes da linha superior.
+    mapa_inf_esq, mapa_inf_1, mapa_inf_2, mapa_inf_dir = st.columns(
+        [
+            0.5,
+            1,
+            1,
+            0.5,
+        ],
+        gap="small",
+    )
+
+
+    for indice, (
+        coluna,
+        grafico,
+    ) in enumerate(
+        zip(
+            [
+                mapa_inf_1,
+                mapa_inf_2,
+            ],
+            graficos_mapa[3:],
+        ),
+        start=4,
+    ):
+
+        with coluna:
+
+            st.altair_chart(
+                aplicar_fundo_grafico(
+                    grafico
+                ),
+                theme=None,
+                width="stretch",
+                key=f"mapa_calor_matriz_{indice}",
             )
 
 

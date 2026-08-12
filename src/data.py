@@ -1227,15 +1227,22 @@ def preparar_indicadores_ano(
     # N
     # ========================================================
 
+    # N é a média aritmética simples das notas padronizadas
+    # de Língua Portuguesa e Matemática. Mantemos a coluna
+    # VL_NOTA_MEDIA apenas entre as colunas de origem para
+    # compatibilidade/checagem, mas o indicador usado no painel
+    # é calculado explicitamente pela fórmula do IDEB.
     df[
         "N"
     ] = (
         df[
-            colunas[
-                "n"
-            ]
+            "N(LP)"
         ]
-    )
+        +
+        df[
+            "N(M)"
+        ]
+    ) / 2
 
 
     # ========================================================
