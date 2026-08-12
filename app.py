@@ -12285,13 +12285,13 @@ if pagina == "MELHORES ESCOLAS":
     }}
 
     /* Nome da escola recebe mais espaço; posição e código, menos. */
-    table.tabela-melhores-escolas tbody tr:nth-child(even) {
+    table.tabela-melhores-escolas tbody tr:nth-child(even) {{
         background: #FAFBFC;
-    }
+    }}
 
-    table.tabela-melhores-escolas tbody tr:hover {
+    table.tabela-melhores-escolas tbody tr:hover {{
         background: #F1F6FA;
-    }
+    }}
 
     table.tabela-melhores-escolas th:nth-child(1),
     table.tabela-melhores-escolas td:nth-child(1) {{
