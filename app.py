@@ -7396,6 +7396,15 @@ def criar_painel_horizontal(
     )
 
 
+    # Com apenas um ano não existe variação a calcular. Nesse cenário,
+    # o painel força a exibição somente das médias, evitando que reste
+    # qualquer eixo/linha de zero do gráfico de variações.
+    if ano_inicial is None:
+
+        mostrar_variacoes = False
+        mostrar_medias = True
+
+
     # O gráfico de médias sempre parte de zero. O eixo continua oculto,
     # mas a extensão visual deixa de superdimensionar diferenças quando
     # o recorte possui médias baixas.
@@ -8673,6 +8682,15 @@ def criar_painel_cruzamentos(
     )
 
 
+    # Com apenas um ano não existe variação a calcular. Nesse cenário,
+    # o painel força a exibição somente das médias, evitando que reste
+    # qualquer eixo/linha de zero do gráfico de variações.
+    if ano_inicial is None:
+
+        mostrar_variacoes = False
+        mostrar_medias = True
+
+
     # O gráfico de médias sempre parte de zero. O eixo continua oculto,
     # mas a extensão visual deixa de superdimensionar diferenças quando
     # o recorte possui médias baixas.
@@ -9498,6 +9516,1481 @@ def criar_painel_cruzamentos(
 
 
 # ============================================================
+# HISTÓRIA DO ANO — PREPARAÇÃO E GRÁFICOS DE FÓRMULA
+# ============================================================
+
+def _filtrar_integral_resultado_historia(
+    resultado,
+    variavel,
+    incluir_integral_agregado,
+    coluna_categoria="Categoria",
+):
+
+    if resultado.empty:
+
+        return resultado
+
+
+    if (
+        variavel == "Tipo de Escola"
+        and
+        not incluir_integral_agregado
+        and
+        coluna_categoria in resultado.columns
+    ):
+
+        return (
+            resultado[
+                resultado[
+                    coluna_categoria
+                ].astype(str)
+                != CATEGORIA_INTEGRAL_AGREGADA
+            ]
+            .copy()
+        )
+
+
+    return resultado
+
+
+def _resumo_historia_uma_dimensao(
+    base,
+    indicador,
+    ano,
+    variavel,
+    incluir_integral_agregado,
+):
+
+    categorias = media_ponderada_por_categoria(
+        df=base,
+        indicador=indicador,
+        anos=[ano],
+        eixo_painel=variavel,
+    )
+
+
+    categorias = _filtrar_integral_resultado_historia(
+        categorias,
+        variavel,
+        incluir_integral_agregado,
+    )
+
+
+    consolidado = calcular_consolidado(
+        base,
+        indicador,
+        [ano],
+    )
+
+
+    return pd.concat(
+        [
+            consolidado,
+            categorias,
+        ],
+        ignore_index=True,
+    )
+
+
+def _ordem_historia_uma_dimensao(
+    resumo_ancora,
+    variavel,
+    ordenacao,
+    ano,
+):
+
+    categorias = (
+        resumo_ancora[
+            resumo_ancora[
+                "Categoria"
+            ].astype(str)
+            != "Consolidado"
+        ][
+            "Categoria"
+        ]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+
+
+    if ordenacao == "Ordem para gráfico":
+
+        return ordenar_dimensao_para_grafico(
+            categorias,
+            variavel,
+        )
+
+
+    ranking = (
+        resumo_ancora[
+            (
+                resumo_ancora[
+                    "Categoria"
+                ].astype(str)
+                != "Consolidado"
+            )
+            &
+            (
+                resumo_ancora[
+                    "Ano"
+                ].astype(str)
+                == str(ano)
+            )
+        ]
+        .dropna(
+            subset=[
+                "Média"
+            ]
+        )
+        .sort_values(
+            "Média",
+            ascending=False,
+        )[
+            "Categoria"
+        ]
+        .astype(str)
+        .tolist()
+    )
+
+
+    for categoria in categorias:
+
+        if categoria not in ranking:
+
+            ranking.append(
+                categoria
+            )
+
+
+    return ranking
+
+
+def _aplicar_medias_historia_uma_dimensao(
+    plot_base,
+    resumo,
+):
+
+    mapa = {
+        str(categoria): media
+        for categoria, media
+        in zip(
+            resumo[
+                "Categoria"
+            ],
+            resumo[
+                "Média"
+            ],
+        )
+        if pd.notna(
+            categoria
+        )
+    }
+
+
+    resultado = plot_base.copy()
+
+    resultado[
+        "Média"
+    ] = np.nan
+
+
+    mascara = (
+        resultado[
+            "TipoLinha"
+        ]
+        == "ano"
+    )
+
+
+    resultado.loc[
+        mascara,
+        "Média",
+    ] = (
+        resultado.loc[
+            mascara,
+            "Categoria",
+        ]
+        .astype(str)
+        .map(
+            mapa
+        )
+    )
+
+
+    return resultado
+
+
+def _preparar_bloco_historia_uma_dimensao(
+    base,
+    ano,
+    variavel,
+    ordenacao,
+    indicadores,
+    incluir_integral_agregado,
+):
+
+    indicador_ancora = indicadores[0]
+
+
+    resumos = {
+        indicador: _resumo_historia_uma_dimensao(
+            base=base,
+            indicador=indicador,
+            ano=ano,
+            variavel=variavel,
+            incluir_integral_agregado=(
+                incluir_integral_agregado
+            ),
+        )
+        for indicador
+        in indicadores
+    }
+
+
+    resumo_ancora = resumos[
+        indicador_ancora
+    ]
+
+
+    if resumo_ancora.empty:
+
+        return None
+
+
+    ordem_categorias = _ordem_historia_uma_dimensao(
+        resumo_ancora=resumo_ancora,
+        variavel=variavel,
+        ordenacao=ordenacao,
+        ano=ano,
+    )
+
+
+    (
+        plot_base,
+        labels_categorias,
+        labels_anos,
+        ordem_linhas,
+    ) = preparar_linhas_horizontais(
+        dados=resumo_ancora,
+        anos=[ano],
+        categorias=ordem_categorias,
+        ano_inicial=None,
+        ano_final=ano,
+    )
+
+
+    plots = {
+        indicador: _aplicar_medias_historia_uma_dimensao(
+            plot_base,
+            resumo,
+        )
+        for indicador, resumo
+        in resumos.items()
+    }
+
+
+    return {
+        "plot_base": plot_base,
+        "plots": plots,
+        "labels_categorias": labels_categorias,
+        "labels_anos": labels_anos,
+        "ordem_linhas": ordem_linhas,
+    }
+
+
+def _resumo_historia_duas_dimensoes(
+    base,
+    indicador,
+    ano,
+    variavel_1,
+    variavel_2,
+    incluir_integral_agregado,
+):
+
+    resultado = media_ponderada_duas_dimensoes(
+        base=base,
+        indicador=indicador,
+        anos=[ano],
+        variavel_1=variavel_1,
+        variavel_2=variavel_2,
+        incluir_integral_agregado=(
+            incluir_integral_agregado
+        ),
+    )
+
+
+    consolidado = calcular_consolidado(
+        base,
+        indicador,
+        [ano],
+    )
+
+
+    return resultado, consolidado
+
+
+def _ordens_historia_duas_dimensoes(
+    resultado_ancora,
+    variavel_1,
+    variavel_2,
+    ordenacao,
+    ano,
+):
+
+    ordem_nivel_1 = ordenar_dimensao(
+        resultado_ancora[
+            "Categoria_1"
+        ]
+        .dropna()
+        .unique(),
+        variavel_1,
+    )
+
+
+    ordem_nivel_2 = ordenar_dimensao(
+        resultado_ancora[
+            "Categoria_2"
+        ]
+        .dropna()
+        .unique(),
+        variavel_2,
+    )
+
+
+    if ordenacao == "Ordem para gráfico":
+
+        ordem_nivel_1 = ordenar_dimensao_para_grafico(
+            resultado_ancora[
+                "Categoria_1"
+            ]
+            .dropna()
+            .astype(str)
+            .unique(),
+            variavel_1,
+        )
+
+
+        ordem_nivel_2 = ordenar_dimensao_para_grafico(
+            resultado_ancora[
+                "Categoria_2"
+            ]
+            .dropna()
+            .astype(str)
+            .unique(),
+            variavel_2,
+        )
+
+
+        return (
+            ordem_nivel_1,
+            ordem_nivel_2,
+        )
+
+
+    ranking_n1 = (
+        resultado_ancora[
+            resultado_ancora[
+                "Ano"
+            ].astype(str)
+            == str(ano)
+        ]
+        .groupby(
+            "Categoria_1",
+            as_index=False,
+        )[
+            "Média"
+        ]
+        .mean()
+        .sort_values(
+            "Média",
+            ascending=False,
+        )
+    )
+
+
+    ordem_temp = (
+        ranking_n1[
+            "Categoria_1"
+        ]
+        .astype(str)
+        .tolist()
+    )
+
+
+    ordem_nivel_1 = (
+        ordem_temp
+        +
+        [
+            valor
+            for valor
+            in ordem_nivel_1
+            if valor
+            not in ordem_temp
+        ]
+    )
+
+
+    return (
+        ordem_nivel_1,
+        ordem_nivel_2,
+    )
+
+
+def _aplicar_medias_historia_duas_dimensoes(
+    plot_base,
+    resultado,
+    consolidado,
+):
+
+    mapa = {}
+
+
+    for _, linha in resultado.iterrows():
+
+        mapa[
+            (
+                str(
+                    linha[
+                        "Categoria_1"
+                    ]
+                ),
+                str(
+                    linha[
+                        "Categoria_2"
+                    ]
+                ),
+            )
+        ] = linha[
+            "Média"
+        ]
+
+
+    if not consolidado.empty:
+
+        mapa[
+            (
+                "Consolidado",
+                "Total",
+            )
+        ] = consolidado[
+            "Média"
+        ].iloc[0]
+
+
+    resultado_plot = plot_base.copy()
+
+    resultado_plot[
+        "Média"
+    ] = np.nan
+
+
+    mascara = (
+        resultado_plot[
+            "TipoLinha"
+        ]
+        == "ano"
+    )
+
+
+    chaves = list(
+        zip(
+            resultado_plot.loc[
+                mascara,
+                "Nivel1",
+            ].astype(str),
+            resultado_plot.loc[
+                mascara,
+                "Nivel2",
+            ].astype(str),
+        )
+    )
+
+
+    resultado_plot.loc[
+        mascara,
+        "Média",
+    ] = [
+        mapa.get(
+            chave,
+            np.nan,
+        )
+        for chave
+        in chaves
+    ]
+
+
+    return resultado_plot
+
+
+def _preparar_bloco_historia_duas_dimensoes(
+    base,
+    ano,
+    variavel_1,
+    variavel_2,
+    ordenacao,
+    indicadores,
+    incluir_integral_agregado,
+):
+
+    resumos = {}
+
+
+    for indicador in indicadores:
+
+        resumos[
+            indicador
+        ] = _resumo_historia_duas_dimensoes(
+            base=base,
+            indicador=indicador,
+            ano=ano,
+            variavel_1=variavel_1,
+            variavel_2=variavel_2,
+            incluir_integral_agregado=(
+                incluir_integral_agregado
+            ),
+        )
+
+
+    resultado_ancora, consolidado_ancora = (
+        resumos[
+            indicadores[0]
+        ]
+    )
+
+
+    if resultado_ancora.empty:
+
+        return None
+
+
+    (
+        ordem_nivel_1,
+        ordem_nivel_2,
+    ) = _ordens_historia_duas_dimensoes(
+        resultado_ancora=resultado_ancora,
+        variavel_1=variavel_1,
+        variavel_2=variavel_2,
+        ordenacao=ordenacao,
+        ano=ano,
+    )
+
+
+    (
+        plot_base,
+        labels_nivel_1,
+        labels_nivel_2,
+        labels_anos,
+        ordem_linhas,
+    ) = preparar_linhas_cruzamentos(
+        resultado=resultado_ancora,
+        consolidado=consolidado_ancora,
+        anos=[ano],
+        ordem_nivel_1=ordem_nivel_1,
+        ordem_nivel_2=ordem_nivel_2,
+        ano_inicial=None,
+        ano_final=ano,
+    )
+
+
+    plots = {}
+
+
+    for indicador, (
+        resultado,
+        consolidado,
+    ) in resumos.items():
+
+        plots[
+            indicador
+        ] = _aplicar_medias_historia_duas_dimensoes(
+            plot_base=plot_base,
+            resultado=resultado,
+            consolidado=consolidado,
+        )
+
+
+    return {
+        "plot_base": plot_base,
+        "plots": plots,
+        "labels_nivel_1": labels_nivel_1,
+        "labels_nivel_2": labels_nivel_2,
+        "labels_anos": labels_anos,
+        "ordem_linhas": ordem_linhas,
+    }
+
+
+def _grafico_simbolo_formula(
+    simbolo,
+    altura,
+    largura=42,
+):
+
+    dados = pd.DataFrame(
+        {
+            "simbolo": [
+                simbolo
+            ]
+        }
+    )
+
+
+    return (
+        alt.Chart(
+            dados
+        )
+        .mark_text(
+            fontSize=27,
+            fontWeight=700,
+            color="#64748B",
+            baseline="middle",
+            align="center",
+        )
+        .encode(
+            x=alt.value(
+                largura
+                / 2
+            ),
+            y=alt.value(
+                altura
+                / 2
+            ),
+            text="simbolo:N",
+        )
+        .properties(
+            width=largura,
+            height=altura,
+        )
+    )
+
+
+def _grafico_metrica_historia_uma_dimensao(
+    plot,
+    ordem_linhas,
+    indicador,
+    ano,
+    largura=245,
+):
+
+    formatos = formatos_indicador(
+        indicador
+    )
+
+
+    altura = max(
+        260,
+        len(
+            plot
+        )
+        * 19,
+    )
+
+
+    separador_pequeno = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_pequeno"
+        ]
+    )
+
+
+    separador_grande = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_grande"
+        ]
+    )
+
+
+    regra_fina = (
+        alt.Chart(
+            separador_pequeno
+        )
+        .mark_rule(
+            strokeWidth=0.75,
+            color="#E1E6EC",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            )
+        )
+    )
+
+
+    regra_grande = (
+        alt.Chart(
+            separador_grande
+        )
+        .mark_rule(
+            strokeWidth=1.15,
+            color="#C9D1DA",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            )
+        )
+    )
+
+
+    dados = (
+        plot[
+            (
+                plot[
+                    "TipoLinha"
+                ]
+                == "ano"
+            )
+            &
+            plot[
+                "Média"
+            ].notna()
+        ]
+    )
+
+
+    barras = (
+        alt.Chart(
+            dados
+        )
+        .mark_bar(
+            size=19,
+            clip=True,
+            color=CORES_ANOS[
+                str(ano)
+            ],
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x=alt.X(
+                "Média:Q",
+                title=None,
+                scale=alt.Scale(
+                    domainMin=0,
+                    zero=True,
+                    nice=True,
+                ),
+                axis=alt.Axis(
+                    labels=False,
+                    ticks=False,
+                    domain=False,
+                    grid=False,
+                ),
+            ),
+            x2=alt.datum(
+                0
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Categoria:N",
+                    title="Categoria",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title=indicador,
+                    format=formatos[
+                        "tooltip"
+                    ],
+                ),
+            ],
+        )
+    )
+
+
+    textos = (
+        alt.Chart(
+            dados
+        )
+        .mark_text(
+            align="left",
+            dx=4,
+            fontSize=11,
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x="Média:Q",
+            text=alt.Text(
+                "Média:Q",
+                format=formatos[
+                    "rotulo"
+                ],
+            ),
+        )
+    )
+
+
+    return (
+        barras
+        +
+        textos
+        +
+        regra_fina
+        +
+        regra_grande
+    ).properties(
+        width=largura,
+        height=altura,
+        title=alt.TitleParams(
+            text=(
+                f"Média ponderada de "
+                f"{indicador}"
+            ),
+            anchor="middle",
+            fontSize=15.5,
+            fontWeight="bold",
+        ),
+    )
+
+
+def _montar_formula_historia_uma_dimensao(
+    bloco,
+    indicadores,
+    simbolos,
+    ano,
+    titulo_formula,
+    largura_categoria=155,
+    largura_anos=105,
+    largura_metrica=245,
+):
+
+    plot_base = bloco[
+        "plot_base"
+    ]
+
+    ordem_linhas = bloco[
+        "ordem_linhas"
+    ]
+
+
+    altura = max(
+        260,
+        len(
+            plot_base
+        )
+        * 19,
+    )
+
+
+    separador_pequeno = (
+        plot_base[
+            plot_base[
+                "TipoLinha"
+            ]
+            == "separador_pequeno"
+        ]
+    )
+
+
+    separador_grande = (
+        plot_base[
+            plot_base[
+                "TipoLinha"
+            ]
+            == "separador_grande"
+        ]
+    )
+
+
+    def regra_fina():
+
+        return (
+            alt.Chart(
+                separador_pequeno
+            )
+            .mark_rule(
+                strokeWidth=0.75,
+                color="#E1E6EC",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas
+                )
+            )
+        )
+
+
+    def regra_grande():
+
+        return (
+            alt.Chart(
+                separador_grande
+            )
+            .mark_rule(
+                strokeWidth=1.15,
+                color="#C9D1DA",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas
+                )
+            )
+        )
+
+
+    graf_categoria = (
+        alt.Chart(
+            bloco[
+                "labels_categorias"
+            ]
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=13.5,
+            fontWeight="bold",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x=alt.value(
+                largura_categoria
+                - 5
+            ),
+            text="CategoriaLabel:N",
+        )
+        +
+        regra_fina()
+        +
+        regra_grande()
+    ).properties(
+        width=largura_categoria,
+        height=altura,
+    )
+
+
+    graf_anos = (
+        alt.Chart(
+            bloco[
+                "labels_anos"
+            ]
+        )
+        .mark_text(
+            align="center",
+            baseline="middle",
+            fontSize=11,
+            color="#7B8498",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x=alt.value(
+                largura_anos
+                / 2
+            ),
+            text="AnoLabel:N",
+        )
+        +
+        regra_fina()
+        +
+        regra_grande()
+    ).properties(
+        width=largura_anos,
+        height=altura,
+    )
+
+
+    componentes = [
+        graf_categoria,
+        graf_anos,
+    ]
+
+
+    for indice, indicador in enumerate(
+        indicadores
+    ):
+
+        componentes.append(
+            _grafico_metrica_historia_uma_dimensao(
+                plot=bloco[
+                    "plots"
+                ][
+                    indicador
+                ],
+                ordem_linhas=ordem_linhas,
+                indicador=indicador,
+                ano=ano,
+                largura=largura_metrica,
+            )
+        )
+
+
+        if indice < len(
+            simbolos
+        ):
+
+            componentes.append(
+                _grafico_simbolo_formula(
+                    simbolos[
+                        indice
+                    ],
+                    altura=altura,
+                )
+            )
+
+
+    return (
+        alt.hconcat(
+            *componentes,
+            spacing=0,
+        )
+        .resolve_scale(
+            y="shared"
+        )
+        .properties(
+            title=alt.TitleParams(
+                text=titulo_formula,
+                anchor="middle",
+                fontSize=19,
+                fontWeight=750,
+                color="#27364A",
+            )
+        )
+    )
+
+
+def _grafico_metrica_historia_duas_dimensoes(
+    plot,
+    ordem_linhas,
+    indicador,
+    ano,
+    largura=225,
+):
+
+    formatos = formatos_indicador(
+        indicador
+    )
+
+
+    altura = max(
+        290,
+        len(
+            plot
+        )
+        * 18,
+    )
+
+
+    separadores_n2 = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_nivel_2"
+        ]
+    )
+
+
+    separadores_n1 = (
+        plot[
+            plot[
+                "TipoLinha"
+            ]
+            == "separador_nivel_1"
+        ]
+    )
+
+
+    regra_n2 = (
+        alt.Chart(
+            separadores_n2
+        )
+        .mark_rule(
+            strokeWidth=0.70,
+            color="#E1E6EC",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            )
+        )
+    )
+
+
+    regra_n1 = (
+        alt.Chart(
+            separadores_n1
+        )
+        .mark_rule(
+            strokeWidth=1.65,
+            color="#C3CCD6",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            )
+        )
+    )
+
+
+    dados = (
+        plot[
+            (
+                plot[
+                    "TipoLinha"
+                ]
+                == "ano"
+            )
+            &
+            plot[
+                "Média"
+            ].notna()
+        ]
+    )
+
+
+    barras = (
+        alt.Chart(
+            dados
+        )
+        .mark_bar(
+            size=18,
+            clip=True,
+            color=CORES_ANOS[
+                str(ano)
+            ],
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x=alt.X(
+                "Média:Q",
+                title=None,
+                scale=alt.Scale(
+                    domainMin=0,
+                    zero=True,
+                    nice=True,
+                ),
+                axis=alt.Axis(
+                    labels=False,
+                    ticks=False,
+                    domain=False,
+                    grid=False,
+                ),
+            ),
+            x2=alt.datum(
+                0
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Nivel1:N",
+                    title="1ª dimensão",
+                ),
+                alt.Tooltip(
+                    "Nivel2:N",
+                    title="2ª dimensão",
+                ),
+                alt.Tooltip(
+                    "Média:Q",
+                    title=indicador,
+                    format=formatos[
+                        "tooltip"
+                    ],
+                ),
+            ],
+        )
+    )
+
+
+    textos = (
+        alt.Chart(
+            dados
+        )
+        .mark_text(
+            align="left",
+            dx=4,
+            fontSize=11,
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x="Média:Q",
+            text=alt.Text(
+                "Média:Q",
+                format=formatos[
+                    "rotulo"
+                ],
+            ),
+        )
+    )
+
+
+    return (
+        barras
+        +
+        textos
+        +
+        regra_n2
+        +
+        regra_n1
+    ).properties(
+        width=largura,
+        height=altura,
+        title=alt.TitleParams(
+            text=(
+                f"Média ponderada de "
+                f"{indicador}"
+            ),
+            anchor="middle",
+            fontSize=15.5,
+            fontWeight="bold",
+        ),
+    )
+
+
+def _montar_formula_historia_duas_dimensoes(
+    bloco,
+    indicadores,
+    simbolos,
+    ano,
+    titulo_formula,
+    largura_nivel_1=115,
+    largura_nivel_2=135,
+    largura_anos=100,
+    largura_metrica=225,
+):
+
+    plot_base = bloco[
+        "plot_base"
+    ]
+
+    ordem_linhas = bloco[
+        "ordem_linhas"
+    ]
+
+
+    altura = max(
+        290,
+        len(
+            plot_base
+        )
+        * 18,
+    )
+
+
+    separadores_n2 = (
+        plot_base[
+            plot_base[
+                "TipoLinha"
+            ]
+            == "separador_nivel_2"
+        ]
+    )
+
+
+    separadores_n1 = (
+        plot_base[
+            plot_base[
+                "TipoLinha"
+            ]
+            == "separador_nivel_1"
+        ]
+    )
+
+
+    def regra_n2():
+
+        return (
+            alt.Chart(
+                separadores_n2
+            )
+            .mark_rule(
+                strokeWidth=0.70,
+                color="#E1E6EC",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas
+                )
+            )
+        )
+
+
+    def regra_n1():
+
+        return (
+            alt.Chart(
+                separadores_n1
+            )
+            .mark_rule(
+                strokeWidth=1.65,
+                color="#C3CCD6",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_linhas
+                )
+            )
+        )
+
+
+    graf_n1 = (
+        alt.Chart(
+            bloco[
+                "labels_nivel_1"
+            ]
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=13.5,
+            fontWeight="bold",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x=alt.value(
+                largura_nivel_1
+                - 4
+            ),
+            text="Label:N",
+        )
+        +
+        regra_n1()
+    ).properties(
+        width=largura_nivel_1,
+        height=altura,
+    )
+
+
+    graf_n2 = (
+        alt.Chart(
+            bloco[
+                "labels_nivel_2"
+            ]
+        )
+        .mark_text(
+            align="right",
+            baseline="middle",
+            fontSize=12,
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x=alt.value(
+                largura_nivel_2
+                - 4
+            ),
+            text="Label:N",
+        )
+        +
+        regra_n2()
+        +
+        regra_n1()
+    ).properties(
+        width=largura_nivel_2,
+        height=altura,
+    )
+
+
+    graf_anos = (
+        alt.Chart(
+            bloco[
+                "labels_anos"
+            ]
+        )
+        .mark_text(
+            align="center",
+            baseline="middle",
+            fontSize=11,
+            color="#7B8498",
+        )
+        .encode(
+            y=escala_y(
+                ordem_linhas
+            ),
+            x=alt.value(
+                largura_anos
+                / 2
+            ),
+            text="AnoLabel:N",
+        )
+        +
+        regra_n2()
+        +
+        regra_n1()
+    ).properties(
+        width=largura_anos,
+        height=altura,
+    )
+
+
+    componentes = [
+        graf_n1,
+        graf_n2,
+        graf_anos,
+    ]
+
+
+    for indice, indicador in enumerate(
+        indicadores
+    ):
+
+        componentes.append(
+            _grafico_metrica_historia_duas_dimensoes(
+                plot=bloco[
+                    "plots"
+                ][
+                    indicador
+                ],
+                ordem_linhas=ordem_linhas,
+                indicador=indicador,
+                ano=ano,
+                largura=largura_metrica,
+            )
+        )
+
+
+        if indice < len(
+            simbolos
+        ):
+
+            componentes.append(
+                _grafico_simbolo_formula(
+                    simbolos[
+                        indice
+                    ],
+                    altura=altura,
+                )
+            )
+
+
+    return (
+        alt.hconcat(
+            *componentes,
+            spacing=0,
+        )
+        .resolve_scale(
+            y="shared"
+        )
+        .properties(
+            title=alt.TitleParams(
+                text=titulo_formula,
+                anchor="middle",
+                fontSize=19,
+                fontWeight=750,
+                color="#27364A",
+            )
+        )
+    )
+
+
+# ============================================================
 # CARREGAMENTO
 # ============================================================
 
@@ -9544,12 +11037,14 @@ if "pagina" not in st.session_state:
     )
 
 
-nav_1, nav_2, nav_3, nav_4 = st.columns(
+nav_1, nav_2, nav_3, nav_4, nav_5, nav_6 = st.columns(
     [
         1.55,
+        1.35,
         1.00,
         1.15,
         1.35,
+        1.15,
     ],
     gap="medium",
 )
@@ -9571,6 +11066,19 @@ with nav_1:
 with nav_2:
 
     if st.button(
+        "HISTÓRIA DO ANO",
+        width="stretch",
+        key="nav_historia_ano",
+    ):
+
+        st.session_state.pagina = (
+            "HISTÓRIA DO ANO"
+        )
+
+
+with nav_3:
+
+    if st.button(
         "DEMOGRAFIA",
         width="stretch",
         key="nav_demografia",
@@ -9581,7 +11089,7 @@ with nav_2:
         )
 
 
-with nav_3:
+with nav_4:
 
     if st.button(
         "DISTRIBUIÇÕES",
@@ -9594,7 +11102,7 @@ with nav_3:
         )
 
 
-with nav_4:
+with nav_5:
 
     if st.button(
         "MELHORES ESCOLAS",
@@ -9604,6 +11112,19 @@ with nav_4:
 
         st.session_state.pagina = (
             "MELHORES ESCOLAS"
+        )
+
+
+with nav_6:
+
+    if st.button(
+        "MAPA DE CALOR",
+        width="stretch",
+        key="nav_mapa_calor",
+    ):
+
+        st.session_state.pagina = (
+            "MAPA DE CALOR"
         )
 
 
@@ -9618,9 +11139,11 @@ pagina = (
 
 chave_nav_ativa = {
     "PRINCIPAIS INDICADORES": "nav_principais",
+    "HISTÓRIA DO ANO": "nav_historia_ano",
     "DEMOGRAFIA": "nav_demografia",
     "DISTRIBUIÇÕES": "nav_distribuicoes",
     "MELHORES ESCOLAS": "nav_melhores",
+    "MAPA DE CALOR": "nav_mapa_calor",
 }.get(
     pagina
 )
@@ -13234,6 +14757,367 @@ if pagina == "PRINCIPAIS INDICADORES":
 
 
     st.stop()
+
+
+# ============================================================
+# HISTÓRIA DO ANO
+# ============================================================
+
+if pagina == "HISTÓRIA DO ANO":
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
+            margin-bottom:0.25rem;
+        ">
+            HISTÓRIA DO ANO
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    opcoes_historia = list(
+        EIXOS_DISPONIVEIS.keys()
+    )
+
+
+    SEM_ESCOLHA_HISTORIA = "<vazio>"
+
+
+    h1, h2, h3, h4 = st.columns(
+        [
+            1.35,
+            1.35,
+            1.10,
+            0.95,
+        ]
+    )
+
+
+    with h1:
+
+        historia_var_1 = st.selectbox(
+            "1ª dimensão",
+            opcoes_historia,
+            index=(
+                opcoes_historia.index(
+                    "INSE"
+                )
+                if "INSE"
+                in opcoes_historia
+                else 0
+            ),
+            format_func=rotulo_dimensao,
+            key="historia_var_1",
+        )
+
+
+    opcoes_historia_2 = [
+        SEM_ESCOLHA_HISTORIA,
+        *[
+            item
+            for item
+            in opcoes_historia
+            if item
+            != historia_var_1
+        ],
+    ]
+
+
+    with h2:
+
+        historia_var_2 = st.selectbox(
+            "2ª dimensão",
+            opcoes_historia_2,
+            index=0,
+            format_func=(
+                lambda valor:
+                    SEM_ESCOLHA_HISTORIA
+                    if valor
+                    == SEM_ESCOLHA_HISTORIA
+                    else rotulo_dimensao(
+                        valor
+                    )
+            ),
+            key="historia_var_2",
+        )
+
+
+    with h3:
+
+        historia_ordenacao = st.selectbox(
+            "Ordenação",
+            [
+                "Número absoluto",
+                "Ordem para gráfico",
+            ],
+            key="historia_ordenacao",
+        )
+
+
+    with h4:
+
+        historia_ano = st.selectbox(
+            "Ano",
+            options=ANOS_PAINEL,
+            index=(
+                len(
+                    ANOS_PAINEL
+                )
+                - 1
+            ),
+            key="historia_ano",
+        )
+
+
+    df_historia = df.copy()
+
+
+    indicadores_etapa_1 = [
+        "IDEB",
+        "N",
+        "Rendimento",
+    ]
+
+
+    indicadores_etapa_2 = [
+        "N",
+        "N(LP)",
+        "N(M)",
+    ]
+
+
+    if (
+        historia_var_2
+        == SEM_ESCOLHA_HISTORIA
+    ):
+
+        bloco_historia_1 = (
+            _preparar_bloco_historia_uma_dimensao(
+                base=df_historia,
+                ano=historia_ano,
+                variavel=historia_var_1,
+                ordenacao=historia_ordenacao,
+                indicadores=(
+                    indicadores_etapa_1
+                ),
+                incluir_integral_agregado=(
+                    mostrar_integral_agregado
+                ),
+            )
+        )
+
+
+        bloco_historia_2 = (
+            _preparar_bloco_historia_uma_dimensao(
+                base=df_historia,
+                ano=historia_ano,
+                variavel=historia_var_1,
+                ordenacao=historia_ordenacao,
+                indicadores=(
+                    indicadores_etapa_2
+                ),
+                incluir_integral_agregado=(
+                    mostrar_integral_agregado
+                ),
+            )
+        )
+
+
+        if (
+            bloco_historia_1 is None
+            or
+            bloco_historia_2 is None
+        ):
+
+            st.warning(
+                "Não há resultados para a configuração selecionada."
+            )
+
+            st.stop()
+
+
+        formula_historia_1 = (
+            _montar_formula_historia_uma_dimensao(
+                bloco=bloco_historia_1,
+                indicadores=(
+                    indicadores_etapa_1
+                ),
+                simbolos=[
+                    "=",
+                    "×",
+                ],
+                ano=historia_ano,
+                titulo_formula=(
+                    "IDEB = N × Rendimento"
+                ),
+            )
+        )
+
+
+        formula_historia_2 = (
+            _montar_formula_historia_uma_dimensao(
+                bloco=bloco_historia_2,
+                indicadores=(
+                    indicadores_etapa_2
+                ),
+                simbolos=[
+                    "=",
+                    "×",
+                ],
+                ano=historia_ano,
+                titulo_formula=(
+                    "N = (N(LP) × N(M)) / 2"
+                ),
+            )
+        )
+
+
+    else:
+
+        bloco_historia_1 = (
+            _preparar_bloco_historia_duas_dimensoes(
+                base=df_historia,
+                ano=historia_ano,
+                variavel_1=historia_var_1,
+                variavel_2=historia_var_2,
+                ordenacao=historia_ordenacao,
+                indicadores=(
+                    indicadores_etapa_1
+                ),
+                incluir_integral_agregado=(
+                    mostrar_integral_agregado
+                ),
+            )
+        )
+
+
+        bloco_historia_2 = (
+            _preparar_bloco_historia_duas_dimensoes(
+                base=df_historia,
+                ano=historia_ano,
+                variavel_1=historia_var_1,
+                variavel_2=historia_var_2,
+                ordenacao=historia_ordenacao,
+                indicadores=(
+                    indicadores_etapa_2
+                ),
+                incluir_integral_agregado=(
+                    mostrar_integral_agregado
+                ),
+            )
+        )
+
+
+        if (
+            bloco_historia_1 is None
+            or
+            bloco_historia_2 is None
+        ):
+
+            st.warning(
+                "Não há resultados para a configuração selecionada."
+            )
+
+            st.stop()
+
+
+        formula_historia_1 = (
+            _montar_formula_historia_duas_dimensoes(
+                bloco=bloco_historia_1,
+                indicadores=(
+                    indicadores_etapa_1
+                ),
+                simbolos=[
+                    "=",
+                    "×",
+                ],
+                ano=historia_ano,
+                titulo_formula=(
+                    "IDEB = N × Rendimento"
+                ),
+            )
+        )
+
+
+        formula_historia_2 = (
+            _montar_formula_historia_duas_dimensoes(
+                bloco=bloco_historia_2,
+                indicadores=(
+                    indicadores_etapa_2
+                ),
+                simbolos=[
+                    "=",
+                    "×",
+                ],
+                ano=historia_ano,
+                titulo_formula=(
+                    "N = (N(LP) × N(M)) / 2"
+                ),
+            )
+        )
+
+
+    painel_historia_ano = (
+        alt.vconcat(
+            formula_historia_1,
+            formula_historia_2,
+            spacing=38,
+        )
+        .resolve_scale(
+            y="independent"
+        )
+    )
+
+
+    col_hist_esq, col_hist_centro, col_hist_dir = st.columns(
+        [
+            0.35,
+            9.30,
+            0.35,
+        ]
+    )
+
+
+    with col_hist_centro:
+
+        st.altair_chart(
+            aplicar_fundo_grafico(
+                painel_historia_ano
+            ),
+            theme=None,
+            width="stretch",
+        )
+
+
+# ============================================================
+# MAPA DE CALOR
+# ============================================================
+
+if pagina == "MAPA DE CALOR":
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
+            margin-bottom:0.25rem;
+        ">
+            MAPA DE CALOR
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 
 # ============================================================
