@@ -13081,6 +13081,185 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
 
 
 # ============================================================
+# INSIGHTS — RACIONAL DE AGREGADOS EM DOIS NÍVEIS
+# ============================================================
+
+def obter_combinacoes_insights(
+    base,
+    dimensao_1,
+    dimensao_2,
+):
+    """Retorna apenas combinações efetivamente observadas no recorte."""
+
+    if base.empty:
+        return []
+
+
+    categorias_1 = criar_variavel_eixo(
+        base,
+        dimensao_1,
+    )[
+        "Categoria"
+    ]
+
+
+    categorias_2 = criar_variavel_eixo(
+        base,
+        dimensao_2,
+    )[
+        "Categoria"
+    ]
+
+
+    temp = pd.DataFrame(
+        {
+            "Nivel_1": categorias_1,
+            "Nivel_2": categorias_2,
+        },
+        index=base.index,
+    )
+
+
+    temp = (
+        temp[
+            temp["Nivel_1"].notna()
+            &
+            temp["Nivel_2"].notna()
+        ]
+        .astype(
+            {
+                "Nivel_1": str,
+                "Nivel_2": str,
+            }
+        )
+        .drop_duplicates()
+    )
+
+
+    if temp.empty:
+        return []
+
+
+    ordem_1 = ordenar_dimensao(
+        temp["Nivel_1"].unique().tolist(),
+        dimensao_1,
+    )
+
+
+    ordem_2 = ordenar_dimensao(
+        temp["Nivel_2"].unique().tolist(),
+        dimensao_2,
+    )
+
+
+    indice_1 = {
+        valor: posicao
+        for posicao, valor
+        in enumerate(ordem_1)
+    }
+
+
+    indice_2 = {
+        valor: posicao
+        for posicao, valor
+        in enumerate(ordem_2)
+    }
+
+
+    combinacoes = [
+        (
+            str(linha.Nivel_1),
+            str(linha.Nivel_2),
+        )
+        for linha
+        in temp.itertuples(index=False)
+    ]
+
+
+    combinacoes.sort(
+        key=lambda item: (
+            indice_1.get(item[0], 10**6),
+            indice_2.get(item[1], 10**6),
+            item[0],
+            item[1],
+        )
+    )
+
+
+    return combinacoes
+
+
+def rotulo_combinacao_insights(
+    combinacao,
+    dimensao_1,
+    dimensao_2,
+):
+
+    nivel_1, nivel_2 = combinacao
+
+    return (
+        f"{rotulo_dimensao(dimensao_1)}: {nivel_1}  ·  "
+        f"{rotulo_dimensao(dimensao_2)}: {nivel_2}"
+    )
+
+
+def _html_resumo_agregado_insights(
+    titulo,
+    combinacoes,
+    dimensao_1,
+    dimensao_2,
+):
+
+    if not combinacoes:
+        conteudo = (
+            '<span style="color:#8290A3;">'
+            'Nenhuma combinação selecionada.'
+            '</span>'
+        )
+
+    else:
+        itens = []
+
+        for combinacao in combinacoes:
+            itens.append(
+                '<div style="margin:0.26rem 0;">'
+                + html.escape(
+                    rotulo_combinacao_insights(
+                        combinacao,
+                        dimensao_1,
+                        dimensao_2,
+                    )
+                )
+                + '</div>'
+            )
+
+        conteudo = "".join(itens)
+
+
+    return f"""
+        <div style="
+            border:1px solid #E2E8F0;
+            border-radius:12px;
+            background:#FBFCFE;
+            padding:0.9rem 1rem;
+            min-height:104px;
+        ">
+            <div style="
+                font-size:0.83rem;
+                font-weight:700;
+                color:#42526A;
+                margin-bottom:0.45rem;
+            ">{html.escape(titulo)}</div>
+            <div style="
+                font-size:0.82rem;
+                line-height:1.45;
+                color:#5D6B7E;
+            ">{conteudo}</div>
+        </div>
+    """
+
+
+# ============================================================
 # INSIGHTS
 # ============================================================
 
@@ -13094,13 +13273,327 @@ if pagina == "INSIGHTS":
             font-weight:750;
             letter-spacing:-0.02em;
             color:#27364A;
-            margin-bottom:0.25rem;
+            margin-bottom:0.20rem;
         ">
             INSIGHTS
+        </div>
+        <div style="
+            text-align:center;
+            font-size:0.91rem;
+            color:#6B7A90;
+            margin-bottom:1.15rem;
+        ">
+            Construa grupos comparáveis a partir de combinações de duas dimensões.
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
+    st.markdown(
+        "### Racional de Agregado 1 vs Agregado 2"
+    )
+
+
+    st.caption(
+        "Selecione duas dimensões. Cada opção dos agregados representa uma "
+        "combinação efetivamente observada entre os dois níveis no universo "
+        "atualmente filtrado. A mesma combinação não pode pertencer aos dois grupos."
+    )
+
+
+    opcoes_dimensoes_insights = list(
+        EIXOS_DISPONIVEIS.keys()
+    )
+
+
+    col_dim_1, col_dim_2 = st.columns(2)
+
+
+    with col_dim_1:
+
+        dimensao_1_insights = st.selectbox(
+            "1ª dimensão",
+            options=opcoes_dimensoes_insights,
+            index=(
+                opcoes_dimensoes_insights.index(
+                    "INSE"
+                )
+                if "INSE" in opcoes_dimensoes_insights
+                else 0
+            ),
+            format_func=rotulo_dimensao,
+            key="insights_dimensao_1",
+        )
+
+
+    opcoes_dimensao_2_insights = [
+        dimensao
+        for dimensao
+        in opcoes_dimensoes_insights
+        if dimensao
+        != dimensao_1_insights
+    ]
+
+
+    with col_dim_2:
+
+        # Se a 1ª dimensão mudar para o valor que estava selecionado na
+        # 2ª, removemos o estado antigo antes de recriar o selectbox.
+        # Isso evita manter uma opção que deixou de ser válida.
+        if (
+            "insights_dimensao_2"
+            in st.session_state
+            and
+            st.session_state[
+                "insights_dimensao_2"
+            ]
+            not in opcoes_dimensao_2_insights
+        ):
+
+            st.session_state.pop(
+                "insights_dimensao_2",
+                None,
+            )
+
+
+        indice_padrao_dim_2 = (
+            opcoes_dimensao_2_insights.index(
+                "PPI"
+            )
+            if "PPI"
+            in opcoes_dimensao_2_insights
+            else 0
+        )
+
+
+        dimensao_2_insights = st.selectbox(
+            "2ª dimensão",
+            options=opcoes_dimensao_2_insights,
+            index=indice_padrao_dim_2,
+            format_func=rotulo_dimensao,
+            key="insights_dimensao_2",
+        )
+
+
+    dimensoes_ativas_insights = (
+        dimensao_1_insights,
+        dimensao_2_insights,
+    )
+
+
+    if (
+        st.session_state.get(
+            "_insights_dimensoes_agregado_ativas"
+        )
+        != dimensoes_ativas_insights
+    ):
+
+        st.session_state.pop(
+            "insights_agregado_1",
+            None,
+        )
+
+        st.session_state.pop(
+            "insights_agregado_2",
+            None,
+        )
+
+        st.session_state.pop(
+            "insights_agregado_2_selecionar_resto",
+            None,
+        )
+
+        st.session_state[
+            "_insights_dimensoes_agregado_ativas"
+        ] = dimensoes_ativas_insights
+
+
+    combinacoes_insights = obter_combinacoes_insights(
+        df,
+        dimensao_1_insights,
+        dimensao_2_insights,
+    )
+
+
+    if not combinacoes_insights:
+
+        st.info(
+            "Não há combinações disponíveis para as duas dimensões no recorte atual."
+        )
+
+    else:
+
+        for chave_grupo in [
+            "insights_agregado_1",
+            "insights_agregado_2",
+        ]:
+
+            if chave_grupo in st.session_state:
+
+                st.session_state[chave_grupo] = [
+                    combinacao
+                    for combinacao
+                    in st.session_state[chave_grupo]
+                    if combinacao
+                    in combinacoes_insights
+                ]
+
+
+        selecao_previa_insights_2 = st.session_state.get(
+            "insights_agregado_2",
+            [],
+        )
+
+
+        selecionar_resto_insights = bool(
+            st.session_state.get(
+                "insights_agregado_2_selecionar_resto",
+                False,
+            )
+        )
+
+
+        col_ag_insights_1, col_ag_insights_2 = st.columns(2)
+
+
+        with col_ag_insights_1:
+
+            if selecionar_resto_insights:
+
+                opcoes_insights_1 = list(
+                    combinacoes_insights
+                )
+
+            else:
+
+                opcoes_insights_1 = [
+                    combinacao
+                    for combinacao
+                    in combinacoes_insights
+                    if combinacao
+                    not in selecao_previa_insights_2
+                ]
+
+
+            agregado_insights_1 = st.multiselect(
+                "Agregado 1",
+                options=opcoes_insights_1,
+                format_func=lambda combinacao: rotulo_combinacao_insights(
+                    combinacao,
+                    dimensao_1_insights,
+                    dimensao_2_insights,
+                ),
+                placeholder="Selecione as combinações",
+                key="insights_agregado_1",
+            )
+
+
+        with col_ag_insights_2:
+
+            selecionar_resto_insights = st.checkbox(
+                "Selecionar todo o resto",
+                key="insights_agregado_2_selecionar_resto",
+                help=(
+                    "Inclui automaticamente no Agregado 2 todas as combinações "
+                    "que não foram selecionadas no Agregado 1."
+                ),
+            )
+
+
+            opcoes_insights_2 = [
+                combinacao
+                for combinacao
+                in combinacoes_insights
+                if combinacao
+                not in agregado_insights_1
+            ]
+
+
+            if selecionar_resto_insights:
+
+                st.session_state[
+                    "insights_agregado_2"
+                ] = list(
+                    opcoes_insights_2
+                )
+
+            elif "insights_agregado_2" in st.session_state:
+
+                st.session_state[
+                    "insights_agregado_2"
+                ] = [
+                    combinacao
+                    for combinacao
+                    in st.session_state[
+                        "insights_agregado_2"
+                    ]
+                    if combinacao
+                    in opcoes_insights_2
+                ]
+
+
+            agregado_insights_2 = st.multiselect(
+                "Agregado 2",
+                options=opcoes_insights_2,
+                format_func=lambda combinacao: rotulo_combinacao_insights(
+                    combinacao,
+                    dimensao_1_insights,
+                    dimensao_2_insights,
+                ),
+                placeholder="Selecione as combinações",
+                key="insights_agregado_2",
+                disabled=selecionar_resto_insights,
+            )
+
+
+        sobreposicao_insights = set(
+            agregado_insights_1
+        ).intersection(
+            agregado_insights_2
+        )
+
+
+        if sobreposicao_insights:
+
+            st.error(
+                "A mesma combinação não pode fazer parte dos dois agregados."
+            )
+
+        else:
+
+            st.markdown(
+                "#### Composição definida"
+            )
+
+
+            resumo_1, resumo_2 = st.columns(2)
+
+
+            with resumo_1:
+
+                st.markdown(
+                    _html_resumo_agregado_insights(
+                        "Agregado 1",
+                        agregado_insights_1,
+                        dimensao_1_insights,
+                        dimensao_2_insights,
+                    ),
+                    unsafe_allow_html=True,
+                )
+
+
+            with resumo_2:
+
+                st.markdown(
+                    _html_resumo_agregado_insights(
+                        "Agregado 2",
+                        agregado_insights_2,
+                        dimensao_1_insights,
+                        dimensao_2_insights,
+                    ),
+                    unsafe_allow_html=True,
+                )
 
 
 # ============================================================
@@ -13969,6 +14462,11 @@ if pagina == "DISTRIBUIÇÕES":
                 None,
             )
 
+            st.session_state.pop(
+                "agregado_2_selecionar_resto",
+                None,
+            )
+
             st.session_state[
                 "_dimensao_distrib_agregado_ativa"
             ] = variavel_agregado
@@ -14049,15 +14547,35 @@ if pagina == "DISTRIBUIÇÕES":
         col_grupo_1, col_grupo_2 = st.columns(2)
 
 
+        selecionar_resto_agregado = bool(
+            st.session_state.get(
+                "agregado_2_selecionar_resto",
+                False,
+            )
+        )
+
+
         with col_grupo_1:
 
-            opcoes_grupo_1 = [
-                categoria
-                for categoria
-                in categorias_agregado
-                if categoria
-                not in selecao_previa_2
-            ]
+            # Quando o Agregado 2 representa automaticamente todo o resto,
+            # o Agregado 1 precisa continuar livre para receber qualquer
+            # categoria. Caso contrário, preservamos a regra de impedir
+            # sobreposição entre os dois grupos.
+            if selecionar_resto_agregado:
+
+                opcoes_grupo_1 = list(
+                    categorias_agregado
+                )
+
+            else:
+
+                opcoes_grupo_1 = [
+                    categoria
+                    for categoria
+                    in categorias_agregado
+                    if categoria
+                    not in selecao_previa_2
+                ]
 
 
             categorias_grupo_1 = st.multiselect(
@@ -14070,6 +14588,16 @@ if pagina == "DISTRIBUIÇÕES":
 
         with col_grupo_2:
 
+            selecionar_resto_agregado = st.checkbox(
+                "Selecionar todo o resto",
+                key="agregado_2_selecionar_resto",
+                help=(
+                    "Inclui automaticamente no Agregado 2 todas as "
+                    "categorias que não foram selecionadas no Agregado 1."
+                ),
+            )
+
+
             opcoes_grupo_2 = [
                 categoria
                 for categoria
@@ -14079,11 +14607,38 @@ if pagina == "DISTRIBUIÇÕES":
             ]
 
 
+            if selecionar_resto_agregado:
+
+                st.session_state[
+                    "categorias_distrib_agregado_2"
+                ] = list(
+                    opcoes_grupo_2
+                )
+
+            elif (
+                "categorias_distrib_agregado_2"
+                in st.session_state
+            ):
+
+                st.session_state[
+                    "categorias_distrib_agregado_2"
+                ] = [
+                    categoria
+                    for categoria
+                    in st.session_state[
+                        "categorias_distrib_agregado_2"
+                    ]
+                    if categoria
+                    in opcoes_grupo_2
+                ]
+
+
             categorias_grupo_2 = st.multiselect(
                 "Agregado 2",
                 options=opcoes_grupo_2,
                 placeholder="Selecione as categorias",
                 key="categorias_distrib_agregado_2",
+                disabled=selecionar_resto_agregado,
             )
 
 
