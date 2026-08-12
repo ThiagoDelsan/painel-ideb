@@ -13328,6 +13328,94 @@ if pagina == "DEMOGRAFIA":
         )
 
 
+    # ========================================================
+    # CONTROLES DE EXIBIÇÃO
+    #
+    # Um único par de botões controla simultaneamente os gráficos
+    # de escolas e de matrículas. Como em Principais Indicadores,
+    # impedimos que os dois tipos de gráfico sejam ocultados ao
+    # mesmo tempo.
+    # ========================================================
+
+    if "demo_ocultar_distribuicao" not in st.session_state:
+
+        st.session_state[
+            "demo_ocultar_distribuicao"
+        ] = False
+
+
+    if "demo_ocultar_totais" not in st.session_state:
+
+        st.session_state[
+            "demo_ocultar_totais"
+        ] = False
+
+
+    def ao_alterar_ocultar_distribuicao_demo():
+
+        if st.session_state.get(
+            "demo_ocultar_distribuicao",
+            False,
+        ):
+
+            st.session_state[
+                "demo_ocultar_totais"
+            ] = False
+
+
+    def ao_alterar_ocultar_totais_demo():
+
+        if st.session_state.get(
+            "demo_ocultar_totais",
+            False,
+        ):
+
+            st.session_state[
+                "demo_ocultar_distribuicao"
+            ] = False
+
+
+    (
+        col_demo_ctrl_esq,
+        col_demo_ocultar_distribuicao,
+        col_demo_ocultar_totais,
+        col_demo_ctrl_dir,
+    ) = st.columns(
+        [
+            1.5,
+            2.0,
+            2.0,
+            1.5,
+        ]
+    )
+
+
+    with col_demo_ocultar_distribuicao:
+
+        ocultar_distribuicao_demo = st.toggle(
+            "Ocultar gráfico de distribuição",
+            key="demo_ocultar_distribuicao",
+            help=(
+                "Oculta o gráfico percentual tanto em Escolas quanto "
+                "em Matrículas, mantendo apenas os gráficos de totais."
+            ),
+            on_change=ao_alterar_ocultar_distribuicao_demo,
+        )
+
+
+    with col_demo_ocultar_totais:
+
+        ocultar_totais_demo = st.toggle(
+            "Ocultar gráfico de totais",
+            key="demo_ocultar_totais",
+            help=(
+                "Oculta os gráficos de totais tanto em Escolas quanto "
+                "em Matrículas, mantendo apenas as distribuições."
+            ),
+            on_change=ao_alterar_ocultar_totais_demo,
+        )
+
+
     base_demo = (
         df[
             df[
@@ -13483,6 +13571,97 @@ if pagina == "DEMOGRAFIA":
 
 
     # ========================================================
+    # RESUMO DE MATRÍCULAS PARA A ORDENAÇÃO COMPARTILHADA
+    #
+    # Este resumo é calculado antes da renderização dos dois blocos
+    # para que um clique em Escolas possa ordenar Matrículas e um
+    # clique em Matrículas possa ordenar Escolas. O bloco completo
+    # de Matrículas continua sendo construído abaixo.
+    # ========================================================
+
+    coluna_matriculas_demo = (
+        "Matrículas EM (total) 3/4"
+    )
+
+
+    base_demo_matriculas_ordem = base_demo.copy()
+
+
+    base_demo_matriculas_ordem[
+        "Matrículas"
+    ] = (
+        pd.to_numeric(
+            base_demo_matriculas_ordem[
+                coluna_matriculas_demo
+            ],
+            errors="coerce",
+        )
+        .fillna(0)
+        .clip(lower=0)
+    )
+
+
+    resumo_matriculas_ordem = (
+        base_demo_matriculas_ordem
+        .groupby(
+            [
+                "Grupo",
+                "Composição",
+            ],
+            as_index=False,
+        )
+        .agg(
+            Matrículas=(
+                "Matrículas",
+                "sum",
+            )
+        )
+    )
+
+
+    totais_matriculas_ordem = (
+        resumo_matriculas_ordem
+        .groupby(
+            "Grupo",
+            as_index=False,
+        )[
+            "Matrículas"
+        ]
+        .sum()
+        .rename(
+            columns={
+                "Matrículas":
+                    "Total"
+            }
+        )
+    )
+
+
+    resumo_matriculas_ordem = resumo_matriculas_ordem.merge(
+        totais_matriculas_ordem,
+        on="Grupo",
+    )
+
+
+    resumo_matriculas_ordem[
+        "Percentual"
+    ] = np.where(
+        resumo_matriculas_ordem[
+            "Total"
+        ]
+        > 0,
+        resumo_matriculas_ordem[
+            "Matrículas"
+        ]
+        /
+        resumo_matriculas_ordem[
+            "Total"
+        ],
+        0,
+    )
+
+
+    # ========================================================
     # ORDENAÇÃO INTERATIVA POR SEÇÃO DA BARRA
     #
     # O gráfico registra a categoria de composição clicada. No
@@ -13568,69 +13747,214 @@ if pagina == "DEMOGRAFIA":
         return None
 
 
-    composicao_selecionada_demo = None
+    def obter_composicao_selecionada_demo(
+        chave_estado,
+        nome_selecao,
+    ):
+
+        estado = st.session_state.get(
+            chave_estado
+        )
 
 
-    estado_grafico_demo = st.session_state.get(
-        "grafico_demografia_interativo"
-    )
+        if estado is None:
 
+            return None
 
-    if estado_grafico_demo is not None:
 
         try:
 
-            selecoes_demo = (
-                estado_grafico_demo.selection
-            )
+            selecoes = estado.selection
 
         except Exception:
 
-            selecoes_demo = (
-                estado_grafico_demo.get(
+            selecoes = (
+                estado.get(
                     "selection",
                     {},
                 )
                 if hasattr(
-                    estado_grafico_demo,
+                    estado,
                     "get",
                 )
                 else {}
             )
 
 
-        selecao_demo_anterior = (
-            selecoes_demo.get(
-                "selecionar_composicao_demo",
+        selecao = (
+            selecoes.get(
+                nome_selecao,
                 None,
             )
             if hasattr(
-                selecoes_demo,
+                selecoes,
                 "get",
             )
             else None
         )
 
 
-        composicao_selecionada_demo = (
-            extrair_valor_selecao_demo(
-                selecao_demo_anterior,
-                "Composição",
-            )
+        return extrair_valor_selecao_demo(
+            selecao,
+            "Composição",
         )
 
 
+    composicao_selecionada_escolas = (
+        obter_composicao_selecionada_demo(
+            "grafico_demografia_interativo",
+            "selecionar_composicao_demo",
+        )
+    )
+
+
+    composicao_selecionada_matriculas = (
+        obter_composicao_selecionada_demo(
+            "grafico_demografia_matriculas_interativo",
+            "selecionar_composicao_matriculas_demo",
+        )
+    )
+
+
+    selecao_escolas_anterior = st.session_state.get(
+        "_demo_selecao_escolas_anterior"
+    )
+
+
+    selecao_matriculas_anterior = st.session_state.get(
+        "_demo_selecao_matriculas_anterior"
+    )
+
+
+    mudou_selecao_escolas = (
+        composicao_selecionada_escolas
+        != selecao_escolas_anterior
+    )
+
+
+    mudou_selecao_matriculas = (
+        composicao_selecionada_matriculas
+        != selecao_matriculas_anterior
+    )
+
+
+    # O gráfico que mudou no último rerun passa a ser a referência
+    # de ordenação para os DOIS blocos. Assim, ao clicar em Escolas,
+    # Matrículas segue a ordem de Escolas; ao clicar em Matrículas,
+    # Escolas segue a ordem de Matrículas.
     if (
-        composicao_selecionada_demo
-        in ordem_comp
+        mudou_selecao_escolas
+        and
+        not mudou_selecao_matriculas
     ):
 
+        st.session_state[
+            "_demo_fonte_ordenacao"
+        ] = "escolas"
+
+        st.session_state[
+            "_demo_composicao_ordenacao"
+        ] = composicao_selecionada_escolas
+
+
+    elif (
+        mudou_selecao_matriculas
+        and
+        not mudou_selecao_escolas
+    ):
+
+        st.session_state[
+            "_demo_fonte_ordenacao"
+        ] = "matriculas"
+
+        st.session_state[
+            "_demo_composicao_ordenacao"
+        ] = composicao_selecionada_matriculas
+
+
+    elif (
+        mudou_selecao_escolas
+        and
+        mudou_selecao_matriculas
+    ):
+
+        # Caso raro em que os dois estados mudam no mesmo rerun:
+        # prioriza a seleção válida não vazia; se ambas existirem,
+        # Matrículas fica como a interação mais abaixo na página.
+        if composicao_selecionada_matriculas is not None:
+
+            st.session_state[
+                "_demo_fonte_ordenacao"
+            ] = "matriculas"
+
+            st.session_state[
+                "_demo_composicao_ordenacao"
+            ] = composicao_selecionada_matriculas
+
+        else:
+
+            st.session_state[
+                "_demo_fonte_ordenacao"
+            ] = "escolas"
+
+            st.session_state[
+                "_demo_composicao_ordenacao"
+            ] = composicao_selecionada_escolas
+
+
+    st.session_state[
+        "_demo_selecao_escolas_anterior"
+    ] = composicao_selecionada_escolas
+
+
+    st.session_state[
+        "_demo_selecao_matriculas_anterior"
+    ] = composicao_selecionada_matriculas
+
+
+    fonte_ordenacao_demo = st.session_state.get(
+        "_demo_fonte_ordenacao"
+    )
+
+
+    composicao_ordenacao_demo = st.session_state.get(
+        "_demo_composicao_ordenacao"
+    )
+
+
+    if composicao_ordenacao_demo not in ordem_comp:
+
+        fonte_ordenacao_demo = None
+        composicao_ordenacao_demo = None
+
+        st.session_state[
+            "_demo_fonte_ordenacao"
+        ] = None
+
+        st.session_state[
+            "_demo_composicao_ordenacao"
+        ] = None
+
+
+    if composicao_ordenacao_demo in ordem_comp:
+
+        if fonte_ordenacao_demo == "matriculas":
+
+            resumo_referencia_ordenacao = (
+                resumo_matriculas_ordem
+            )
+
+        else:
+
+            resumo_referencia_ordenacao = resumo
+
+
         percentuais_para_ordem = (
-            resumo[
-                resumo[
+            resumo_referencia_ordenacao[
+                resumo_referencia_ordenacao[
                     "Composição"
                 ]
-                == composicao_selecionada_demo
+                == composicao_ordenacao_demo
             ]
             .groupby(
                 "Grupo"
@@ -14096,7 +14420,21 @@ if pagina == "DEMOGRAFIA":
             y=alt.Y(
                 "Grupo:N",
                 sort=ordem_barras,
-                axis=None,
+                axis=(
+                    alt.Axis(
+                        labelExpr=(
+                            f"datum.label == "
+                            f"'{GRUPO_ESPACO}' "
+                            f"? '' : datum.label"
+                        ),
+                        labelFontSize=11.5,
+                        labelLimit=175,
+                        ticks=False,
+                        domain=False,
+                    )
+                    if ocultar_distribuicao_demo
+                    else None
+                ),
             ),
 
             x=alt.X(
@@ -14161,7 +14499,11 @@ if pagina == "DEMOGRAFIA":
         +
         texto_n
     ).properties(
-        width=210,
+        width=(
+            520
+            if ocultar_distribuicao_demo
+            else 210
+        ),
         height=altura_demo,
         title=alt.TitleParams(
             text="Número de escolas",
@@ -14192,6 +14534,7 @@ if pagina == "DEMOGRAFIA":
     st.caption(
         "Clique em uma seção colorida do gráfico de percentuais para "
         "ordenar as categorias por essa composição, da maior para a menor. "
+        "A mesma ordem será aplicada aos gráficos de Escolas e Matrículas. "
         "Dê um duplo clique para limpar a seleção."
     )
 
@@ -14204,33 +14547,62 @@ if pagina == "DEMOGRAFIA":
 
     with col_demo_centro:
 
-        grafico_demografia_completo = (
-            alt.hconcat(
-                graf_pct,
-                graf_n,
-                spacing=20,
-            )
-            .resolve_scale(
-                y="shared"
-            )
-            .configure_view(
-                stroke=None
-            )
-        )
+        if ocultar_distribuicao_demo:
+
+            grafico_demografia_completo = graf_n
+            grafico_demo_interativo = False
 
 
-        st.altair_chart(
-            aplicar_fundo_grafico(
-                grafico_demografia_completo
-            ),
-            theme=None,
-            width="stretch",
-            key="grafico_demografia_interativo",
-            on_select="rerun",
-            selection_mode=[
-                "selecionar_composicao_demo"
-            ],
-        )
+        elif ocultar_totais_demo:
+
+            grafico_demografia_completo = graf_pct
+            grafico_demo_interativo = True
+
+
+        else:
+
+            grafico_demografia_completo = (
+                alt.hconcat(
+                    graf_pct,
+                    graf_n,
+                    spacing=20,
+                )
+                .resolve_scale(
+                    y="shared"
+                )
+                .configure_view(
+                    stroke=None
+                )
+            )
+
+            grafico_demo_interativo = True
+
+
+        if grafico_demo_interativo:
+
+            st.altair_chart(
+                aplicar_fundo_grafico(
+                    grafico_demografia_completo
+                ),
+                theme=None,
+                width="stretch",
+                key="grafico_demografia_interativo",
+                on_select="rerun",
+                selection_mode=[
+                    "selecionar_composicao_demo"
+                ],
+            )
+
+        else:
+
+            st.altair_chart(
+                aplicar_fundo_grafico(
+                    grafico_demografia_completo
+                ),
+                theme=None,
+                width="stretch",
+                key="grafico_demografia_totais",
+            )
 
 
     # ========================================================
@@ -14257,15 +14629,13 @@ if pagina == "DEMOGRAFIA":
     st.caption(
         "Os percentuais abaixo representam a distribuição das matrículas. "
         "Clique em uma seção colorida para ordenar as categorias por essa "
-        "composição, da maior para a menor. Dê um duplo clique para limpar."
+        "composição, da maior para a menor. A mesma ordem será aplicada aos "
+        "gráficos de Escolas e Matrículas. Dê um duplo clique para limpar."
     )
 
 
-    coluna_matriculas_demo = (
-        "Matrículas EM (total) 3/4"
-    )
-
-
+    # A coluna de matrículas já foi definida acima para permitir
+    # a ordenação compartilhada entre os dois blocos.
     base_demo_matriculas = base_demo.copy()
 
     base_demo_matriculas[
@@ -14342,111 +14712,12 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    ordem_grupos_matriculas = ordenar_dimensao(
-        base_demo_matriculas[
-            "Grupo"
-        ].unique(),
-        variavel_demo,
+    # A ordem das categorias é única para os dois blocos.
+    # Ela foi definida acima a partir do último gráfico clicado
+    # (Escolas ou Matrículas).
+    ordem_grupos_matriculas = list(
+        ordem_grupos
     )
-
-
-    composicao_selecionada_matriculas = None
-
-    estado_grafico_matriculas = st.session_state.get(
-        "grafico_demografia_matriculas_interativo"
-    )
-
-
-    if estado_grafico_matriculas is not None:
-
-        try:
-
-            selecoes_matriculas = (
-                estado_grafico_matriculas.selection
-            )
-
-        except Exception:
-
-            selecoes_matriculas = (
-                estado_grafico_matriculas.get(
-                    "selection",
-                    {},
-                )
-                if hasattr(
-                    estado_grafico_matriculas,
-                    "get",
-                )
-                else {}
-            )
-
-
-        selecao_matriculas_anterior = (
-            selecoes_matriculas.get(
-                "selecionar_composicao_matriculas_demo",
-                None,
-            )
-            if hasattr(
-                selecoes_matriculas,
-                "get",
-            )
-            else None
-        )
-
-
-        composicao_selecionada_matriculas = (
-            extrair_valor_selecao_demo(
-                selecao_matriculas_anterior,
-                "Composição",
-            )
-        )
-
-
-    if (
-        composicao_selecionada_matriculas
-        in ordem_comp
-    ):
-
-        percentuais_matriculas_para_ordem = (
-            resumo_matriculas[
-                resumo_matriculas[
-                    "Composição"
-                ]
-                == composicao_selecionada_matriculas
-            ]
-            .groupby(
-                "Grupo"
-            )[
-                "Percentual"
-            ]
-            .sum()
-            .to_dict()
-        )
-
-
-        ordem_original_matriculas = {
-            grupo: indice
-            for indice, grupo
-            in enumerate(
-                ordem_grupos_matriculas
-            )
-        }
-
-
-        ordem_grupos_matriculas = sorted(
-            ordem_grupos_matriculas,
-            key=lambda grupo: (
-                -float(
-                    percentuais_matriculas_para_ordem.get(
-                        grupo,
-                        0,
-                    )
-                ),
-                ordem_original_matriculas.get(
-                    grupo,
-                    9999,
-                ),
-            ),
-        )
 
 
     base_consolidado_matriculas = base_consolidado.copy()
@@ -14807,7 +15078,21 @@ if pagina == "DEMOGRAFIA":
             y=alt.Y(
                 "Grupo:N",
                 sort=ordem_barras_matriculas,
-                axis=None,
+                axis=(
+                    alt.Axis(
+                        labelExpr=(
+                            f"datum.label == "
+                            f"'{GRUPO_ESPACO}' "
+                            f"? '' : datum.label"
+                        ),
+                        labelFontSize=11.5,
+                        labelLimit=175,
+                        ticks=False,
+                        domain=False,
+                    )
+                    if ocultar_distribuicao_demo
+                    else None
+                ),
             ),
             x=alt.X(
                 "Total:Q",
@@ -14865,7 +15150,11 @@ if pagina == "DEMOGRAFIA":
         +
         texto_n_matriculas
     ).properties(
-        width=210,
+        width=(
+            520
+            if ocultar_distribuicao_demo
+            else 210
+        ),
         height=altura_demo_matriculas,
         title=alt.TitleParams(
             text="Número de matrículas",
@@ -14883,33 +15172,69 @@ if pagina == "DEMOGRAFIA":
 
     with col_demo_mat_centro:
 
-        grafico_demografia_matriculas = (
-            alt.hconcat(
-                graf_pct_matriculas,
-                graf_n_matriculas,
-                spacing=20,
+        if ocultar_distribuicao_demo:
+
+            grafico_demografia_matriculas = (
+                graf_n_matriculas
             )
-            .resolve_scale(
-                y="shared"
-            )
-            .configure_view(
-                stroke=None
-            )
-        )
+
+            grafico_matriculas_interativo = False
 
 
-        st.altair_chart(
-            aplicar_fundo_grafico(
-                grafico_demografia_matriculas
-            ),
-            theme=None,
-            width="stretch",
-            key="grafico_demografia_matriculas_interativo",
-            on_select="rerun",
-            selection_mode=[
-                "selecionar_composicao_matriculas_demo"
-            ],
-        )
+        elif ocultar_totais_demo:
+
+            grafico_demografia_matriculas = (
+                graf_pct_matriculas
+            )
+
+            grafico_matriculas_interativo = True
+
+
+        else:
+
+            grafico_demografia_matriculas = (
+                alt.hconcat(
+                    graf_pct_matriculas,
+                    graf_n_matriculas,
+                    spacing=20,
+                )
+                .resolve_scale(
+                    y="shared"
+                )
+                .configure_view(
+                    stroke=None
+                )
+            )
+
+            grafico_matriculas_interativo = True
+
+
+        if grafico_matriculas_interativo:
+
+            st.altair_chart(
+                aplicar_fundo_grafico(
+                    grafico_demografia_matriculas
+                ),
+                theme=None,
+                width="stretch",
+                key="grafico_demografia_matriculas_interativo",
+                on_select="rerun",
+                selection_mode=[
+                    "selecionar_composicao_matriculas_demo"
+                ],
+            )
+
+        else:
+
+            st.altair_chart(
+                aplicar_fundo_grafico(
+                    grafico_demografia_matriculas
+                ),
+                theme=None,
+                width="stretch",
+                key="grafico_demografia_matriculas_totais",
+            )
+
 
 
     st.stop()
