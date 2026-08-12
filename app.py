@@ -154,6 +154,79 @@ st.markdown(
             white-space: nowrap !important;
         }
 
+        /* Dicionário de variáveis: leitura editorial, leve e escaneável. */
+        .dictionary-intro {
+            max-width: 980px;
+            margin: 0 auto 1.15rem auto;
+            text-align: center;
+            color: var(--ink-500);
+            font-size: 0.91rem;
+            line-height: 1.55;
+        }
+
+        .dictionary-section-title {
+            max-width: 1120px;
+            margin: 1.25rem auto 0.55rem auto;
+            color: var(--ink-900);
+            font-size: 1.03rem;
+            font-weight: 720;
+            letter-spacing: -0.012em;
+        }
+
+        .dictionary-table-wrap {
+            max-width: 1120px;
+            margin: 0 auto 0.85rem auto;
+            border: 1px solid var(--line-200);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #FFFFFF;
+        }
+
+        table.dictionary-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        table.dictionary-table th {
+            background: #F6F8FB;
+            color: #536278;
+            text-align: left;
+            font-size: 0.73rem;
+            font-weight: 720;
+            letter-spacing: 0.045em;
+            text-transform: uppercase;
+            padding: 0.72rem 0.92rem;
+            border-bottom: 1px solid var(--line-200);
+        }
+
+        table.dictionary-table td {
+            color: var(--ink-700);
+            font-size: 0.84rem;
+            line-height: 1.46;
+            vertical-align: top;
+            padding: 0.72rem 0.92rem;
+            border-bottom: 1px solid #EDF1F5;
+        }
+
+        table.dictionary-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        table.dictionary-table td:first-child,
+        table.dictionary-table th:first-child {
+            width: 26%;
+        }
+
+        table.dictionary-table td:first-child {
+            color: var(--ink-900);
+            font-weight: 680;
+        }
+
+        table.dictionary-table tbody tr:nth-child(even) {
+            background: #FBFCFD;
+        }
+
         /* Botão exclusivo para limpar filtros. */
         .st-key-limpar_todos_filtros button {
             background-color: #FBE5E7 !important;
@@ -12060,17 +12133,36 @@ if "pagina" not in st.session_state:
     )
 
 
-nav_1, nav_2, nav_3, nav_4, nav_5, nav_6 = st.columns(
+nav_0, nav_1, nav_2, nav_3, nav_4, nav_5, nav_6, nav_7 = st.columns(
     [
-        1.10,
-        1.18,
-        1.10,
         1.02,
-        1.35,
-        1.05,
+        0.98,
+        1.06,
+        1.00,
+        0.92,
+        1.30,
+        0.98,
+        0.88,
     ],
-    gap="medium",
+    gap="small",
 )
+
+
+with nav_0:
+
+    if st.button(
+        "DICIONÁRIO",
+        width="stretch",
+        key="nav_dicionario",
+        help=(
+            "Consulte as definições dos indicadores, dimensões, filtros e "
+            "variáveis de apoio usados no painel."
+        ),
+    ):
+
+        st.session_state.pagina = (
+            "DICIONÁRIO DE VARIÁVEIS"
+        )
 
 
 with nav_1:
@@ -12147,6 +12239,10 @@ with nav_5:
         "MELHORES ESCOLAS",
         width="stretch",
         key="nav_melhores",
+        help=(
+            "Explore as escolas com maiores resultados ou maiores variações "
+            "nos indicadores selecionados."
+        ),
     ):
 
         st.session_state.pagina = (
@@ -12171,6 +12267,22 @@ with nav_6:
         )
 
 
+with nav_7:
+
+    if st.button(
+        "INSIGHTS",
+        width="stretch",
+        key="nav_insights",
+        help=(
+            "Seção reservada para sínteses e achados analíticos do painel."
+        ),
+    ):
+
+        st.session_state.pagina = (
+            "INSIGHTS"
+        )
+
+
 pagina = (
     st.session_state.pagina
 )
@@ -12181,12 +12293,14 @@ pagina = (
 # ============================================================
 
 chave_nav_ativa = {
+    "DICIONÁRIO DE VARIÁVEIS": "nav_dicionario",
     "PRINCIPAIS INDICADORES": "nav_principais",
     "HISTÓRIA DO ANO": "nav_historia_ano",
     "DEMOGRAFIA": "nav_demografia",
     "DISTRIBUIÇÕES": "nav_distribuicoes",
     "MELHORES ESCOLAS": "nav_melhores",
     "MAPA DE CALOR": "nav_mapa_calor",
+    "INSIGHTS": "nav_insights",
 }.get(
     pagina
 )
@@ -12755,6 +12869,238 @@ except Exception as erro:
     )
 
     st.stop()
+
+
+# ============================================================
+# DICIONÁRIO DE VARIÁVEIS
+# ============================================================
+
+def _tabela_dicionario_html(linhas):
+    corpo = []
+
+    for variavel, explicacao in linhas:
+        corpo.append(
+            "<tr>"
+            f"<td>{html.escape(str(variavel))}</td>"
+            f"<td>{html.escape(str(explicacao))}</td>"
+            "</tr>"
+        )
+
+    return (
+        '<div class="dictionary-table-wrap">'
+        '<table class="dictionary-table">'
+        '<thead><tr><th>Variável</th><th>O que representa no painel</th></tr></thead>'
+        '<tbody>'
+        + "".join(corpo)
+        + '</tbody></table></div>'
+    )
+
+
+if pagina == "DICIONÁRIO DE VARIÁVEIS":
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
+            margin-bottom:0.25rem;
+        ">
+            DICIONÁRIO DE VARIÁVEIS
+        </div>
+        <div class="dictionary-intro">
+            Versão preliminar das definições usadas no painel. O objetivo é
+            tornar explícito o significado de cada indicador, dimensão e filtro
+            para facilitar a leitura e a validação das análises.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    indicadores_dicionario = [
+        (
+            "IDEB",
+            "Índice de Desenvolvimento da Educação Básica. No painel, corresponde ao produto entre N e Rendimento.",
+        ),
+        (
+            "N(LP)",
+            "Nota padronizada de Língua Portuguesa, convertida para a escala utilizada no cálculo do IDEB.",
+        ),
+        (
+            "N(M)",
+            "Nota padronizada de Matemática, convertida para a escala utilizada no cálculo do IDEB.",
+        ),
+        (
+            "N",
+            "Nota média padronizada de desempenho, calculada como a média aritmética simples entre N(LP) e N(M).",
+        ),
+        (
+            "Rendimento",
+            "Componente de rendimento/fluxo escolar utilizado no cálculo do IDEB.",
+        ),
+    ]
+
+
+    dimensoes_dicionario = [
+        (
+            "Tipo de Escola por ano",
+            "Classificação da escola em cada edição analisada: Parcial/Regular, Mista ou 100% Integral. A categoria agregada Integral (Mista + 100%) reúne Mistas e 100% Integrais.",
+        ),
+        (
+            "Tipo de Escola 2025",
+            "Classificação fixa da escola em 2025, aplicada também aos anos anteriores. Permite acompanhar ao longo do tempo o mesmo grupo definido pela situação da escola em 2025.",
+        ),
+        (
+            "PPI",
+            "Faixa PPI registrada para a escola, utilizada para segmentar o perfil racial dos estudantes.",
+        ),
+        (
+            "INSE",
+            "Faixa do Indicador de Nível Socioeconômico associada à escola.",
+        ),
+        (
+            "Colégio Militar",
+            "Indica se a escola está classificada como colégio militar na base.",
+        ),
+        (
+            "Colégio com Seleção",
+            "Indica se a escola possui processo de seleção de estudantes segundo a classificação disponível na base.",
+        ),
+        (
+            "Estado",
+            "Unidade da Federação (UF) da escola.",
+        ),
+        (
+            "Região do Brasil",
+            "Região geográfica do Brasil à qual pertence a escola.",
+        ),
+        (
+            "1º IDEB 100% integral",
+            "Primeira edição do IDEB em que a escola aparece classificada como 100% Integral.",
+        ),
+        (
+            "Carga Horária",
+            "Classificação de carga horária construída a partir dos registros de escola EMI 7h e EMI 9h: 7h, 9h, 7h + 9h ou Não se aplica.",
+        ),
+        (
+            "Categorias Same Schools",
+            "Categoria de trajetória da escola usada nas análises Same Schools, indicando transições entre classificações de tipo de escola.",
+        ),
+    ]
+
+
+    for ano in ANOS_PAINEL:
+        dimensoes_dicionario.append(
+            (
+                f"Faixa IDEB {ano}",
+                (
+                    f"Faixa do IDEB da escola em {ano}: IDEB < 3; 3 ≤ IDEB < 4; "
+                    "4 ≤ IDEB < 5; 5 ≤ IDEB < 6; IDEB ≥ 6; ou Sem resultado."
+                ),
+            )
+        )
+
+
+    filtros_dicionario = [
+        (
+            "SAME SCHOOLS",
+            "Quando ativado, restringe a análise às escolas marcadas na base consolidada como pertencentes ao conjunto Same Schools.",
+        ),
+        (
+            "Considerar apenas escolas do IDEB em [ano]",
+            "Mantém apenas escolas com resultado de IDEB no ano marcado. Quando vários anos são marcados, as condições são aplicadas simultaneamente (lógica E).",
+        ),
+        (
+            "Propedêutico",
+            "Permite filtrar as escolas conforme a marcação de oferta propedêutica disponível na base.",
+        ),
+        (
+            "EPT",
+            "Permite filtrar as escolas conforme a marcação de EPT disponível na base.",
+        ),
+    ]
+
+
+    apoio_dicionario = [
+        (
+            "Ano",
+            "Edição do IDEB considerada na análise. O painel trabalha com 2017, 2019, 2021, 2023 e 2025.",
+        ),
+        (
+            "Matrículas",
+            "Total de matrículas do Ensino Médio utilizado nas análises de volume e como peso das médias ponderadas do painel.",
+        ),
+        (
+            "Nº de escolas",
+            "Contagem de escolas consideradas em cada recorte após a aplicação das regras e filtros ativos.",
+        ),
+    ]
+
+
+    st.markdown(
+        '<div class="dictionary-section-title">Indicadores de resultado</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        _tabela_dicionario_html(indicadores_dicionario),
+        unsafe_allow_html=True,
+    )
+
+
+    st.markdown(
+        '<div class="dictionary-section-title">Dimensões de análise</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        _tabela_dicionario_html(dimensoes_dicionario),
+        unsafe_allow_html=True,
+    )
+
+
+    st.markdown(
+        '<div class="dictionary-section-title">Filtros complementares</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        _tabela_dicionario_html(filtros_dicionario),
+        unsafe_allow_html=True,
+    )
+
+
+    st.markdown(
+        '<div class="dictionary-section-title">Variáveis de apoio</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        _tabela_dicionario_html(apoio_dicionario),
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================
+# INSIGHTS
+# ============================================================
+
+if pagina == "INSIGHTS":
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
+            margin-bottom:0.25rem;
+        ">
+            INSIGHTS
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================
