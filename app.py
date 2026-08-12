@@ -7388,6 +7388,7 @@ def criar_painel_horizontal(
     largura_esquerda=360,
     largura_direita=200,
     mostrar_medias=True,
+    mostrar_variacoes=True,
 ):
 
     formatos = formatos_indicador(
@@ -7821,6 +7822,8 @@ def criar_painel_horizontal(
     if (
         not mostrar_medias
         and
+        mostrar_variacoes
+        and
         not dados_delta.empty
     ):
 
@@ -8070,6 +8073,28 @@ def criar_painel_horizontal(
             alt.hconcat(
                 graf_categoria_delta,
                 graf_delta_compacto,
+                spacing=0,
+            )
+            .resolve_scale(
+                y="shared"
+            )
+            .configure_view(
+                stroke=None
+            )
+        )
+
+
+    # ========================================================
+    # MODO APENAS MÉDIAS
+    # ========================================================
+
+    if mostrar_medias and not mostrar_variacoes:
+
+        return (
+            alt.hconcat(
+                graf_categoria,
+                graf_anos,
+                graf_abs,
                 spacing=0,
             )
             .resolve_scale(
@@ -8640,6 +8665,7 @@ def criar_painel_cruzamentos(
     largura_esquerda=320,
     largura_direita=185,
     mostrar_medias=True,
+    mostrar_variacoes=True,
 ):
 
     formatos = formatos_indicador(
@@ -9081,6 +9107,8 @@ def criar_painel_cruzamentos(
     if (
         not mostrar_medias
         and
+        mostrar_variacoes
+        and
         not dados_delta.empty
     ):
 
@@ -9417,6 +9445,29 @@ def criar_painel_cruzamentos(
                 graf_n1_delta,
                 graf_n2_delta,
                 graf_delta_compacto,
+                spacing=0,
+            )
+            .resolve_scale(
+                y="shared"
+            )
+            .configure_view(
+                stroke=None
+            )
+        )
+
+
+    # ========================================================
+    # MODO APENAS MÉDIAS
+    # ========================================================
+
+    if mostrar_medias and not mostrar_variacoes:
+
+        return (
+            alt.hconcat(
+                graf_n1,
+                graf_n2,
+                graf_anos,
+                graf_abs,
                 spacing=0,
             )
             .resolve_scale(
@@ -12573,7 +12624,10 @@ if pagina == "PRINCIPAIS INDICADORES":
 
 
     # ========================================================
-    # MODO DE APRESENTAÇÃO — APENAS VARIAÇÕES
+    # CONTROLES DE APRESENTAÇÃO
+    #
+    # Os dois controles são mutuamente exclusivos: o usuário pode
+    # exibir os dois gráficos, apenas médias ou apenas variações.
     # ========================================================
 
     if (
@@ -12586,18 +12640,57 @@ if pagina == "PRINCIPAIS INDICADORES":
         ] = False
 
 
+    if (
+        "cruz_ocultar_variacoes"
+        not in st.session_state
+    ):
+
+        st.session_state[
+            "cruz_ocultar_variacoes"
+        ] = False
+
+
     if ano_ini_cruz is None:
 
         st.session_state[
             "cruz_ocultar_medias"
         ] = False
 
+        st.session_state[
+            "cruz_ocultar_variacoes"
+        ] = False
 
-    _, col_ocultar_medias, __ = st.columns(
+
+    def ao_alterar_ocultar_medias():
+
+        if st.session_state.get(
+            "cruz_ocultar_medias",
+            False,
+        ):
+
+            st.session_state[
+                "cruz_ocultar_variacoes"
+            ] = False
+
+
+    def ao_alterar_ocultar_variacoes():
+
+        if st.session_state.get(
+            "cruz_ocultar_variacoes",
+            False,
+        ):
+
+            st.session_state[
+                "cruz_ocultar_medias"
+            ] = False
+
+
+    col_apres_esq, col_ocultar_medias, col_ocultar_variacoes, col_apres_dir = st.columns(
         [
-            2.1,
-            1.8,
-            2.1,
+            1.5,
+            2.0,
+            2.0,
+            1.5,
         ]
     )
 
@@ -12614,6 +12707,23 @@ if pagina == "PRINCIPAIS INDICADORES":
             help=(
                 "Exibe somente as variações entre os dois anos mais recentes selecionados."
             ),
+            on_change=ao_alterar_ocultar_medias,
+        )
+
+
+    with col_ocultar_variacoes:
+
+        ocultar_variacoes_cruz = st.toggle(
+            "Ocultar gráfico de variações",
+            key="cruz_ocultar_variacoes",
+            disabled=(
+                ano_ini_cruz
+                is None
+            ),
+            help=(
+                "Exibe somente o gráfico de médias ponderadas."
+            ),
+            on_change=ao_alterar_ocultar_variacoes,
         )
 
 
@@ -12837,6 +12947,9 @@ if pagina == "PRINCIPAIS INDICADORES":
             ano_final=ano_final_cruz,
             mostrar_medias=(
                 not ocultar_medias_cruz
+            ),
+            mostrar_variacoes=(
+                not ocultar_variacoes_cruz
             ),
         )
 
@@ -13095,6 +13208,9 @@ if pagina == "PRINCIPAIS INDICADORES":
                 ano_final=ano_final_cruz,
                 mostrar_medias=(
                     not ocultar_medias_cruz
+                ),
+                mostrar_variacoes=(
+                    not ocultar_variacoes_cruz
                 ),
             )
         )
@@ -14056,6 +14172,23 @@ if pagina == "DEMOGRAFIA":
     )
 
 
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:18px;
+            font-weight:700;
+            color:#334155;
+            margin-top:0.25rem;
+            margin-bottom:0.2rem;
+        ">
+            Escolas
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
     st.caption(
         "Clique em uma seção colorida do gráfico de percentuais para "
         "ordenar as categorias por essa composição, da maior para a menor. "
@@ -14096,6 +14229,685 @@ if pagina == "DEMOGRAFIA":
             on_select="rerun",
             selection_mode=[
                 "selecionar_composicao_demo"
+            ],
+        )
+
+
+    # ========================================================
+    # DEMOGRAFIA — MATRÍCULAS
+    # ========================================================
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:18px;
+            font-weight:700;
+            color:#334155;
+            margin-top:1.25rem;
+            margin-bottom:0.2rem;
+        ">
+            Matrículas
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    st.caption(
+        "Os percentuais abaixo representam a distribuição das matrículas. "
+        "Clique em uma seção colorida para ordenar as categorias por essa "
+        "composição, da maior para a menor. Dê um duplo clique para limpar."
+    )
+
+
+    coluna_matriculas_demo = (
+        "Matrículas EM (total) 3/4"
+    )
+
+
+    base_demo_matriculas = base_demo.copy()
+
+    base_demo_matriculas[
+        "Matrículas"
+    ] = (
+        pd.to_numeric(
+            base_demo_matriculas[
+                coluna_matriculas_demo
+            ],
+            errors="coerce",
+        )
+        .fillna(0)
+        .clip(lower=0)
+    )
+
+
+    resumo_matriculas = (
+        base_demo_matriculas
+        .groupby(
+            [
+                "Grupo",
+                "Composição",
+            ],
+            as_index=False,
+        )
+        .agg(
+            Matrículas=(
+                "Matrículas",
+                "sum",
+            )
+        )
+    )
+
+
+    totais_matriculas = (
+        resumo_matriculas
+        .groupby(
+            "Grupo",
+            as_index=False,
+        )[
+            "Matrículas"
+        ]
+        .sum()
+        .rename(
+            columns={
+                "Matrículas":
+                    "Total"
+            }
+        )
+    )
+
+
+    resumo_matriculas = resumo_matriculas.merge(
+        totais_matriculas,
+        on="Grupo",
+    )
+
+
+    resumo_matriculas[
+        "Percentual"
+    ] = np.where(
+        resumo_matriculas[
+            "Total"
+        ]
+        > 0,
+        resumo_matriculas[
+            "Matrículas"
+        ]
+        /
+        resumo_matriculas[
+            "Total"
+        ],
+        0,
+    )
+
+
+    ordem_grupos_matriculas = ordenar_dimensao(
+        base_demo_matriculas[
+            "Grupo"
+        ].unique(),
+        variavel_demo,
+    )
+
+
+    composicao_selecionada_matriculas = None
+
+    estado_grafico_matriculas = st.session_state.get(
+        "grafico_demografia_matriculas_interativo"
+    )
+
+
+    if estado_grafico_matriculas is not None:
+
+        try:
+
+            selecoes_matriculas = (
+                estado_grafico_matriculas.selection
+            )
+
+        except Exception:
+
+            selecoes_matriculas = (
+                estado_grafico_matriculas.get(
+                    "selection",
+                    {},
+                )
+                if hasattr(
+                    estado_grafico_matriculas,
+                    "get",
+                )
+                else {}
+            )
+
+
+        selecao_matriculas_anterior = (
+            selecoes_matriculas.get(
+                "selecionar_composicao_matriculas_demo",
+                None,
+            )
+            if hasattr(
+                selecoes_matriculas,
+                "get",
+            )
+            else None
+        )
+
+
+        composicao_selecionada_matriculas = (
+            extrair_valor_selecao_demo(
+                selecao_matriculas_anterior,
+                "Composição",
+            )
+        )
+
+
+    if (
+        composicao_selecionada_matriculas
+        in ordem_comp
+    ):
+
+        percentuais_matriculas_para_ordem = (
+            resumo_matriculas[
+                resumo_matriculas[
+                    "Composição"
+                ]
+                == composicao_selecionada_matriculas
+            ]
+            .groupby(
+                "Grupo"
+            )[
+                "Percentual"
+            ]
+            .sum()
+            .to_dict()
+        )
+
+
+        ordem_original_matriculas = {
+            grupo: indice
+            for indice, grupo
+            in enumerate(
+                ordem_grupos_matriculas
+            )
+        }
+
+
+        ordem_grupos_matriculas = sorted(
+            ordem_grupos_matriculas,
+            key=lambda grupo: (
+                -float(
+                    percentuais_matriculas_para_ordem.get(
+                        grupo,
+                        0,
+                    )
+                ),
+                ordem_original_matriculas.get(
+                    grupo,
+                    9999,
+                ),
+            ),
+        )
+
+
+    base_consolidado_matriculas = base_consolidado.copy()
+
+    base_consolidado_matriculas[
+        "Matrículas"
+    ] = (
+        pd.to_numeric(
+            base_consolidado_matriculas[
+                coluna_matriculas_demo
+            ],
+            errors="coerce",
+        )
+        .fillna(0)
+        .clip(lower=0)
+    )
+
+
+    cons_matriculas = (
+        base_consolidado_matriculas
+        .groupby(
+            "Composição",
+            as_index=False,
+        )
+        .agg(
+            Matrículas=(
+                "Matrículas",
+                "sum",
+            )
+        )
+    )
+
+
+    total_cons_matriculas = float(
+        cons_matriculas[
+            "Matrículas"
+        ].sum()
+    )
+
+
+    cons_matriculas[
+        "Percentual"
+    ] = np.where(
+        total_cons_matriculas > 0,
+        cons_matriculas[
+            "Matrículas"
+        ]
+        / total_cons_matriculas,
+        0,
+    )
+
+    cons_matriculas[
+        "Grupo"
+    ] = "Consolidado"
+
+    cons_matriculas[
+        "Total"
+    ] = total_cons_matriculas
+
+
+    resumo_matriculas = pd.concat(
+        [
+            cons_matriculas,
+            resumo_matriculas,
+        ],
+        ignore_index=True,
+    )
+
+
+    ordem_barras_matriculas = (
+        [
+            "Consolidado",
+            GRUPO_ESPACO,
+        ]
+        +
+        ordem_grupos_matriculas
+    )
+
+
+    espaco_matriculas = pd.DataFrame(
+        {
+            "Composição": [
+                ordem_comp[0]
+                if ordem_comp
+                else ""
+            ],
+            "Matrículas": [
+                0
+            ],
+            "Percentual": [
+                0
+            ],
+            "Grupo": [
+                GRUPO_ESPACO
+            ],
+            "Total": [
+                0
+            ],
+        }
+    )
+
+
+    resumo_matriculas_plot = pd.concat(
+        [
+            resumo_matriculas,
+            espaco_matriculas,
+        ],
+        ignore_index=True,
+    )
+
+
+    resumo_matriculas_plot = calcular_posicoes_empilhadas(
+        dados=resumo_matriculas_plot,
+        grupo="Grupo",
+        categoria="Composição",
+        valor="Percentual",
+        ordem_categorias=ordem_comp,
+    )
+
+
+    selecao_composicao_matriculas = alt.selection_point(
+        name="selecionar_composicao_matriculas_demo",
+        fields=[
+            "Composição"
+        ],
+        on="click",
+        clear="dblclick",
+        toggle=False,
+    )
+
+
+    barras_pct_matriculas = (
+        alt.Chart(
+            resumo_matriculas_plot
+        )
+        .mark_bar(
+            height=24,
+        )
+        .encode(
+            opacity=alt.condition(
+                alt.datum.Grupo
+                == GRUPO_ESPACO,
+                alt.value(0),
+                alt.value(1),
+            ),
+            y=alt.Y(
+                "Grupo:N",
+                sort=ordem_barras_matriculas,
+                title=None,
+                axis=alt.Axis(
+                    labelExpr=(
+                        f"datum.label == "
+                        f"'{GRUPO_ESPACO}' "
+                        f"? '' : datum.label"
+                    ),
+                    labelFontSize=11.5,
+                    labelLimit=175,
+                    ticks=False,
+                    domain=False,
+                ),
+            ),
+            x=alt.X(
+                "Percentual:Q",
+                stack="zero",
+                title=None,
+                axis=None,
+                scale=alt.Scale(
+                    domain=[
+                        0,
+                        1,
+                    ]
+                ),
+            ),
+            color=alt.Color(
+                "Composição:N",
+                title=rotulo_dimensao(
+                    variavel_comp
+                ),
+                scale=alt.Scale(
+                    domain=ordem_comp,
+                    range=PALETA_DISTRIBUICOES[
+                        :len(
+                            ordem_comp
+                        )
+                    ],
+                ),
+            ),
+            order=alt.Order(
+                "_ordem_categoria:Q"
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Grupo:N",
+                    title=rotulo_dimensao(
+                        variavel_demo
+                    ),
+                ),
+                alt.Tooltip(
+                    "Composição:N",
+                    title=rotulo_dimensao(
+                        variavel_comp
+                    ),
+                ),
+                alt.Tooltip(
+                    "Matrículas:Q",
+                    title="Matrículas",
+                    format=".0f",
+                ),
+                alt.Tooltip(
+                    "Percentual:Q",
+                    title="Percentual",
+                    format=".1%",
+                ),
+            ],
+        )
+    )
+
+
+    dados_texto_pct_matriculas = (
+        resumo_matriculas_plot[
+            (
+                resumo_matriculas_plot[
+                    "Grupo"
+                ]
+                != GRUPO_ESPACO
+            )
+            &
+            (
+                resumo_matriculas_plot[
+                    "Percentual"
+                ]
+                >= 0.05
+            )
+        ]
+        .copy()
+    )
+
+
+    texto_pct_matriculas = (
+        alt.Chart(
+            dados_texto_pct_matriculas
+        )
+        .mark_text(
+            align="center",
+            baseline="middle",
+            fontSize=12,
+        )
+        .encode(
+            y=alt.Y(
+                "Grupo:N",
+                sort=ordem_barras_matriculas,
+            ),
+            x=alt.X(
+                "Centro:Q",
+                scale=alt.Scale(
+                    domain=[
+                        0,
+                        1,
+                    ]
+                ),
+            ),
+            text=alt.Text(
+                "Percentual:Q",
+                format=".0%",
+            ),
+        )
+    )
+
+
+    altura_demo_matriculas = max(
+        240,
+        len(
+            ordem_barras_matriculas
+        )
+        * ALTURA_LINHA_DEMO,
+    )
+
+
+    graf_pct_matriculas = (
+        barras_pct_matriculas
+        +
+        texto_pct_matriculas
+    ).add_params(
+        selecao_composicao_matriculas
+    ).properties(
+        width=520,
+        height=altura_demo_matriculas,
+        title=alt.TitleParams(
+            text=(
+                f"Distribuição de "
+                f"{rotulo_dimensao(variavel_comp)}"
+            ),
+            anchor="middle",
+            fontSize=17,
+            fontWeight="bold",
+        ),
+    )
+
+
+    totais_demo_matriculas = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "Grupo": [
+                        "Consolidado"
+                    ],
+                    "Total": [
+                        total_cons_matriculas
+                    ],
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "Grupo": [
+                        GRUPO_ESPACO
+                    ],
+                    "Total": [
+                        0
+                    ],
+                }
+            ),
+            totais_matriculas,
+        ],
+        ignore_index=True,
+    )
+
+
+    totais_demo_matriculas[
+        "Total"
+    ] = (
+        pd.to_numeric(
+            totais_demo_matriculas[
+                "Total"
+            ],
+            errors="coerce",
+        )
+        .fillna(0)
+        .round()
+        .astype(int)
+    )
+
+
+    barras_n_matriculas = (
+        alt.Chart(
+            totais_demo_matriculas
+        )
+        .mark_bar(
+            height=24,
+            color="#5F91BD",
+        )
+        .encode(
+            opacity=alt.condition(
+                alt.datum.Grupo
+                == GRUPO_ESPACO,
+                alt.value(0),
+                alt.value(1),
+            ),
+            y=alt.Y(
+                "Grupo:N",
+                sort=ordem_barras_matriculas,
+                axis=None,
+            ),
+            x=alt.X(
+                "Total:Q",
+                title=None,
+                axis=None,
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Grupo:N",
+                    title=rotulo_dimensao(
+                        variavel_demo
+                    ),
+                ),
+                alt.Tooltip(
+                    "Total:Q",
+                    title="Matrículas",
+                    format="d",
+                ),
+            ],
+        )
+    )
+
+
+    texto_n_matriculas = (
+        alt.Chart(
+            totais_demo_matriculas[
+                totais_demo_matriculas[
+                    "Grupo"
+                ]
+                != GRUPO_ESPACO
+            ]
+        )
+        .mark_text(
+            align="left",
+            dx=6,
+            fontSize=11,
+            fontWeight="bold",
+        )
+        .encode(
+            y=alt.Y(
+                "Grupo:N",
+                sort=ordem_barras_matriculas,
+            ),
+            x="Total:Q",
+            text=alt.Text(
+                "Total:Q",
+                format="d",
+            ),
+        )
+    )
+
+
+    graf_n_matriculas = (
+        barras_n_matriculas
+        +
+        texto_n_matriculas
+    ).properties(
+        width=210,
+        height=altura_demo_matriculas,
+        title=alt.TitleParams(
+            text="Número de matrículas",
+            anchor="middle",
+            fontSize=17,
+            fontWeight="bold",
+        ),
+    )
+
+
+    col_demo_mat_esq, col_demo_mat_centro, col_demo_mat_dir = st.columns(
+        [0.9, 8.2, 0.9]
+    )
+
+
+    with col_demo_mat_centro:
+
+        grafico_demografia_matriculas = (
+            alt.hconcat(
+                graf_pct_matriculas,
+                graf_n_matriculas,
+                spacing=20,
+            )
+            .resolve_scale(
+                y="shared"
+            )
+            .configure_view(
+                stroke=None
+            )
+        )
+
+
+        st.altair_chart(
+            aplicar_fundo_grafico(
+                grafico_demografia_matriculas
+            ),
+            theme=None,
+            width="stretch",
+            key="grafico_demografia_matriculas_interativo",
+            on_select="rerun",
+            selection_mode=[
+                "selecionar_composicao_matriculas_demo"
             ],
         )
 
