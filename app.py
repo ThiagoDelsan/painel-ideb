@@ -18,9 +18,41 @@ from src.data import (
     obter_opcoes_filtro as obter_opcoes_filtro_data,
     media_ponderada_por_categoria,
     criar_variavel_eixo as criar_variavel_eixo_data,
-    EIXOS_DISPONIVEIS,
+    EIXOS_DISPONIVEIS as EIXOS_DISPONIVEIS_DATA,
     FAIXAS_IDEB,
 )
+
+
+# ============================================================
+# REGISTRO CANÔNICO DE DIMENSÕES DO PAINEL
+# ============================================================
+#
+# O app mantém os nomes de apresentação explicitamente, em vez de
+# depender de uma sessão antiga ou de uma versão anterior de src/data.py.
+# Isso evita que o rótulo legado "Tipo de Escola" reapareça nos
+# selectboxes e garante que as duas classificações sejam sempre tratadas
+# como dimensões independentes e paralelas.
+
+EIXOS_DISPONIVEIS = {
+    "Tipo de Escola por ano": {
+        "tipo": "status",
+        "coluna": "Status (do ano)",
+    },
+    "Tipo de Escola 2025": {
+        "tipo": "status",
+        "coluna": "Tipo de Escola 2025",
+    },
+}
+
+for _nome_eixo, _config_eixo in EIXOS_DISPONIVEIS_DATA.items():
+    if _nome_eixo in {
+        "Tipo de Escola",
+        "Tipo de Escola por ano",
+        "Tipo de Escola 2025",
+    }:
+        continue
+
+    EIXOS_DISPONIVEIS[_nome_eixo] = _config_eixo
 
 
 # ============================================================
@@ -692,6 +724,102 @@ def categorizar_selecao(valor):
 
 
 # ============================================================
+# TIPO DE ESCOLA — CLASSIFICAÇÃO LOCAL / COMPATIBILIDADE
+# ============================================================
+
+def _classificar_tipo_escola_painel(valor):
+
+    if pd.isna(valor):
+        return "Outros / não informado"
+
+    texto = str(valor).strip().lower()
+    texto = (
+        texto
+        .replace("á", "a")
+        .replace("à", "a")
+        .replace("â", "a")
+        .replace("ã", "a")
+        .replace("é", "e")
+        .replace("ê", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ô", "o")
+        .replace("õ", "o")
+        .replace("ú", "u")
+        .replace("ç", "c")
+    )
+
+    if not texto or texto in {"nan", "none"}:
+        return "Outros / não informado"
+
+    if "integral" in texto and "100" in texto:
+        return "100% Integral"
+
+    if texto in {"integral", "integral total"}:
+        return "100% Integral"
+
+    if texto in {"mista", "misto"}:
+        return "Mista"
+
+    if texto in {
+        "parcial/regular",
+        "parcial / regular",
+        "parcial",
+        "regular",
+    }:
+        return "Parcial/Regular"
+
+    return "Outros / não informado"
+
+
+def _garantir_tipo_escola_2025(base):
+    """Garante a classificação fixa de 2025 em todas as linhas.
+
+    A fonte prioritária é a coluna trazida de ESCOLAS_CONSOLIDADO.
+    Como proteção para deploy/cache de uma versão anterior do data.py,
+    lacunas podem ser preenchidas usando a própria classificação anual
+    observada em 2025, que contém a mesma informação.
+    """
+
+    resultado = base.copy()
+
+    if "Tipo de Escola 2025" not in resultado.columns:
+        resultado["Tipo de Escola 2025"] = np.nan
+
+    colunas_necessarias = {
+        "Cód. INEP",
+        "Ano",
+        "Status (do ano)",
+    }
+
+    if not colunas_necessarias.issubset(resultado.columns):
+        return resultado
+
+    referencia_2025 = (
+        resultado.loc[
+            pd.to_numeric(resultado["Ano"], errors="coerce").eq(2025),
+            ["Cód. INEP", "Status (do ano)"],
+        ]
+        .dropna(subset=["Cód. INEP"])
+        .drop_duplicates(subset=["Cód. INEP"], keep="last")
+        .set_index("Cód. INEP")["Status (do ano)"]
+    )
+
+    fallback = resultado["Cód. INEP"].map(referencia_2025)
+
+    atual = resultado["Tipo de Escola 2025"]
+    vazio = (
+        atual.isna()
+        | atual.astype(str).str.strip().str.lower().isin({"", "nan", "none"})
+    )
+
+    resultado.loc[vazio, "Tipo de Escola 2025"] = fallback.loc[vazio]
+
+    return resultado
+
+
+
+# ============================================================
 # WRAPPERS DO DATA
 # ============================================================
 
@@ -699,6 +827,23 @@ def criar_variavel_eixo(
     df,
     eixo,
 ):
+
+    if eixo in VARIAVEIS_TIPO_ESCOLA:
+
+        coluna = EIXOS_DISPONIVEIS[eixo]["coluna"]
+
+        if coluna not in df.columns:
+            raise ValueError(
+                f"A coluna '{coluna}' não foi encontrada para a dimensão '{eixo}'."
+            )
+
+        resultado = df.copy()
+        resultado["Categoria"] = resultado[coluna].apply(
+            _classificar_tipo_escola_painel
+        )
+
+        return resultado
+
 
     if eixo == "Colégio com Seleção":
 
@@ -740,6 +885,34 @@ def obter_opcoes_filtro(
     df,
     nome,
 ):
+
+    if nome in VARIAVEIS_TIPO_ESCOLA:
+
+        try:
+            temp = criar_variavel_eixo(df, nome)
+        except ValueError:
+            return []
+
+        existentes = set(
+            temp["Categoria"]
+            .dropna()
+            .astype(str)
+            .tolist()
+        )
+
+        if "Mista" in existentes or "100% Integral" in existentes:
+            existentes.add(CATEGORIA_INTEGRAL_AGREGADA)
+
+        ordem = [
+            "Parcial/Regular",
+            "Mista",
+            "100% Integral",
+            CATEGORIA_INTEGRAL_AGREGADA,
+            "Outros / não informado",
+        ]
+
+        return [valor for valor in ordem if valor in existentes]
+
 
     if nome == "Colégio com Seleção":
 
@@ -788,6 +961,12 @@ def aplicar_filtros_categoricos(
     filtros_base = filtros.copy()
 
 
+    filtros_tipo_escola = {
+        nome: filtros_base.pop(nome, [])
+        for nome in VARIAVEIS_TIPO_ESCOLA
+    }
+
+
     filtro_selecao = (
         filtros_base.pop(
             "Colégio com Seleção",
@@ -802,6 +981,27 @@ def aplicar_filtros_categoricos(
             filtros_base,
         )
     )
+
+
+    for nome_tipo, valores_tipo in filtros_tipo_escola.items():
+
+        if not valores_tipo:
+            continue
+
+        temp_tipo = criar_variavel_eixo(resultado, nome_tipo)
+
+        valores_base = []
+        for valor in valores_tipo:
+            if valor == CATEGORIA_INTEGRAL_AGREGADA:
+                valores_base.extend(["Mista", "100% Integral"])
+            else:
+                valores_base.append(valor)
+
+        resultado = (
+            temp_tipo.loc[temp_tipo["Categoria"].isin(set(valores_base))]
+            .drop(columns=["Categoria"])
+            .reset_index(drop=True)
+        )
 
 
     if filtro_selecao:
@@ -11789,6 +11989,7 @@ def _criar_matriz_mapa_calor(
 try:
 
     df_completo = preparar_base()
+    df_completo = _garantir_tipo_escola_2025(df_completo)
 
 
 except Exception as erro:

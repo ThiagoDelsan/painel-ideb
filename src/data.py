@@ -1546,6 +1546,47 @@ def preparar_base():
 
 
     # ========================================================
+    # GARANTIA / FALLBACK — TIPO DE ESCOLA 2025
+    # ========================================================
+    # A fonte principal continua sendo ESCOLAS_CONSOLIDADO. Caso exista
+    # alguma lacuna de preenchimento, usa-se a classificação anual da
+    # própria escola em 2025, que representa a mesma informação.
+
+    if (
+        "Cód. INEP" in base_final.columns
+        and "Ano" in base_final.columns
+        and "Status (do ano)" in base_final.columns
+    ):
+
+        referencia_tipo_2025 = (
+            base_final.loc[
+                pd.to_numeric(base_final["Ano"], errors="coerce").eq(2025),
+                ["Cód. INEP", "Status (do ano)"],
+            ]
+            .dropna(subset=["Cód. INEP"])
+            .drop_duplicates(subset=["Cód. INEP"], keep="last")
+            .set_index("Cód. INEP")["Status (do ano)"]
+        )
+
+        fallback_tipo_2025 = base_final["Cód. INEP"].map(
+            referencia_tipo_2025
+        )
+
+        atual_tipo_2025 = base_final["Tipo de Escola 2025"]
+        mascara_tipo_2025_vazio = (
+            atual_tipo_2025.isna()
+            | atual_tipo_2025.astype(str).str.strip().str.lower().isin(
+                {"", "nan", "none"}
+            )
+        )
+
+        base_final.loc[
+            mascara_tipo_2025_vazio,
+            "Tipo de Escola 2025",
+        ] = fallback_tipo_2025.loc[mascara_tipo_2025_vazio]
+
+
+    # ========================================================
     # IDEB DE CADA EDIÇÃO COMO ATRIBUTO DA ESCOLA
     # ========================================================
 
@@ -1689,6 +1730,11 @@ def criar_variavel_eixo(
     df,
     eixo_painel,
 ):
+
+    # Compatibilidade apenas interna com sessões/códigos antigos.
+    # O rótulo legado não é exposto em EIXOS_DISPONIVEIS.
+    if eixo_painel == "Tipo de Escola":
+        eixo_painel = "Tipo de Escola por ano"
 
     if (
         eixo_painel
@@ -1884,6 +1930,9 @@ def obter_opcoes_filtro(
     df,
     nome_filtro,
 ):
+
+    if nome_filtro == "Tipo de Escola":
+        nome_filtro = "Tipo de Escola por ano"
 
     try:
 
@@ -2333,6 +2382,10 @@ def aplicar_filtros_categoricos(
         nome_filtro,
         valores,
     ) in filtros.items():
+
+
+        if nome_filtro == "Tipo de Escola":
+            nome_filtro = "Tipo de Escola por ano"
 
 
         if not valores:
