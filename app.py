@@ -240,6 +240,98 @@ st.markdown(
         }
 
         /* ====================================================
+           TRANSIÇÕES — HIERARQUIA VISUAL
+           ==================================================== */
+
+        .transitions-subtitle {
+            text-align: center;
+            max-width: 860px;
+            margin: -0.05rem auto 1.15rem auto;
+            color: var(--ink-500);
+            font-size: 0.86rem;
+            line-height: 1.45;
+        }
+
+        .transitions-control-caption {
+            text-align: center;
+            color: var(--ink-500);
+            font-size: 0.73rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin: 0.15rem 0 0.45rem 0;
+        }
+
+        .transitions-context {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            margin: 0.65rem auto 0.80rem auto;
+        }
+
+        .transitions-chip {
+            display: inline-flex;
+            align-items: center;
+            min-height: 1.85rem;
+            padding: 0.30rem 0.70rem;
+            border-radius: 999px;
+            border: 1px solid var(--line-200);
+            background: rgba(248, 250, 252, 0.90);
+            color: var(--ink-700);
+            font-size: 0.76rem;
+            font-weight: 650;
+            line-height: 1;
+        }
+
+        .transitions-chip-period {
+            background: #EDF4FA;
+            border-color: #D3E2EF;
+            color: #315C80;
+            font-weight: 750;
+        }
+
+        .transitions-axis-note {
+            max-width: 1100px;
+            margin: 0.15rem auto 1.15rem auto;
+            padding: 0.62rem 0.85rem;
+            border: 1px solid var(--line-200);
+            border-radius: 9px;
+            background: rgba(248, 250, 252, 0.72);
+            color: var(--ink-500);
+            font-size: 0.76rem;
+            line-height: 1.45;
+            text-align: center;
+        }
+
+        .transitions-axis-note strong {
+            color: var(--ink-700);
+            font-weight: 700;
+        }
+
+        .transitions-section {
+            max-width: 1420px;
+            margin: 1.20rem auto 0.45rem auto;
+            padding-top: 0.20rem;
+        }
+
+        .transitions-section-title {
+            color: var(--ink-900);
+            font-size: 1.02rem;
+            font-weight: 760;
+            letter-spacing: -0.015em;
+            margin-bottom: 0.10rem;
+        }
+
+        .transitions-section-text {
+            color: var(--ink-500);
+            font-size: 0.77rem;
+            line-height: 1.40;
+            margin-bottom: 0.20rem;
+        }
+
+        /* ====================================================
            LOGIN
            ==================================================== */
 
@@ -11514,11 +11606,13 @@ def _criar_matriz_mapa_calor(
             ]
 
 
-    tamanho_celula = 48
+    # Mantém as matrizes compactas o suficiente para três gráficos lado a
+    # lado, sem sacrificar a leitura quando exportadas para apresentação.
+    tamanho_celula = 40
     tamanho = max(
-        300,
+        270,
         min(
-            430,
+            360,
             len(ordem) * tamanho_celula,
         ),
     )
@@ -11530,8 +11624,8 @@ def _criar_matriz_mapa_calor(
     retangulos = (
         base_chart
         .mark_rect(
-            stroke="#FFFFFF",
-            strokeWidth=2,
+            stroke="#F8FAFC",
+            strokeWidth=1.5,
         )
         .encode(
             x=alt.X(
@@ -11541,8 +11635,11 @@ def _criar_matriz_mapa_calor(
                 axis=alt.Axis(
                     orient="top",
                     labelAngle=-35,
-                    labelFontSize=11,
-                    labelLimit=150,
+                    labelFontSize=10.5,
+                    labelFontWeight=600,
+                    labelColor="#536278",
+                    labelLimit=135,
+                    labelPadding=7,
                     ticks=False,
                     domain=False,
                 ),
@@ -11553,15 +11650,18 @@ def _criar_matriz_mapa_calor(
                 title=None,
                 axis=alt.Axis(
                     labels=mostrar_rotulos_linhas,
-                    labelFontSize=11,
-                    labelLimit=170,
+                    labelFontSize=10.5,
+                    labelFontWeight=600,
+                    labelColor="#536278",
+                    labelLimit=155,
+                    labelPadding=7,
                     ticks=False,
                     domain=False,
                 ),
             ),
             color=alt.condition(
                 "datum.Consolidado === true",
-                alt.value("#E5EAF0"),
+                alt.value("#E4E9EF"),
                 alt.Color(
                     "Valor:Q",
                     scale=alt.Scale(
@@ -11571,9 +11671,9 @@ def _criar_matriz_mapa_calor(
                             dominio_cor[1],
                         ],
                         range=[
-                            "#D88C8C",
-                            "#F3E7D7",
-                            "#81AC8A",
+                            "#DDA0A0",
+                            "#F3EFE9",
+                            "#8CB198",
                         ],
                     ),
                     legend=None,
@@ -11600,7 +11700,7 @@ def _criar_matriz_mapa_calor(
     textos = (
         base_chart
         .mark_text(
-            fontSize=11.5,
+            fontSize=11.2,
             fontWeight=600,
             color="#243447",
         )
@@ -11633,11 +11733,13 @@ def _criar_matriz_mapa_calor(
                 else None
             ),
             anchor="middle",
-            fontSize=17,
+            fontSize=15.5,
             fontWeight=700,
             color="#27364A",
-            subtitleFontSize=11,
-            subtitleColor="#64748B",
+            subtitleFontSize=10.5,
+            subtitleFontWeight=400,
+            subtitleColor="#6B7A90",
+            offset=10,
         ),
     )
 
@@ -11691,12 +11793,12 @@ if "pagina" not in st.session_state:
 
 nav_1, nav_2, nav_3, nav_4, nav_5, nav_6 = st.columns(
     [
-        1.55,
+        1.10,
+        1.18,
+        1.10,
+        1.02,
         1.35,
-        1.00,
-        1.15,
-        1.35,
-        1.15,
+        1.05,
     ],
     gap="medium",
 )
@@ -11705,9 +11807,13 @@ nav_1, nav_2, nav_3, nav_4, nav_5, nav_6 = st.columns(
 with nav_1:
 
     if st.button(
-        "PRINCIPAIS INDICADORES",
+        "INDICADORES",
         width="stretch",
         key="nav_principais",
+        help=(
+            "Compare médias ponderadas e variações dos indicadores entre "
+            "categorias, anos e diferentes recortes."
+        ),
     ):
 
         st.session_state.pagina = (
@@ -11718,9 +11824,13 @@ with nav_1:
 with nav_2:
 
     if st.button(
-        "HISTÓRIA DO ANO",
+        "DECOMPOSIÇÃO",
         width="stretch",
         key="nav_historia_ano",
+        help=(
+            "Entenda como os componentes de desempenho e rendimento se "
+            "combinam para formar o IDEB de um ano."
+        ),
     ):
 
         st.session_state.pagina = (
@@ -11731,9 +11841,13 @@ with nav_2:
 with nav_3:
 
     if st.button(
-        "DEMOGRAFIA",
+        "COMPOSIÇÃO",
         width="stretch",
         key="nav_demografia",
+        help=(
+            "Explore como escolas e matrículas se distribuem entre "
+            "diferentes categorias e perfis."
+        ),
     ):
 
         st.session_state.pagina = (
@@ -11744,9 +11858,13 @@ with nav_3:
 with nav_4:
 
     if st.button(
-        "DISTRIBUIÇÕES",
+        "DISPERSÃO",
         width="stretch",
         key="nav_distribuicoes",
+        help=(
+            "Analise a distribuição dos resultados entre escolas, compare "
+            "grupos e avalie diferenças estatísticas."
+        ),
     ):
 
         st.session_state.pagina = (
@@ -11770,9 +11888,13 @@ with nav_5:
 with nav_6:
 
     if st.button(
-        "MAPA DE CALOR",
+        "TRANSIÇÕES",
         width="stretch",
         key="nav_mapa_calor",
+        help=(
+            "Veja como as escolas mudam de categoria entre dois anos e "
+            "compare resultados, variações e volumes em cada trajetória."
+        ),
     ):
 
         st.session_state.pagina = (
@@ -12354,7 +12476,7 @@ if pagina == "DISTRIBUIÇÕES":
             margin-top:8px;
             margin-bottom:8px;
         ">
-            DISTRIBUIÇÕES
+            DISPERSÃO
         </div>
         """,
         unsafe_allow_html=True,
@@ -14642,7 +14764,7 @@ if pagina == "PRINCIPAIS INDICADORES":
             color:#27364A;
             margin-bottom:0.25rem;
         ">
-            PRINCIPAIS INDICADORES
+            INDICADORES
         </div>
         """,
         unsafe_allow_html=True,
@@ -15510,7 +15632,7 @@ if pagina == "HISTÓRIA DO ANO":
             color:#27364A;
             margin-bottom:0.25rem;
         ">
-            HISTÓRIA DO ANO
+            DECOMPOSIÇÃO
         </div>
         """,
         unsafe_allow_html=True,
@@ -15884,9 +16006,13 @@ if pagina == "MAPA DE CALOR":
             font-weight:750;
             letter-spacing:-0.02em;
             color:#27364A;
-            margin-bottom:0.35rem;
+            margin-bottom:0.25rem;
         ">
-            MAPA DE CALOR
+            TRANSIÇÕES
+        </div>
+        <div class="transitions-subtitle">
+            Acompanhe como as escolas mudam de categoria entre dois anos e
+            compare resultados, variações e volumes em cada trajetória.
         </div>
         """,
         unsafe_allow_html=True,
@@ -15898,11 +16024,20 @@ if pagina == "MAPA DE CALOR":
     )
 
 
-    mapa_c1, mapa_c2 = st.columns(
+    st.markdown(
+        '<div class="transitions-control-caption">Configuração da análise</div>',
+        unsafe_allow_html=True,
+    )
+
+
+    mapa_lateral_esq, mapa_c1, mapa_c2, mapa_lateral_dir = st.columns(
         [
-            1.0,
-            1.45,
-        ]
+            0.45,
+            1.35,
+            1.65,
+            0.45,
+        ],
+        gap="large",
     )
 
 
@@ -15936,11 +16071,17 @@ if pagina == "MAPA DE CALOR":
         )
 
 
+    st.markdown(
+        '<div class="transitions-control-caption" style="margin-top:0.30rem;">Anos da comparação</div>',
+        unsafe_allow_html=True,
+    )
+
+
     _, bloco_mapa_anos, __ = st.columns(
         [
-            1.3,
-            3.4,
-            1.3,
+            1.15,
+            4.7,
+            1.15,
         ]
     )
 
@@ -16035,41 +16176,58 @@ if pagina == "MAPA DE CALOR":
         st.stop()
 
 
-    st.caption(
-        f"Linhas: {rotulo_dimensao(variavel_mapa)} em {ano_inicial_mapa}. "
-        f"Colunas: {rotulo_dimensao(variavel_mapa)} em {ano_final_mapa}. "
-        "As médias são ponderadas por matrículas; a matriz de matrículas usa "
-        f"as matrículas de {ano_final_mapa}. As margens consolidadas permanecem em cinza."
+    rotulo_variavel_mapa = rotulo_dimensao(
+        variavel_mapa
+    )
+
+
+    st.markdown(
+        f"""
+        <div class="transitions-context">
+            <span class="transitions-chip transitions-chip-period">
+                {ano_inicial_mapa} &nbsp;→&nbsp; {ano_final_mapa}
+            </span>
+            <span class="transitions-chip">{html.escape(rotulo_variavel_mapa)}</span>
+            <span class="transitions-chip">{html.escape(indicador_mapa)}</span>
+        </div>
+        <div class="transitions-axis-note">
+            <strong>Linhas:</strong> {html.escape(rotulo_variavel_mapa)} em {ano_inicial_mapa}
+            &nbsp;&nbsp;·&nbsp;&nbsp;
+            <strong>Colunas:</strong> {html.escape(rotulo_variavel_mapa)} em {ano_final_mapa}
+            &nbsp;&nbsp;·&nbsp;&nbsp;
+            verde indica valores relativamente maiores e vermelho valores menores dentro de cada matriz.
+            As margens de <strong>Consolidado</strong> permanecem em cinza.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
     especificacoes_mapa = [
         (
             "media_inicial",
-            (
-                f"Média ponderada de {indicador_mapa} — {ano_inicial_mapa}"
-            ),
+            f"{indicador_mapa} · {ano_inicial_mapa}",
+            "Média ponderada por matrículas",
         ),
         (
             "media_final",
-            (
-                f"Média ponderada de {indicador_mapa} — {ano_final_mapa}"
-            ),
+            f"{indicador_mapa} · {ano_final_mapa}",
+            "Média ponderada por matrículas",
         ),
         (
             "delta",
-            (
-                f"Variação média de {indicador_mapa} — "
-                f"{ano_final_mapa} − {ano_inicial_mapa}"
-            ),
+            f"Variação · {ano_final_mapa} − {ano_inicial_mapa}",
+            f"Média da variação de {indicador_mapa}",
         ),
         (
             "escolas",
-            "Número de escolas",
+            "Escolas",
+            "Total de escolas no recorte",
         ),
         (
             "matriculas",
-            f"Número de matrículas — {ano_final_mapa}",
+            f"Matrículas · {ano_final_mapa}",
+            f"Total de matrículas em {ano_final_mapa}",
         ),
     ]
 
@@ -16080,6 +16238,7 @@ if pagina == "MAPA DE CALOR":
     for indice_matriz, (
         tipo_mapa,
         titulo_mapa,
+        subtitulo_mapa,
     ) in enumerate(especificacoes_mapa, start=1):
 
         dados_matriz = _montar_dados_matriz_mapa(
@@ -16103,10 +16262,7 @@ if pagina == "MAPA DE CALOR":
             dados=dados_matriz,
             categorias=categorias_mapa,
             titulo=titulo_mapa,
-            subtitulo=(
-                f"{rotulo_dimensao(variavel_mapa)}: "
-                f"{ano_inicial_mapa} nas linhas × {ano_final_mapa} nas colunas"
-            ),
+            subtitulo=subtitulo_mapa,
             mostrar_rotulos_linhas=mostrar_rotulos,
         )
 
@@ -16116,6 +16272,20 @@ if pagina == "MAPA DE CALOR":
         )
 
 
+    st.markdown(
+        """
+        <div class="transitions-section">
+            <div class="transitions-section-title">Desempenho e variação</div>
+            <div class="transitions-section-text">
+                Compare o resultado no início e no fim do período e observe a variação
+                das escolas em cada combinação de categorias.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
     # Primeira linha: as três matrizes de desempenho lado a lado.
     mapa_top_1, mapa_top_2, mapa_top_3 = st.columns(
         [
@@ -16123,7 +16293,7 @@ if pagina == "MAPA DE CALOR":
             1,
             1,
         ],
-        gap="small",
+        gap="medium",
     )
 
 
@@ -16155,7 +16325,14 @@ if pagina == "MAPA DE CALOR":
 
 
     st.markdown(
-        '<div style="height:1.0rem;"></div>',
+        """
+        <div class="transitions-section" style="margin-top:1.65rem;">
+            <div class="transitions-section-title">Volume do recorte</div>
+            <div class="transitions-section-text">
+                Dimensione cada trajetória pelo número de escolas e pelo volume de matrículas.
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -16164,12 +16341,12 @@ if pagina == "MAPA DE CALOR":
     # usando a mesma largura relativa das matrizes da linha superior.
     mapa_inf_esq, mapa_inf_1, mapa_inf_2, mapa_inf_dir = st.columns(
         [
-            0.5,
+            0.45,
             1,
             1,
-            0.5,
+            0.45,
         ],
-        gap="small",
+        gap="medium",
     )
 
 
@@ -16199,6 +16376,18 @@ if pagina == "MAPA DE CALOR":
             )
 
 
+    st.markdown(
+        f"""
+        <div class="transitions-axis-note" style="margin-top:1.35rem; margin-bottom:0.2rem;">
+            As médias são ponderadas por matrículas. A matriz de matrículas utiliza as matrículas
+            de {ano_final_mapa}. A escala de cores é calculada separadamente em cada matriz,
+            sempre desconsiderando a linha e a coluna de Consolidado.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
     st.stop()
 
 
@@ -16218,7 +16407,7 @@ if pagina == "DEMOGRAFIA":
             color:#27364A;
             margin-bottom:0.5rem;
         ">
-            DEMOGRAFIA
+            COMPOSIÇÃO
         </div>
         """,
         unsafe_allow_html=True,
