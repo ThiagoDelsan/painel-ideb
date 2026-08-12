@@ -316,8 +316,8 @@ ORDEM_FAIXA_IDEB = [
     "IDEB < 3",
     "3 ≤ IDEB < 4",
     "4 ≤ IDEB < 5",
-    "5 ≤ IDEB ≤ 6",
-    "IDEB > 6",
+    "5 ≤ IDEB < 6",
+    "IDEB ≥ 6",
     "Sem resultado",
 ]
 
@@ -9622,6 +9622,28 @@ same_schools_ativo = st.sidebar.toggle(
 )
 
 
+# Seleção cumulativa (lógica E) de participação no IDEB.
+# Se mais de um ano for marcado, a escola precisa ter resultado
+# em TODOS os anos selecionados para permanecer no universo.
+st.sidebar.markdown(
+    "**Considerar apenas escolas do IDEB em:**"
+)
+
+anos_ideb_obrigatorios = []
+
+for ano in ANOS_PAINEL:
+
+    if st.sidebar.checkbox(
+        str(ano),
+        value=False,
+        key=f"filtro_considerar_ideb_{ano}",
+    ):
+
+        anos_ideb_obrigatorios.append(
+            ano
+        )
+
+
 # SAME SCHOOLS usa exclusivamente o indicador Same_Schools da aba
 # ESCOLAS_CONSOLIDADO: 1 = entra no universo; 0 = não entra.
 # A coluna Transicao NÃO define o universo. Ela fornece apenas as
@@ -9653,6 +9675,20 @@ if same_schools_ativo:
             indicador_same_schools.eq(1)
         ]
         .copy()
+    )
+
+
+# Aplica os anos obrigatórios de forma sequencial. Como cada etapa
+# parte do resultado da anterior, múltiplas caixas marcadas têm
+# comportamento de interseção (E), e não de união (OU).
+for ano in anos_ideb_obrigatorios:
+
+    df_base_filtros = (
+        aplicar_filtro_participacao_ideb(
+            df_base_filtros,
+            ano,
+            ["Sim"],
+        )
     )
 
 
@@ -9876,14 +9912,11 @@ for ano in ANOS_PAINEL:
         st.sidebar.multiselect(
             f"IDEB {ano}",
             options=[
-                "Sim",
-                *[
-                    faixa
-                    for faixa
-                    in FAIXAS_IDEB
-                    if faixa
-                    != "Sem resultado"
-                ],
+                faixa
+                for faixa
+                in FAIXAS_IDEB
+                if faixa
+                != "Sem resultado"
             ],
             placeholder="Todos",
             key=f"filtro_ideb_{ano}",

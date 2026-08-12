@@ -48,8 +48,8 @@ FAIXAS_IDEB = [
     "IDEB < 3",
     "3 ≤ IDEB < 4",
     "4 ≤ IDEB < 5",
-    "5 ≤ IDEB ≤ 6",
-    "IDEB > 6",
+    "5 ≤ IDEB < 6",
+    "IDEB ≥ 6",
     "Sem resultado",
 ]
 
@@ -467,8 +467,8 @@ def classificar_faixa_ideb(valor):
     #   IDEB < 3
     #   3 ≤ IDEB < 4
     #   4 ≤ IDEB < 5
-    #   5 ≤ IDEB ≤ 6
-    #   IDEB > 6
+    #   5 ≤ IDEB < 6
+    #   IDEB ≥ 6
     #
     # A ordem das condições abaixo define explicitamente a inclusão
     # das extremidades de cada faixa.
@@ -485,11 +485,11 @@ def classificar_faixa_ideb(valor):
 
         return "4 ≤ IDEB < 5"
 
-    if valor <= 6:
+    if valor < 6:
 
-        return "5 ≤ IDEB ≤ 6"
+        return "5 ≤ IDEB < 6"
 
-    return "IDEB > 6"
+    return "IDEB ≥ 6"
 
 
 # ============================================================
