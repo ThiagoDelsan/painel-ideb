@@ -7107,23 +7107,22 @@ def preparar_linhas_horizontais(
                         break
 
 
-        quantidade_espacos = (
-            2
+        # Após o Consolidado mantemos duas linhas de espaço, mas apenas
+        # a primeira desenha uma regra. Isso preserva o respiro visual
+        # sem criar duas linhas horizontais consecutivas.
+        tipos_separadores = (
+            [
+                "separador_grande",
+                "espaco_grande",
+            ]
             if consolidado
-            else 1
+            else [
+                "separador_pequeno"
+            ]
         )
 
 
-        tipo_sep = (
-            "separador_grande"
-            if consolidado
-            else "separador_pequeno"
-        )
-
-
-        for _ in range(
-            quantidade_espacos
-        ):
+        for tipo_sep in tipos_separadores:
 
             row_sep = (
                 f"{contador:05d}"
@@ -7219,10 +7218,17 @@ def preparar_linhas_horizontais(
     while (
         registros
         and
-        registros[-1][
-            "TipoLinha"
-        ].startswith(
-            "separador"
+        (
+            registros[-1][
+                "TipoLinha"
+            ].startswith(
+                "separador"
+            )
+            or
+            registros[-1][
+                "TipoLinha"
+            ]
+            == "espaco_grande"
         )
     ):
 
@@ -7258,10 +7264,11 @@ def criar_painel_horizontal(
     eixo_nome,
     ano_inicial,
     ano_final,
-    largura_categoria=135,
-    largura_anos=100,
+    largura_categoria=155,
+    largura_anos=110,
     largura_esquerda=360,
     largura_direita=200,
+    mostrar_medias=True,
 ):
 
     formatos = formatos_indicador(
@@ -7269,9 +7276,10 @@ def criar_painel_horizontal(
     )
 
 
-    baseline = formatos[
-        "baseline"
-    ]
+    # O gráfico de médias sempre parte de zero. O eixo continua oculto,
+    # mas a extensão visual deixa de superdimensionar diferenças quando
+    # o recorte possui médias baixas.
+    baseline = 0.0
 
 
     altura = max(
@@ -7346,7 +7354,7 @@ def criar_painel_horizontal(
         .mark_text(
             align="right",
             baseline="middle",
-            fontSize=10,
+            fontSize=12.5,
             fontWeight="bold",
         )
         .encode(
@@ -7382,9 +7390,9 @@ def criar_painel_horizontal(
             labels_anos
         )
         .mark_text(
-            align="right",
+            align="center",
             baseline="middle",
-            fontSize=9.5,
+            fontSize=10.5,
             color="#7B8498",
         )
         .encode(
@@ -7395,7 +7403,7 @@ def criar_painel_horizontal(
 
             x=alt.value(
                 largura_anos
-                - 5
+                / 2
             ),
 
             text="AnoLabel:N",
@@ -7443,8 +7451,8 @@ def criar_painel_horizontal(
                 "Média:Q",
                 title=None,
                 scale=alt.Scale(
-                    domainMin=baseline,
-                    zero=False,
+                    domainMin=0,
+                    zero=True,
                     nice=True,
                 ),
                 axis=alt.Axis(
@@ -7681,6 +7689,277 @@ def criar_painel_horizontal(
             fontWeight="bold",
         ),
     )
+
+
+    # ========================================================
+    # MODO APENAS VARIAÇÕES
+    #
+    # Mantém somente uma linha por categoria e reposiciona o nome
+    # da categoria exatamente na linha da barra de variação. Os
+    # separadores permanecem para preservar a hierarquia visual.
+    # ========================================================
+
+    if (
+        not mostrar_medias
+        and
+        not dados_delta.empty
+    ):
+
+        tipos_delta = {
+            "separador_pequeno",
+            "separador_grande",
+            "espaco_grande",
+        }
+
+
+        plot_delta_compacto = (
+            plot[
+                plot[
+                    "Variação"
+                ].notna()
+                |
+                plot[
+                    "TipoLinha"
+                ].isin(
+                    tipos_delta
+                )
+            ]
+            .copy()
+        )
+
+
+        ids_delta_compacto = set(
+            plot_delta_compacto[
+                "RowID"
+            ].astype(str)
+        )
+
+
+        ordem_delta_compacto = [
+            row_id
+            for row_id in ordem_linhas
+            if str(row_id)
+            in ids_delta_compacto
+        ]
+
+
+        dados_delta_compacto = (
+            plot_delta_compacto[
+                plot_delta_compacto[
+                    "Variação"
+                ].notna()
+            ]
+            .copy()
+        )
+
+
+        labels_categoria_delta = (
+            dados_delta_compacto[
+                [
+                    "RowID",
+                    "Categoria",
+                ]
+            ]
+            .rename(
+                columns={
+                    "Categoria":
+                        "CategoriaLabel"
+                }
+            )
+        )
+
+
+        sep_pequeno_delta = (
+            plot_delta_compacto[
+                plot_delta_compacto[
+                    "TipoLinha"
+                ]
+                == "separador_pequeno"
+            ]
+        )
+
+
+        sep_grande_delta = (
+            plot_delta_compacto[
+                plot_delta_compacto[
+                    "TipoLinha"
+                ]
+                == "separador_grande"
+            ]
+        )
+
+
+        altura_delta = max(
+            260,
+            len(
+                ordem_delta_compacto
+            )
+            * 28,
+        )
+
+
+        def regra_fina_delta():
+
+            return (
+                alt.Chart(
+                    sep_pequeno_delta
+                )
+                .mark_rule(
+                    strokeWidth=0.75,
+                    color="#D5DAE0",
+                )
+                .encode(
+                    y=escala_y(
+                        ordem_delta_compacto
+                    )
+                )
+            )
+
+
+        def regra_grande_delta():
+
+            return (
+                alt.Chart(
+                    sep_grande_delta
+                )
+                .mark_rule(
+                    strokeWidth=1.15,
+                    color="#C5CBD2",
+                )
+                .encode(
+                    y=escala_y(
+                        ordem_delta_compacto
+                    )
+                )
+            )
+
+
+        graf_categoria_delta = (
+            alt.Chart(
+                labels_categoria_delta
+            )
+            .mark_text(
+                align="right",
+                baseline="middle",
+                fontSize=12.5,
+                fontWeight="bold",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_delta_compacto
+                ),
+                x=alt.value(
+                    largura_categoria
+                    - 5
+                ),
+                text="CategoriaLabel:N",
+            )
+            +
+            regra_fina_delta()
+            +
+            regra_grande_delta()
+        ).properties(
+            width=largura_categoria,
+            height=altura_delta,
+        )
+
+
+        barras_delta_compacto = (
+            alt.Chart(
+                dados_delta_compacto
+            )
+            .mark_bar(
+                size=22,
+                color=COR_DELTA,
+            )
+            .encode(
+                y=escala_y(
+                    ordem_delta_compacto
+                ),
+                x=alt.X(
+                    "Variação:Q",
+                    title=None,
+                    axis=alt.Axis(
+                        labels=False,
+                        ticks=False,
+                        domain=False,
+                        grid=False,
+                    ),
+                ),
+                x2=alt.datum(
+                    0
+                ),
+            )
+        )
+
+
+        textos_delta_compacto = (
+            alt.Chart(
+                dados_delta_compacto
+            )
+            .mark_text(
+                dx=alt.expr(
+                    "datum.Variação >= 0 ? 5 : -5"
+                ),
+                align=alt.expr(
+                    "datum.Variação >= 0 ? 'left' : 'right'"
+                ),
+                fontSize=10.5,
+            )
+            .encode(
+                y=escala_y(
+                    ordem_delta_compacto
+                ),
+                x="Variação:Q",
+                text=alt.Text(
+                    "Variação:Q",
+                    format=formatos[
+                        "delta"
+                    ],
+                ),
+            )
+        )
+
+
+        graf_delta_compacto = (
+            barras_delta_compacto
+            +
+            textos_delta_compacto
+            +
+            linha_zero
+            +
+            regra_fina_delta()
+            +
+            regra_grande_delta()
+        ).properties(
+            width=max(
+                320,
+                largura_direita
+                + 100,
+            ),
+            height=altura_delta,
+            title=alt.TitleParams(
+                text=titulo_delta,
+                anchor="middle",
+                fontSize=16,
+                fontWeight="bold",
+            ),
+        )
+
+
+        return (
+            alt.hconcat(
+                graf_categoria_delta,
+                graf_delta_compacto,
+                spacing=0,
+            )
+            .resolve_scale(
+                y="shared"
+            )
+            .configure_view(
+                stroke=None
+            )
+        )
 
 
     return (
@@ -8236,11 +8515,12 @@ def criar_painel_cruzamentos(
     variavel_2,
     ano_inicial,
     ano_final,
-    largura_nivel_1=105,
-    largura_nivel_2=120,
-    largura_anos=95,
+    largura_nivel_1=120,
+    largura_nivel_2=145,
+    largura_anos=110,
     largura_esquerda=320,
     largura_direita=185,
+    mostrar_medias=True,
 ):
 
     formatos = formatos_indicador(
@@ -8248,9 +8528,10 @@ def criar_painel_cruzamentos(
     )
 
 
-    baseline = formatos[
-        "baseline"
-    ]
+    # O gráfico de médias sempre parte de zero. O eixo continua oculto,
+    # mas a extensão visual deixa de superdimensionar diferenças quando
+    # o recorte possui médias baixas.
+    baseline = 0.0
 
 
     altura = max(
@@ -8325,7 +8606,7 @@ def criar_painel_cruzamentos(
         .mark_text(
             align="right",
             baseline="middle",
-            fontSize=10,
+            fontSize=12.5,
             fontWeight="bold",
         )
         .encode(
@@ -8361,7 +8642,7 @@ def criar_painel_cruzamentos(
         .mark_text(
             align="right",
             baseline="middle",
-            fontSize=9.5,
+            fontSize=11.5,
         )
         .encode(
 
@@ -8396,9 +8677,9 @@ def criar_painel_cruzamentos(
             labels_anos
         )
         .mark_text(
-            align="right",
+            align="center",
             baseline="middle",
-            fontSize=9.2,
+            fontSize=10.5,
             color="#7B8498",
         )
         .encode(
@@ -8409,7 +8690,7 @@ def criar_painel_cruzamentos(
 
             x=alt.value(
                 largura_anos
-                - 4
+                / 2
             ),
 
             text="AnoLabel:N",
@@ -8458,8 +8739,8 @@ def criar_painel_cruzamentos(
                 "Média:Q",
                 title=None,
                 scale=alt.Scale(
-                    domainMin=baseline,
-                    zero=False,
+                    domainMin=0,
+                    zero=True,
                     nice=True,
                 ),
                 axis=alt.Axis(
@@ -8668,6 +8949,364 @@ def criar_painel_cruzamentos(
             fontWeight="bold",
         ),
     )
+
+
+    # ========================================================
+    # MODO APENAS VARIAÇÕES
+    #
+    # Remove as linhas de anos e o gráfico de médias, mantendo uma
+    # linha por combinação de categorias. Os rótulos são recalculados
+    # sobre essa estrutura compacta para permanecerem alinhados.
+    # ========================================================
+
+    if (
+        not mostrar_medias
+        and
+        not dados_delta.empty
+    ):
+
+        tipos_delta = {
+            "separador_nivel_1",
+            "separador_nivel_2",
+            "espaco_grande",
+        }
+
+
+        plot_delta_compacto = (
+            plot[
+                plot[
+                    "Variação"
+                ].notna()
+                |
+                plot[
+                    "TipoLinha"
+                ].isin(
+                    tipos_delta
+                )
+            ]
+            .copy()
+        )
+
+
+        ids_delta_compacto = set(
+            plot_delta_compacto[
+                "RowID"
+            ].astype(str)
+        )
+
+
+        ordem_delta_compacto = [
+            row_id
+            for row_id in ordem_linhas
+            if str(row_id)
+            in ids_delta_compacto
+        ]
+
+
+        dados_delta_compacto = (
+            plot_delta_compacto[
+                plot_delta_compacto[
+                    "Variação"
+                ].notna()
+            ]
+            .copy()
+        )
+
+
+        labels_n2_delta = (
+            dados_delta_compacto[
+                [
+                    "RowID",
+                    "Nivel2",
+                ]
+            ]
+            .rename(
+                columns={
+                    "Nivel2":
+                        "Label"
+                }
+            )
+        )
+
+
+        posicoes_delta = {
+            row_id: idx
+            for idx, row_id
+            in enumerate(
+                ordem_delta_compacto
+            )
+        }
+
+
+        registros_n1_delta = []
+
+
+        for nivel_1, grupo_n1 in (
+            dados_delta_compacto
+            .groupby(
+                "Nivel1",
+                sort=False,
+            )
+        ):
+
+            rows_n1 = sorted(
+                grupo_n1[
+                    "RowID"
+                ].astype(str).tolist(),
+                key=lambda row_id:
+                    posicoes_delta.get(
+                        row_id,
+                        10**9,
+                    ),
+            )
+
+
+            if not rows_n1:
+
+                continue
+
+
+            registros_n1_delta.append(
+                {
+                    "RowID":
+                        rows_n1[
+                            len(
+                                rows_n1
+                            )
+                            // 2
+                        ],
+                    "Label":
+                        str(
+                            nivel_1
+                        ),
+                }
+            )
+
+
+        labels_n1_delta = pd.DataFrame(
+            registros_n1_delta
+        )
+
+
+        sep_n2_delta = (
+            plot_delta_compacto[
+                plot_delta_compacto[
+                    "TipoLinha"
+                ]
+                == "separador_nivel_2"
+            ]
+        )
+
+
+        sep_n1_delta = (
+            plot_delta_compacto[
+                plot_delta_compacto[
+                    "TipoLinha"
+                ]
+                == "separador_nivel_1"
+            ]
+        )
+
+
+        altura_delta = max(
+            290,
+            len(
+                ordem_delta_compacto
+            )
+            * 27,
+        )
+
+
+        def regra_n2_delta():
+
+            return (
+                alt.Chart(
+                    sep_n2_delta
+                )
+                .mark_rule(
+                    strokeWidth=0.70,
+                    color="#D5DAE0",
+                )
+                .encode(
+                    y=escala_y(
+                        ordem_delta_compacto
+                    )
+                )
+            )
+
+
+        def regra_n1_delta():
+
+            return (
+                alt.Chart(
+                    sep_n1_delta
+                )
+                .mark_rule(
+                    strokeWidth=1.65,
+                    color="#B9C0C8",
+                )
+                .encode(
+                    y=escala_y(
+                        ordem_delta_compacto
+                    )
+                )
+            )
+
+
+        graf_n1_delta = (
+            alt.Chart(
+                labels_n1_delta
+            )
+            .mark_text(
+                align="right",
+                baseline="middle",
+                fontSize=12.5,
+                fontWeight="bold",
+            )
+            .encode(
+                y=escala_y(
+                    ordem_delta_compacto
+                ),
+                x=alt.value(
+                    largura_nivel_1
+                    - 4
+                ),
+                text="Label:N",
+            )
+            +
+            regra_n1_delta()
+        ).properties(
+            width=largura_nivel_1,
+            height=altura_delta,
+        )
+
+
+        graf_n2_delta = (
+            alt.Chart(
+                labels_n2_delta
+            )
+            .mark_text(
+                align="right",
+                baseline="middle",
+                fontSize=11.5,
+            )
+            .encode(
+                y=escala_y(
+                    ordem_delta_compacto
+                ),
+                x=alt.value(
+                    largura_nivel_2
+                    - 4
+                ),
+                text="Label:N",
+            )
+            +
+            regra_n2_delta()
+            +
+            regra_n1_delta()
+        ).properties(
+            width=largura_nivel_2,
+            height=altura_delta,
+        )
+
+
+        barras_delta_compacto = (
+            alt.Chart(
+                dados_delta_compacto
+            )
+            .mark_bar(
+                size=21,
+                color=COR_DELTA,
+            )
+            .encode(
+                y=escala_y(
+                    ordem_delta_compacto
+                ),
+                x=alt.X(
+                    "Variação:Q",
+                    title=None,
+                    axis=alt.Axis(
+                        labels=False,
+                        ticks=False,
+                        domain=False,
+                        grid=False,
+                    ),
+                ),
+                x2=alt.datum(
+                    0
+                ),
+            )
+        )
+
+
+        textos_delta_compacto = (
+            alt.Chart(
+                dados_delta_compacto
+            )
+            .mark_text(
+                dx=alt.expr(
+                    "datum.Variação >= 0 ? 5 : -5"
+                ),
+                align=alt.expr(
+                    "datum.Variação >= 0 ? 'left' : 'right'"
+                ),
+                fontSize=10.5,
+            )
+            .encode(
+                y=escala_y(
+                    ordem_delta_compacto
+                ),
+                x="Variação:Q",
+                text=alt.Text(
+                    "Variação:Q",
+                    format=formatos[
+                        "delta_cruz"
+                    ],
+                ),
+            )
+        )
+
+
+        graf_delta_compacto = (
+            barras_delta_compacto
+            +
+            textos_delta_compacto
+            +
+            linha_zero
+            +
+            regra_n2_delta()
+            +
+            regra_n1_delta()
+        ).properties(
+            width=max(
+                340,
+                largura_direita
+                + 120,
+            ),
+            height=altura_delta,
+            title=alt.TitleParams(
+                text=titulo_delta,
+                anchor="middle",
+                fontSize=16,
+                fontWeight="bold",
+            ),
+        )
+
+
+        return (
+            alt.hconcat(
+                graf_n1_delta,
+                graf_n2_delta,
+                graf_delta_compacto,
+                spacing=0,
+            )
+            .resolve_scale(
+                y="shared"
+            )
+            .configure_view(
+                stroke=None
+            )
+        )
 
 
     return (
@@ -11699,6 +12338,51 @@ if pagina == "PRINCIPAIS INDICADORES":
 
 
     # ========================================================
+    # MODO DE APRESENTAÇÃO — APENAS VARIAÇÕES
+    # ========================================================
+
+    if (
+        "cruz_ocultar_medias"
+        not in st.session_state
+    ):
+
+        st.session_state[
+            "cruz_ocultar_medias"
+        ] = False
+
+
+    if ano_ini_cruz is None:
+
+        st.session_state[
+            "cruz_ocultar_medias"
+        ] = False
+
+
+    _, col_ocultar_medias, __ = st.columns(
+        [
+            2.1,
+            1.8,
+            2.1,
+        ]
+    )
+
+
+    with col_ocultar_medias:
+
+        ocultar_medias_cruz = st.toggle(
+            "Ocultar gráfico de médias",
+            key="cruz_ocultar_medias",
+            disabled=(
+                ano_ini_cruz
+                is None
+            ),
+            help=(
+                "Exibe somente as variações entre os dois anos mais recentes selecionados."
+            ),
+        )
+
+
+    # ========================================================
     # UMA DIMENSÃO
     #
     # Quando a 2ª dimensão está como "<vazio>", o painel
@@ -11916,6 +12600,9 @@ if pagina == "PRINCIPAIS INDICADORES":
             eixo_nome=variavel_1,
             ano_inicial=ano_ini_cruz,
             ano_final=ano_final_cruz,
+            mostrar_medias=(
+                not ocultar_medias_cruz
+            ),
         )
 
 
@@ -12171,6 +12858,9 @@ if pagina == "PRINCIPAIS INDICADORES":
                 variavel_2=variavel_2,
                 ano_inicial=ano_ini_cruz,
                 ano_final=ano_final_cruz,
+                mostrar_medias=(
+                    not ocultar_medias_cruz
+                ),
             )
         )
 
