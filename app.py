@@ -9559,6 +9559,7 @@ def _resumo_historia_uma_dimensao(
     ano,
     variavel,
     incluir_integral_agregado,
+    incluir_consolidado=False,
 ):
 
     categorias = media_ponderada_por_categoria(
@@ -9576,20 +9577,25 @@ def _resumo_historia_uma_dimensao(
     )
 
 
-    consolidado = calcular_consolidado(
-        base,
-        indicador,
-        [ano],
-    )
+    if incluir_consolidado:
+
+        consolidado = calcular_consolidado(
+            base,
+            indicador,
+            [ano],
+        )
 
 
-    return pd.concat(
-        [
-            consolidado,
-            categorias,
-        ],
-        ignore_index=True,
-    )
+        return pd.concat(
+            [
+                consolidado,
+                categorias,
+            ],
+            ignore_index=True,
+        )
+
+
+    return categorias.copy()
 
 
 def _ordem_historia_uma_dimensao(
@@ -9729,6 +9735,7 @@ def _preparar_bloco_historia_uma_dimensao(
     ordenacao,
     indicadores,
     incluir_integral_agregado,
+    incluir_consolidado=False,
 ):
 
     indicador_ancora = indicadores[0]
@@ -9742,6 +9749,9 @@ def _preparar_bloco_historia_uma_dimensao(
             variavel=variavel,
             incluir_integral_agregado=(
                 incluir_integral_agregado
+            ),
+            incluir_consolidado=(
+                incluir_consolidado
             ),
         )
         for indicador
@@ -9807,6 +9817,7 @@ def _resumo_historia_duas_dimensoes(
     variavel_1,
     variavel_2,
     incluir_integral_agregado,
+    incluir_consolidado=False,
 ):
 
     resultado = media_ponderada_duas_dimensoes(
@@ -9821,11 +9832,25 @@ def _resumo_historia_duas_dimensoes(
     )
 
 
-    consolidado = calcular_consolidado(
-        base,
-        indicador,
-        [ano],
-    )
+    if incluir_consolidado:
+
+        consolidado = calcular_consolidado(
+            base,
+            indicador,
+            [ano],
+        )
+
+    else:
+
+        consolidado = pd.DataFrame(
+            columns=[
+                "Ano",
+                "Categoria",
+                "Média",
+                "N escolas",
+                "Matrículas",
+            ]
+        )
 
 
     return resultado, consolidado
@@ -10032,6 +10057,7 @@ def _preparar_bloco_historia_duas_dimensoes(
     ordenacao,
     indicadores,
     incluir_integral_agregado,
+    incluir_consolidado=False,
 ):
 
     resumos = {}
@@ -10049,6 +10075,9 @@ def _preparar_bloco_historia_duas_dimensoes(
             variavel_2=variavel_2,
             incluir_integral_agregado=(
                 incluir_integral_agregado
+            ),
+            incluir_consolidado=(
+                incluir_consolidado
             ),
         )
 
@@ -10124,8 +10153,16 @@ def _preparar_bloco_historia_duas_dimensoes(
 def _grafico_simbolo_formula(
     simbolo,
     altura,
-    largura=42,
+    largura=None,
 ):
+
+    if largura is None:
+
+        largura = max(
+            42,
+            14 * len(str(simbolo)) + 14,
+        )
+
 
     dados = pd.DataFrame(
         {
@@ -10990,6 +11027,524 @@ def _montar_formula_historia_duas_dimensoes(
     )
 
 
+
+# ============================================================
+# MAPA DE CALOR — TRANSIÇÃO ENTRE CATEGORIAS
+# ============================================================
+
+def _preparar_base_mapa_calor(
+    base,
+    indicador,
+    variavel,
+    ano_inicial,
+    ano_final,
+):
+
+    peso = "Matrículas EM (total) 3/4"
+
+
+    def preparar_ano(ano, sufixo):
+
+        recorte = (
+            base[
+                base["Ano"] == ano
+            ]
+            .drop_duplicates("Cód. INEP")
+            .copy()
+        )
+
+
+        if recorte.empty:
+
+            return pd.DataFrame()
+
+
+        categorias = criar_variavel_eixo(
+            recorte,
+            variavel,
+        )
+
+
+        recorte[f"Categoria_{sufixo}"] = (
+            categorias["Categoria"].values
+        )
+
+
+        recorte[f"Indicador_{sufixo}"] = pd.to_numeric(
+            recorte[indicador],
+            errors="coerce",
+        )
+
+
+        recorte[f"Peso_{sufixo}"] = (
+            pd.to_numeric(
+                recorte[peso],
+                errors="coerce",
+            )
+            .fillna(0)
+            .clip(lower=0)
+        )
+
+
+        return recorte[
+            [
+                "Cód. INEP",
+                f"Categoria_{sufixo}",
+                f"Indicador_{sufixo}",
+                f"Peso_{sufixo}",
+            ]
+        ].copy()
+
+
+    base_inicial = preparar_ano(
+        ano_inicial,
+        "inicial",
+    )
+
+    base_final = preparar_ano(
+        ano_final,
+        "final",
+    )
+
+
+    if base_inicial.empty or base_final.empty:
+
+        return pd.DataFrame()
+
+
+    cruzada = base_inicial.merge(
+        base_final,
+        on="Cód. INEP",
+        how="inner",
+        validate="one_to_one",
+    )
+
+
+    cruzada = cruzada[
+        cruzada["Categoria_inicial"].notna()
+        &
+        cruzada["Categoria_final"].notna()
+    ].copy()
+
+
+    cruzada["Categoria_inicial"] = (
+        cruzada["Categoria_inicial"].astype(str)
+    )
+
+    cruzada["Categoria_final"] = (
+        cruzada["Categoria_final"].astype(str)
+    )
+
+
+    cruzada["Delta"] = (
+        cruzada["Indicador_final"]
+        -
+        cruzada["Indicador_inicial"]
+    )
+
+
+    return cruzada
+
+
+def _media_ponderada_segura_mapa(
+    dados,
+    coluna_valor,
+    coluna_peso,
+):
+
+    valores = pd.to_numeric(
+        dados[coluna_valor],
+        errors="coerce",
+    )
+
+    pesos = pd.to_numeric(
+        dados[coluna_peso],
+        errors="coerce",
+    )
+
+
+    validos = (
+        valores.notna()
+        &
+        pesos.notna()
+        &
+        (pesos > 0)
+    )
+
+
+    if not validos.any():
+
+        return np.nan
+
+
+    return float(
+        np.average(
+            valores[validos],
+            weights=pesos[validos],
+        )
+    )
+
+
+def _valor_recorte_mapa(
+    dados,
+    tipo,
+):
+
+    if dados.empty:
+
+        return np.nan
+
+
+    if tipo == "media_inicial":
+
+        return _media_ponderada_segura_mapa(
+            dados,
+            "Indicador_inicial",
+            "Peso_inicial",
+        )
+
+
+    if tipo == "media_final":
+
+        return _media_ponderada_segura_mapa(
+            dados,
+            "Indicador_final",
+            "Peso_final",
+        )
+
+
+    if tipo == "delta":
+
+        return _media_ponderada_segura_mapa(
+            dados,
+            "Delta",
+            "Peso_final",
+        )
+
+
+    if tipo == "escolas":
+
+        return float(
+            dados["Cód. INEP"].nunique()
+        )
+
+
+    if tipo == "matriculas":
+
+        pesos = pd.to_numeric(
+            dados["Peso_final"],
+            errors="coerce",
+        )
+
+        return float(
+            pesos[
+                pesos.notna()
+                &
+                (pesos > 0)
+            ].sum()
+        )
+
+
+    return np.nan
+
+
+def _formatar_valor_mapa_calor(
+    valor,
+    tipo,
+    indicador,
+):
+
+    if pd.isna(valor):
+
+        return "—"
+
+
+    if tipo in {
+        "escolas",
+        "matriculas",
+    }:
+
+        return (
+            f"{int(round(float(valor))):,}"
+            .replace(",", ".")
+        )
+
+
+    if indicador == "Rendimento":
+
+        numero = float(valor) * 100
+
+        if tipo == "delta":
+
+            return (
+                f"{numero:+.1f} p.p."
+                .replace(".", ",")
+            )
+
+        return (
+            f"{numero:.1f}%"
+            .replace(".", ",")
+        )
+
+
+    if tipo == "delta":
+
+        return (
+            f"{float(valor):+.1f}"
+            .replace(".", ",")
+        )
+
+
+    return (
+        f"{float(valor):.1f}"
+        .replace(".", ",")
+    )
+
+
+def _montar_dados_matriz_mapa(
+    base_cruzada,
+    categorias,
+    tipo,
+    indicador,
+):
+
+    registros = []
+    categorias_com_total = [
+        *categorias,
+        "Consolidado",
+    ]
+
+
+    for categoria_linha in categorias_com_total:
+
+        for categoria_coluna in categorias_com_total:
+
+            recorte = base_cruzada
+
+
+            if categoria_linha != "Consolidado":
+
+                recorte = recorte[
+                    recorte["Categoria_inicial"]
+                    == categoria_linha
+                ]
+
+
+            if categoria_coluna != "Consolidado":
+
+                recorte = recorte[
+                    recorte["Categoria_final"]
+                    == categoria_coluna
+                ]
+
+
+            valor = _valor_recorte_mapa(
+                recorte,
+                tipo,
+            )
+
+
+            registros.append(
+                {
+                    "Linha": categoria_linha,
+                    "Coluna": categoria_coluna,
+                    "Valor": valor,
+                    "Rotulo": _formatar_valor_mapa_calor(
+                        valor,
+                        tipo,
+                        indicador,
+                    ),
+                    "Consolidado": (
+                        categoria_linha == "Consolidado"
+                        or
+                        categoria_coluna == "Consolidado"
+                    ),
+                }
+            )
+
+
+    return pd.DataFrame(registros)
+
+
+def _criar_matriz_mapa_calor(
+    dados,
+    categorias,
+    titulo,
+    subtitulo=None,
+):
+
+    ordem = [
+        *categorias,
+        "Consolidado",
+    ]
+
+
+    dados_normais = dados[
+        ~dados["Consolidado"]
+        &
+        dados["Valor"].notna()
+    ]
+
+
+    if dados_normais.empty:
+
+        dominio_cor = [0.0, 1.0]
+
+    else:
+
+        minimo = float(
+            dados_normais["Valor"].min()
+        )
+
+        maximo = float(
+            dados_normais["Valor"].max()
+        )
+
+
+        if np.isclose(minimo, maximo):
+
+            margem = max(
+                abs(minimo) * 0.05,
+                0.01,
+            )
+
+            dominio_cor = [
+                minimo - margem,
+                maximo + margem,
+            ]
+
+        else:
+
+            dominio_cor = [
+                minimo,
+                maximo,
+            ]
+
+
+    tamanho_celula = 74
+    tamanho = max(
+        360,
+        len(ordem) * tamanho_celula,
+    )
+
+
+    base_chart = alt.Chart(dados)
+
+
+    retangulos = (
+        base_chart
+        .mark_rect(
+            stroke="#FFFFFF",
+            strokeWidth=2,
+        )
+        .encode(
+            x=alt.X(
+                "Coluna:N",
+                sort=ordem,
+                title=None,
+                axis=alt.Axis(
+                    orient="top",
+                    labelAngle=-35,
+                    labelFontSize=11,
+                    labelLimit=150,
+                    ticks=False,
+                    domain=False,
+                ),
+            ),
+            y=alt.Y(
+                "Linha:N",
+                sort=ordem,
+                title=None,
+                axis=alt.Axis(
+                    labelFontSize=11,
+                    labelLimit=170,
+                    ticks=False,
+                    domain=False,
+                ),
+            ),
+            color=alt.condition(
+                "datum.Consolidado === true",
+                alt.value("#E5EAF0"),
+                alt.Color(
+                    "Valor:Q",
+                    scale=alt.Scale(
+                        domain=[
+                            dominio_cor[0],
+                            (dominio_cor[0] + dominio_cor[1]) / 2,
+                            dominio_cor[1],
+                        ],
+                        range=[
+                            "#D88C8C",
+                            "#F3E7D7",
+                            "#81AC8A",
+                        ],
+                    ),
+                    legend=None,
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip(
+                    "Linha:N",
+                    title="Categoria — 1º ano",
+                ),
+                alt.Tooltip(
+                    "Coluna:N",
+                    title="Categoria — 2º ano",
+                ),
+                alt.Tooltip(
+                    "Rotulo:N",
+                    title="Valor",
+                ),
+            ],
+        )
+    )
+
+
+    textos = (
+        base_chart
+        .mark_text(
+            fontSize=11.5,
+            fontWeight=600,
+            color="#243447",
+        )
+        .encode(
+            x=alt.X(
+                "Coluna:N",
+                sort=ordem,
+            ),
+            y=alt.Y(
+                "Linha:N",
+                sort=ordem,
+            ),
+            text="Rotulo:N",
+        )
+    )
+
+
+    return (
+        retangulos
+        +
+        textos
+    ).properties(
+        width=tamanho,
+        height=tamanho,
+        title=alt.TitleParams(
+            text=titulo,
+            subtitle=(
+                [subtitulo]
+                if subtitulo
+                else None
+            ),
+            anchor="middle",
+            fontSize=17,
+            fontWeight=700,
+            color="#27364A",
+            subtitleFontSize=11,
+            subtitleColor="#64748B",
+        ),
+    )
+
+
 # ============================================================
 # CARREGAMENTO
 # ============================================================
@@ -11725,6 +12280,27 @@ if pagina == "DISTRIBUIÇÕES":
 
 
 
+        _, col_incluir_consolidado_distrib, __ = st.columns(
+            [
+                2.6,
+                1.4,
+                2.6,
+            ]
+        )
+
+
+        with col_incluir_consolidado_distrib:
+
+            incluir_consolidado_distrib = st.toggle(
+                "Incluir Consolidado",
+                value=False,
+                key="distrib_incluir_consolidado",
+                help=(
+                    "Inclui o Consolidado nos boxplots e nas distribuições de delta."
+                ),
+            )
+
+
         opcoes_distribuicoes = list(
             EIXOS_DISPONIVEIS.keys()
         )
@@ -11991,6 +12567,29 @@ if pagina == "DISTRIBUIÇÕES":
                 )
 
                 return
+
+
+        # Consolidado é opcional e começa oculto por padrão.
+        if not incluir_consolidado_distrib:
+
+            dados_boxplot = (
+                dados_boxplot[
+                    dados_boxplot["Categoria"].astype(str)
+                    != "Consolidado"
+                ]
+                .copy()
+            )
+
+
+            if not dados_delta_boxplot.empty:
+
+                dados_delta_boxplot = (
+                    dados_delta_boxplot[
+                        dados_delta_boxplot["Categoria"].astype(str)
+                        != "Consolidado"
+                    ]
+                    .copy()
+                )
 
 
         # ====================================================
@@ -14208,12 +14807,26 @@ if pagina == "PRINCIPAIS INDICADORES":
             ] = False
 
 
-    col_apres_esq, col_ocultar_medias, col_ocultar_variacoes, col_apres_dir = st.columns(
+    if "cruz_incluir_consolidado" not in st.session_state:
+
+        st.session_state[
+            "cruz_incluir_consolidado"
+        ] = False
+
+
+    (
+        col_apres_esq,
+        col_ocultar_medias,
+        col_ocultar_variacoes,
+        col_incluir_consolidado,
+        col_apres_dir,
+    ) = st.columns(
         [
-            1.5,
-            2.0,
-            2.0,
-            1.5,
+            1.0,
+            1.8,
+            1.8,
+            1.55,
+            1.0,
         ]
     )
 
@@ -14247,6 +14860,17 @@ if pagina == "PRINCIPAIS INDICADORES":
                 "Exibe somente o gráfico de médias ponderadas."
             ),
             on_change=ao_alterar_ocultar_variacoes,
+        )
+
+
+    with col_incluir_consolidado:
+
+        incluir_consolidado_cruz = st.toggle(
+            "Incluir Consolidado",
+            key="cruz_incluir_consolidado",
+            help=(
+                "Adiciona o resultado consolidado acima das categorias."
+            ),
         )
 
 
@@ -14436,11 +15060,21 @@ if pagina == "PRINCIPAIS INDICADORES":
                 )
 
 
-        dados_cruz_uma_dimensao = pd.concat(
-            [
+        partes_cruz_uma_dimensao = [
+            resultado_cruz
+        ]
+
+
+        if incluir_consolidado_cruz:
+
+            partes_cruz_uma_dimensao.insert(
+                0,
                 consolidado_cruz,
-                resultado_cruz,
-            ],
+            )
+
+
+        dados_cruz_uma_dimensao = pd.concat(
+            partes_cruz_uma_dimensao,
             ignore_index=True,
         )
 
@@ -14708,7 +15342,11 @@ if pagina == "PRINCIPAIS INDICADORES":
             ordem_linhas_cruz,
         ) = preparar_linhas_cruzamentos(
             resultado=resultado_cruz,
-            consolidado=consolidado_cruz,
+            consolidado=(
+                consolidado_cruz
+                if incluir_consolidado_cruz
+                else consolidado_cruz.iloc[0:0].copy()
+            ),
             anos=anos_cruz,
             ordem_nivel_1=ordem_nivel_1,
             ordem_nivel_2=ordem_nivel_2,
@@ -14876,6 +15514,27 @@ if pagina == "HISTÓRIA DO ANO":
         )
 
 
+    _, col_hist_consolidado, __ = st.columns(
+        [
+            2.6,
+            1.4,
+            2.6,
+        ]
+    )
+
+
+    with col_hist_consolidado:
+
+        incluir_consolidado_historia = st.toggle(
+            "Incluir Consolidado",
+            value=False,
+            key="historia_incluir_consolidado",
+            help=(
+                "Adiciona o resultado consolidado como primeira categoria nas duas fórmulas."
+            ),
+        )
+
+
     df_historia = df.copy()
 
 
@@ -14910,6 +15569,9 @@ if pagina == "HISTÓRIA DO ANO":
                 incluir_integral_agregado=(
                     mostrar_integral_agregado
                 ),
+                incluir_consolidado=(
+                    incluir_consolidado_historia
+                ),
             )
         )
 
@@ -14925,6 +15587,9 @@ if pagina == "HISTÓRIA DO ANO":
                 ),
                 incluir_integral_agregado=(
                     mostrar_integral_agregado
+                ),
+                incluir_consolidado=(
+                    incluir_consolidado_historia
                 ),
             )
         )
@@ -14968,13 +15633,16 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_2
                 ),
                 simbolos=[
-                    "=",
+                    "=  (",
                     "×",
+                    ") ÷ 2",
                 ],
                 ano=historia_ano,
-                titulo_formula=(
-                    "N = (N(LP) × N(M)) / 2"
-                ),
+                titulo_formula=[
+                    "          N(LP) × N(M)",
+                    "N =       ─────────────",
+                    "                 2",
+                ],
             )
         )
 
@@ -14994,6 +15662,9 @@ if pagina == "HISTÓRIA DO ANO":
                 incluir_integral_agregado=(
                     mostrar_integral_agregado
                 ),
+                incluir_consolidado=(
+                    incluir_consolidado_historia
+                ),
             )
         )
 
@@ -15010,6 +15681,9 @@ if pagina == "HISTÓRIA DO ANO":
                 ),
                 incluir_integral_agregado=(
                     mostrar_integral_agregado
+                ),
+                incluir_consolidado=(
+                    incluir_consolidado_historia
                 ),
             )
         )
@@ -15053,13 +15727,16 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_2
                 ),
                 simbolos=[
-                    "=",
+                    "=  (",
                     "×",
+                    ") ÷ 2",
                 ],
                 ano=historia_ano,
-                titulo_formula=(
-                    "N = (N(LP) × N(M)) / 2"
-                ),
+                titulo_formula=[
+                    "          N(LP) × N(M)",
+                    "N =       ─────────────",
+                    "                 2",
+                ],
             )
         )
 
@@ -15110,7 +15787,7 @@ if pagina == "MAPA DE CALOR":
             font-weight:750;
             letter-spacing:-0.02em;
             color:#27364A;
-            margin-bottom:0.25rem;
+            margin-bottom:0.35rem;
         ">
             MAPA DE CALOR
         </div>
@@ -15118,6 +15795,242 @@ if pagina == "MAPA DE CALOR":
         unsafe_allow_html=True,
     )
 
+
+    opcoes_mapa = list(
+        EIXOS_DISPONIVEIS.keys()
+    )
+
+
+    mapa_c1, mapa_c2 = st.columns(
+        [
+            1.0,
+            1.45,
+        ]
+    )
+
+
+    with mapa_c1:
+
+        indicador_mapa = st.selectbox(
+            "Indicador",
+            [
+                "IDEB",
+                "N(LP)",
+                "N(M)",
+                "N",
+                "Rendimento",
+            ],
+            key="mapa_indicador",
+        )
+
+
+    with mapa_c2:
+
+        variavel_mapa = st.selectbox(
+            "Dimensão",
+            options=opcoes_mapa,
+            index=(
+                opcoes_mapa.index("INSE")
+                if "INSE" in opcoes_mapa
+                else 0
+            ),
+            format_func=rotulo_dimensao,
+            key="mapa_variavel",
+        )
+
+
+    _, bloco_mapa_anos, __ = st.columns(
+        [
+            1.3,
+            3.4,
+            1.3,
+        ]
+    )
+
+
+    with bloco_mapa_anos:
+
+        cols_mapa_anos = st.columns(5)
+
+        defaults_mapa = {
+            2017: False,
+            2019: False,
+            2021: False,
+            2023: True,
+            2025: True,
+        }
+
+        selecao_mapa = {}
+
+
+        for col, ano in zip(
+            cols_mapa_anos,
+            ANOS_PAINEL,
+        ):
+
+            with col:
+
+                selecao_mapa[ano] = st.checkbox(
+                    str(ano),
+                    value=defaults_mapa[ano],
+                    key=f"mapa_ano_{ano}",
+                )
+
+
+    anos_mapa = sorted(
+        [
+            ano
+            for ano, ativo
+            in selecao_mapa.items()
+            if ativo
+        ]
+    )
+
+
+    if len(anos_mapa) != 2:
+
+        st.warning(
+            "Selecione exatamente dois anos para construir as matrizes."
+        )
+
+        st.stop()
+
+
+    ano_inicial_mapa, ano_final_mapa = anos_mapa
+
+
+    base_mapa = _preparar_base_mapa_calor(
+        base=df,
+        indicador=indicador_mapa,
+        variavel=variavel_mapa,
+        ano_inicial=ano_inicial_mapa,
+        ano_final=ano_final_mapa,
+    )
+
+
+    if base_mapa.empty:
+
+        st.info(
+            "Não há escolas presentes nos dois anos para a configuração selecionada."
+        )
+
+        st.stop()
+
+
+    categorias_mapa = ordenar_dimensao_para_grafico(
+        pd.concat(
+            [
+                base_mapa["Categoria_inicial"],
+                base_mapa["Categoria_final"],
+            ],
+            ignore_index=True,
+        ).dropna().astype(str).unique(),
+        variavel_mapa,
+    )
+
+
+    if not categorias_mapa:
+
+        st.info(
+            "Não há categorias disponíveis para a dimensão selecionada."
+        )
+
+        st.stop()
+
+
+    st.caption(
+        f"Linhas: {rotulo_dimensao(variavel_mapa)} em {ano_inicial_mapa}. "
+        f"Colunas: {rotulo_dimensao(variavel_mapa)} em {ano_final_mapa}. "
+        "As médias são ponderadas por matrículas; a matriz de matrículas usa "
+        f"as matrículas de {ano_final_mapa}. As margens consolidadas permanecem em cinza."
+    )
+
+
+    especificacoes_mapa = [
+        (
+            "media_inicial",
+            (
+                f"Média ponderada de {indicador_mapa} — {ano_inicial_mapa}"
+            ),
+        ),
+        (
+            "media_final",
+            (
+                f"Média ponderada de {indicador_mapa} — {ano_final_mapa}"
+            ),
+        ),
+        (
+            "delta",
+            (
+                f"Variação média de {indicador_mapa} — "
+                f"{ano_final_mapa} − {ano_inicial_mapa}"
+            ),
+        ),
+        (
+            "escolas",
+            "Número de escolas",
+        ),
+        (
+            "matriculas",
+            f"Número de matrículas — {ano_final_mapa}",
+        ),
+    ]
+
+
+    for indice_matriz, (
+        tipo_mapa,
+        titulo_mapa,
+    ) in enumerate(especificacoes_mapa, start=1):
+
+        dados_matriz = _montar_dados_matriz_mapa(
+            base_cruzada=base_mapa,
+            categorias=categorias_mapa,
+            tipo=tipo_mapa,
+            indicador=indicador_mapa,
+        )
+
+
+        grafico_matriz = _criar_matriz_mapa_calor(
+            dados=dados_matriz,
+            categorias=categorias_mapa,
+            titulo=titulo_mapa,
+            subtitulo=(
+                f"{rotulo_dimensao(variavel_mapa)}: "
+                f"{ano_inicial_mapa} nas linhas × {ano_final_mapa} nas colunas"
+            ),
+        )
+
+
+        col_mapa_esq, col_mapa_centro, col_mapa_dir = st.columns(
+            [
+                0.8,
+                8.4,
+                0.8,
+            ]
+        )
+
+
+        with col_mapa_centro:
+
+            st.altair_chart(
+                aplicar_fundo_grafico(
+                    grafico_matriz
+                ),
+                theme=None,
+                width="stretch",
+                key=f"mapa_calor_matriz_{indice_matriz}",
+            )
+
+
+        if indice_matriz < len(especificacoes_mapa):
+
+            st.markdown(
+                '<div style="height:0.75rem;"></div>',
+                unsafe_allow_html=True,
+            )
+
+
+    st.stop()
 
 
 # ============================================================
@@ -15263,13 +16176,15 @@ if pagina == "DEMOGRAFIA":
         col_demo_ctrl_esq,
         col_demo_ocultar_distribuicao,
         col_demo_ocultar_totais,
+        col_demo_incluir_consolidado,
         col_demo_ctrl_dir,
     ) = st.columns(
         [
-            1.5,
-            2.0,
-            2.0,
-            1.5,
+            1.0,
+            1.8,
+            1.8,
+            1.55,
+            1.0,
         ]
     )
 
@@ -15297,6 +16212,18 @@ if pagina == "DEMOGRAFIA":
                 "em Matrículas, mantendo apenas as distribuições."
             ),
             on_change=ao_alterar_ocultar_totais_demo,
+        )
+
+
+    with col_demo_incluir_consolidado:
+
+        incluir_consolidado_demo = st.toggle(
+            "Incluir Consolidado",
+            value=False,
+            key="demo_incluir_consolidado",
+            help=(
+                "Inclui a barra consolidada nos blocos de Escolas e Matrículas."
+            ),
         )
 
 
@@ -15951,65 +16878,61 @@ if pagina == "DEMOGRAFIA":
     ] = total_cons
 
 
-    resumo = pd.concat(
-        [
-            cons,
-            resumo,
-        ],
-        ignore_index=True,
-    )
-
-
     # ========================================================
-    # ESPAÇO APÓS CONSOLIDADO
+    # CONSOLIDADO OPCIONAL / ESPAÇAMENTO
     # ========================================================
 
     GRUPO_ESPACO = "__espaco__"
 
 
-    ordem_barras = (
-        [
-            "Consolidado",
-            GRUPO_ESPACO,
-        ]
-        +
-        ordem_grupos
-    )
+    if incluir_consolidado_demo:
+
+        resumo = pd.concat(
+            [
+                cons,
+                resumo,
+            ],
+            ignore_index=True,
+        )
 
 
-    # Linha dummy exclusiva após o Consolidado. Como as demais categorias
-    # ficam em posições consecutivas, somente o Consolidado recebe o
-    # afastamento adicional.
-    espaco_resumo = pd.DataFrame(
-        {
-            "Composição": [
-                ordem_comp[0]
-                if ordem_comp
-                else ""
-            ],
-            "Escolas": [
-                0
-            ],
-            "Percentual": [
-                0
-            ],
-            "Grupo": [
-                GRUPO_ESPACO
-            ],
-            "Total": [
-                0
-            ],
-        }
-    )
+        ordem_barras = (
+            [
+                "Consolidado",
+                GRUPO_ESPACO,
+            ]
+            +
+            ordem_grupos
+        )
 
 
-    resumo_plot = pd.concat(
-        [
-            resumo,
-            espaco_resumo,
-        ],
-        ignore_index=True,
-    )
+        espaco_resumo = pd.DataFrame(
+            {
+                "Composição": [
+                    ordem_comp[0]
+                    if ordem_comp
+                    else ""
+                ],
+                "Escolas": [0],
+                "Percentual": [0],
+                "Grupo": [GRUPO_ESPACO],
+                "Total": [0],
+            }
+        )
+
+
+        resumo_plot = pd.concat(
+            [
+                resumo,
+                espaco_resumo,
+            ],
+            ignore_index=True,
+        )
+
+    else:
+
+        ordem_barras = list(ordem_grupos)
+        resumo_plot = resumo.copy()
 
 
     resumo_plot = calcular_posicoes_empilhadas(
@@ -16240,32 +17163,30 @@ if pagina == "DEMOGRAFIA":
     # TOTAL DE ESCOLAS
     # ========================================================
 
-    totais_demo = pd.concat(
-        [
-            pd.DataFrame(
-                {
-                    "Grupo": [
-                        "Consolidado"
-                    ],
-                    "Total": [
-                        total_cons
-                    ],
-                }
-            ),
-            pd.DataFrame(
-                {
-                    "Grupo": [
-                        GRUPO_ESPACO
-                    ],
-                    "Total": [
-                        0
-                    ],
-                }
-            ),
-            totais,
-        ],
-        ignore_index=True,
-    )
+    if incluir_consolidado_demo:
+
+        totais_demo = pd.concat(
+            [
+                pd.DataFrame(
+                    {
+                        "Grupo": ["Consolidado"],
+                        "Total": [total_cons],
+                    }
+                ),
+                pd.DataFrame(
+                    {
+                        "Grupo": [GRUPO_ESPACO],
+                        "Total": [0],
+                    }
+                ),
+                totais,
+            ],
+            ignore_index=True,
+        )
+
+    else:
+
+        totais_demo = totais.copy()
 
 
     totais_demo[
@@ -16662,55 +17583,59 @@ if pagina == "DEMOGRAFIA":
     ] = total_cons_matriculas
 
 
-    resumo_matriculas = pd.concat(
-        [
-            cons_matriculas,
-            resumo_matriculas,
-        ],
-        ignore_index=True,
-    )
+    if incluir_consolidado_demo:
 
-
-    ordem_barras_matriculas = (
-        [
-            "Consolidado",
-            GRUPO_ESPACO,
-        ]
-        +
-        ordem_grupos_matriculas
-    )
-
-
-    espaco_matriculas = pd.DataFrame(
-        {
-            "Composição": [
-                ordem_comp[0]
-                if ordem_comp
-                else ""
+        resumo_matriculas = pd.concat(
+            [
+                cons_matriculas,
+                resumo_matriculas,
             ],
-            "Matrículas": [
-                0
-            ],
-            "Percentual": [
-                0
-            ],
-            "Grupo": [
-                GRUPO_ESPACO
-            ],
-            "Total": [
-                0
-            ],
-        }
-    )
+            ignore_index=True,
+        )
 
 
-    resumo_matriculas_plot = pd.concat(
-        [
-            resumo_matriculas,
-            espaco_matriculas,
-        ],
-        ignore_index=True,
-    )
+        ordem_barras_matriculas = (
+            [
+                "Consolidado",
+                GRUPO_ESPACO,
+            ]
+            +
+            ordem_grupos_matriculas
+        )
+
+
+        espaco_matriculas = pd.DataFrame(
+            {
+                "Composição": [
+                    ordem_comp[0]
+                    if ordem_comp
+                    else ""
+                ],
+                "Matrículas": [0],
+                "Percentual": [0],
+                "Grupo": [GRUPO_ESPACO],
+                "Total": [0],
+            }
+        )
+
+
+        resumo_matriculas_plot = pd.concat(
+            [
+                resumo_matriculas,
+                espaco_matriculas,
+            ],
+            ignore_index=True,
+        )
+
+    else:
+
+        ordem_barras_matriculas = list(
+            ordem_grupos_matriculas
+        )
+
+        resumo_matriculas_plot = (
+            resumo_matriculas.copy()
+        )
 
 
     resumo_matriculas_plot = calcular_posicoes_empilhadas(
@@ -16901,32 +17826,32 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    totais_demo_matriculas = pd.concat(
-        [
-            pd.DataFrame(
-                {
-                    "Grupo": [
-                        "Consolidado"
-                    ],
-                    "Total": [
-                        total_cons_matriculas
-                    ],
-                }
-            ),
-            pd.DataFrame(
-                {
-                    "Grupo": [
-                        GRUPO_ESPACO
-                    ],
-                    "Total": [
-                        0
-                    ],
-                }
-            ),
-            totais_matriculas,
-        ],
-        ignore_index=True,
-    )
+    if incluir_consolidado_demo:
+
+        totais_demo_matriculas = pd.concat(
+            [
+                pd.DataFrame(
+                    {
+                        "Grupo": ["Consolidado"],
+                        "Total": [total_cons_matriculas],
+                    }
+                ),
+                pd.DataFrame(
+                    {
+                        "Grupo": [GRUPO_ESPACO],
+                        "Total": [0],
+                    }
+                ),
+                totais_matriculas,
+            ],
+            ignore_index=True,
+        )
+
+    else:
+
+        totais_demo_matriculas = (
+            totais_matriculas.copy()
+        )
 
 
     totais_demo_matriculas[
