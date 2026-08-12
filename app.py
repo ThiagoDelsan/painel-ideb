@@ -13087,9 +13087,9 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
 def obter_combinacoes_insights(
     base,
     dimensao_1,
-    dimensao_2,
+    dimensao_2=None,
 ):
-    """Retorna apenas combinações efetivamente observadas no recorte."""
+    """Retorna categorias ou combinações efetivamente observadas no recorte."""
 
     if base.empty:
         return []
@@ -13101,6 +13101,61 @@ def obter_combinacoes_insights(
     )[
         "Categoria"
     ]
+
+
+    # Quando a 2ª dimensão está vazia, cada opção dos agregados é
+    # simplesmente uma categoria da 1ª dimensão. Mantemos o formato
+    # de tupla para preservar a mesma estrutura interna usada no modo
+    # de duas dimensões.
+    if dimensao_2 is None:
+
+        temp = pd.DataFrame(
+            {
+                "Nivel_1": categorias_1,
+            },
+            index=base.index,
+        )
+
+        temp = (
+            temp[
+                temp["Nivel_1"].notna()
+            ]
+            .astype(
+                {
+                    "Nivel_1": str,
+                }
+            )
+            .drop_duplicates()
+        )
+
+        if temp.empty:
+            return []
+
+        ordem_1 = ordenar_dimensao(
+            temp["Nivel_1"].unique().tolist(),
+            dimensao_1,
+        )
+
+        indice_1 = {
+            valor: posicao
+            for posicao, valor
+            in enumerate(ordem_1)
+        }
+
+        combinacoes = [
+            (str(linha.Nivel_1), None)
+            for linha
+            in temp.itertuples(index=False)
+        ]
+
+        combinacoes.sort(
+            key=lambda item: (
+                indice_1.get(item[0], 10**6),
+                item[0],
+            )
+        )
+
+        return combinacoes
 
 
     categorias_2 = criar_variavel_eixo(
@@ -13189,13 +13244,19 @@ def obter_combinacoes_insights(
     return combinacoes
 
 
+
 def rotulo_combinacao_insights(
     combinacao,
     dimensao_1,
-    dimensao_2,
+    dimensao_2=None,
 ):
 
     nivel_1, nivel_2 = combinacao
+
+    if dimensao_2 is None or nivel_2 is None:
+        return (
+            f"{rotulo_dimensao(dimensao_1)}: {nivel_1}"
+        )
 
     return (
         f"{rotulo_dimensao(dimensao_1)}: {nivel_1}  ·  "
@@ -13283,7 +13344,7 @@ if pagina == "INSIGHTS":
             color:#6B7A90;
             margin-bottom:1.15rem;
         ">
-            Construa grupos comparáveis a partir de combinações de duas dimensões.
+            Construa grupos comparáveis a partir de uma dimensão ou de combinações de duas dimensões.
         </div>
         """,
         unsafe_allow_html=True,
@@ -13296,9 +13357,11 @@ if pagina == "INSIGHTS":
 
 
     st.caption(
-        "Selecione duas dimensões. Cada opção dos agregados representa uma "
-        "combinação efetivamente observada entre os dois níveis no universo "
-        "atualmente filtrado. A mesma combinação não pode pertencer aos dois grupos."
+        "Selecione uma dimensão e, se desejar, uma segunda. Com a 2ª dimensão em "
+        "<vazio>, os agregados usam apenas as categorias da 1ª dimensão. Quando "
+        "duas dimensões são escolhidas, cada opção representa uma combinação "
+        "efetivamente observada no universo atualmente filtrado. A mesma opção "
+        "não pode pertencer aos dois grupos."
     )
 
 
@@ -13327,12 +13390,32 @@ if pagina == "INSIGHTS":
         )
 
 
+    SEM_ESCOLHA_INSIGHTS = "<vazio>"
+
+
+    # Migração única da versão anterior: a 2ª dimensão passa a iniciar
+    # vazia também para sessões que já estavam abertas antes desta mudança.
+    if not st.session_state.get(
+        "_insights_dimensao_2_v41_inicializada",
+        False,
+    ):
+        st.session_state[
+            "insights_dimensao_2"
+        ] = SEM_ESCOLHA_INSIGHTS
+        st.session_state[
+            "_insights_dimensao_2_v41_inicializada"
+        ] = True
+
+
     opcoes_dimensao_2_insights = [
-        dimensao
-        for dimensao
-        in opcoes_dimensoes_insights
-        if dimensao
-        != dimensao_1_insights
+        SEM_ESCOLHA_INSIGHTS,
+        *[
+            dimensao
+            for dimensao
+            in opcoes_dimensoes_insights
+            if dimensao
+            != dimensao_1_insights
+        ],
     ]
 
 
@@ -13340,7 +13423,7 @@ if pagina == "INSIGHTS":
 
         # Se a 1ª dimensão mudar para o valor que estava selecionado na
         # 2ª, removemos o estado antigo antes de recriar o selectbox.
-        # Isso evita manter uma opção que deixou de ser válida.
+        # O valor <vazio> permanece sempre válido.
         if (
             "insights_dimensao_2"
             in st.session_state
@@ -13357,23 +13440,26 @@ if pagina == "INSIGHTS":
             )
 
 
-        indice_padrao_dim_2 = (
-            opcoes_dimensao_2_insights.index(
-                "PPI"
-            )
-            if "PPI"
-            in opcoes_dimensao_2_insights
-            else 0
-        )
-
-
-        dimensao_2_insights = st.selectbox(
+        dimensao_2_insights_selecionada = st.selectbox(
             "2ª dimensão",
             options=opcoes_dimensao_2_insights,
-            index=indice_padrao_dim_2,
-            format_func=rotulo_dimensao,
+            index=0,
+            format_func=(
+                lambda valor:
+                    SEM_ESCOLHA_INSIGHTS
+                    if valor == SEM_ESCOLHA_INSIGHTS
+                    else rotulo_dimensao(valor)
+            ),
             key="insights_dimensao_2",
         )
+
+
+    dimensao_2_insights = (
+        None
+        if dimensao_2_insights_selecionada
+        == SEM_ESCOLHA_INSIGHTS
+        else dimensao_2_insights_selecionada
+    )
 
 
     dimensoes_ativas_insights = (
@@ -13419,7 +13505,7 @@ if pagina == "INSIGHTS":
     if not combinacoes_insights:
 
         st.info(
-            "Não há combinações disponíveis para as duas dimensões no recorte atual."
+            "Não há categorias ou combinações disponíveis para as dimensões selecionadas no recorte atual."
         )
 
     else:
@@ -13484,22 +13570,16 @@ if pagina == "INSIGHTS":
                     dimensao_1_insights,
                     dimensao_2_insights,
                 ),
-                placeholder="Selecione as combinações",
+                placeholder=(
+                    "Selecione as categorias"
+                    if dimensao_2_insights is None
+                    else "Selecione as combinações"
+                ),
                 key="insights_agregado_1",
             )
 
 
         with col_ag_insights_2:
-
-            selecionar_resto_insights = st.checkbox(
-                "Selecionar todo o resto",
-                key="insights_agregado_2_selecionar_resto",
-                help=(
-                    "Inclui automaticamente no Agregado 2 todas as combinações "
-                    "que não foram selecionadas no Agregado 1."
-                ),
-            )
-
 
             opcoes_insights_2 = [
                 combinacao
@@ -13541,9 +13621,23 @@ if pagina == "INSIGHTS":
                     dimensao_1_insights,
                     dimensao_2_insights,
                 ),
-                placeholder="Selecione as combinações",
+                placeholder=(
+                    "Selecione as categorias"
+                    if dimensao_2_insights is None
+                    else "Selecione as combinações"
+                ),
                 key="insights_agregado_2",
                 disabled=selecionar_resto_insights,
+            )
+
+
+            selecionar_resto_insights = st.checkbox(
+                "Selecionar todo o resto",
+                key="insights_agregado_2_selecionar_resto",
+                help=(
+                    "Inclui automaticamente no Agregado 2 todas as opções "
+                    "que não foram selecionadas no Agregado 1."
+                ),
             )
 
 
@@ -14588,16 +14682,6 @@ if pagina == "DISTRIBUIÇÕES":
 
         with col_grupo_2:
 
-            selecionar_resto_agregado = st.checkbox(
-                "Selecionar todo o resto",
-                key="agregado_2_selecionar_resto",
-                help=(
-                    "Inclui automaticamente no Agregado 2 todas as "
-                    "categorias que não foram selecionadas no Agregado 1."
-                ),
-            )
-
-
             opcoes_grupo_2 = [
                 categoria
                 for categoria
@@ -14639,6 +14723,16 @@ if pagina == "DISTRIBUIÇÕES":
                 placeholder="Selecione as categorias",
                 key="categorias_distrib_agregado_2",
                 disabled=selecionar_resto_agregado,
+            )
+
+
+            selecionar_resto_agregado = st.checkbox(
+                "Selecionar todo o resto",
+                key="agregado_2_selecionar_resto",
+                help=(
+                    "Inclui automaticamente no Agregado 2 todas as "
+                    "categorias que não foram selecionadas no Agregado 1."
+                ),
             )
 
 
