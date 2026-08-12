@@ -455,6 +455,12 @@ ROTULOS_DIMENSOES = {
 }
 
 
+VARIAVEIS_TIPO_ESCOLA = {
+    "Tipo de Escola por ano",
+    "Tipo de Escola 2025",
+}
+
+
 def rotulo_dimensao(nome):
 
     return ROTULOS_DIMENSOES.get(
@@ -941,7 +947,7 @@ def ordenar_dimensao(
     ]
 
 
-    if variavel == "Tipo de Escola":
+    if variavel in VARIAVEIS_TIPO_ESCOLA:
 
         ordem = [
             "Parcial/Regular",
@@ -1391,7 +1397,7 @@ def criar_duas_dimensoes(
         incluir_integral_agregado
         and
         variavel_1
-        == "Tipo de Escola"
+        in VARIAVEIS_TIPO_ESCOLA
     ):
 
         agregado = (
@@ -1429,7 +1435,7 @@ def criar_duas_dimensoes(
         incluir_integral_agregado
         and
         variavel_2
-        == "Tipo de Escola"
+        in VARIAVEIS_TIPO_ESCOLA
     ):
 
         agregado = (
@@ -1617,29 +1623,61 @@ def media_ponderada_duas_dimensoes(
 # ============================================================
 
 def limpar_todos_os_filtros():
+    """Restaura explicitamente todos os filtros globais da sidebar.
 
-    apagar = []
+    Atribuir os valores padrão diretamente ao session_state é mais robusto
+    do que apenas remover as chaves, porque widgets já renderizados podem
+    manter o valor anterior no estado do frontend.
+    """
+
+    padroes = {
+        "filtro_same_schools": False,
+        "filtro_proped": [],
+        "filtro_ept": [],
+    }
 
 
+    for nome in EIXOS_DISPONIVEIS.keys():
+
+        padroes[
+            f"filtro_{nome}"
+        ] = []
+
+
+    for ano in ANOS_PAINEL:
+
+        padroes[
+            f"filtro_ideb_{ano}"
+        ] = []
+
+        padroes[
+            f"filtro_considerar_ideb_{ano}"
+        ] = False
+
+
+    # Remove chaves antigas/legadas de filtros para evitar que uma versão
+    # anterior do painel reaplique um valor que já não pertence à interface.
     for chave in list(
         st.session_state.keys()
     ):
 
-        if chave.startswith(
-            "filtro_"
+        if (
+            chave.startswith("filtro_")
+            and
+            chave not in padroes
         ):
 
-            apagar.append(
-                chave
+            st.session_state.pop(
+                chave,
+                None,
             )
 
 
-    for chave in apagar:
+    for chave, valor in padroes.items():
 
-        st.session_state.pop(
-            chave,
-            None,
-        )
+        st.session_state[
+            chave
+        ] = valor
 
 
 # ============================================================
@@ -2210,7 +2248,7 @@ def _categorizar_base_boxplot(
             incluir_integral_agregado
             and
             variavel_1
-            == "Tipo de Escola"
+            in VARIAVEIS_TIPO_ESCOLA
         ):
 
             agregado = (
@@ -9624,7 +9662,7 @@ def _filtrar_integral_resultado_historia(
 
 
     if (
-        variavel == "Tipo de Escola"
+        variavel in VARIAVEIS_TIPO_ESCOLA
         and
         not incluir_integral_agregado
         and
@@ -11781,6 +11819,36 @@ st.markdown(
 
 
 # ============================================================
+# COMPATIBILIDADE DE SESSÃO — RENOME DA DIMENSÃO
+# ============================================================
+
+# Usuários que já estavam com o painel aberto podem carregar no
+# session_state o nome antigo da dimensão. A migração evita que um
+# selectbox permaneça apontando para uma opção que não existe mais.
+for chave_dimensao in [
+    "variavel_1_distribuicoes",
+    "variavel_2_distribuicoes",
+    "variavel_distrib_agregado",
+    "cruz_var_1",
+    "cruz_var_2",
+    "historia_var_1",
+    "historia_var_2",
+    "mapa_variavel",
+    "demo_variavel_barras",
+    "demo_variavel_comp",
+]:
+
+    if (
+        st.session_state.get(chave_dimensao)
+        == "Tipo de Escola"
+    ):
+
+        st.session_state[chave_dimensao] = (
+            "Tipo de Escola por ano"
+        )
+
+
+# ============================================================
 # NAVEGAÇÃO
 # ============================================================
 
@@ -12190,7 +12258,11 @@ def renderizar_filtro_categorico(nome):
 # ============================================================
 
 renderizar_filtro_categorico(
-    "Tipo de Escola"
+    "Tipo de Escola por ano"
+)
+
+renderizar_filtro_categorico(
+    "Tipo de Escola 2025"
 )
 
 
@@ -12328,7 +12400,8 @@ renderizar_filtro_categorico(
 # ============================================================
 
 filtros_categoricos_existentes = [
-    "Tipo de Escola",
+    "Tipo de Escola por ano",
+    "Tipo de Escola 2025",
     "PPI",
     "INSE",
     "Colégio Militar",
@@ -12371,22 +12444,46 @@ if filtros_adicionais:
 # INTEGRAL AGREGADO
 # ============================================================
 
-filtro_tipo_escola = (
-    filtros.get(
-        "Tipo de Escola",
-        [],
-    )
-)
+def mostrar_integral_agregado_para(*variaveis):
+    """Controla a categoria agregada de forma independente para cada
+    variável de Tipo de Escola.
+
+    Se o respectivo filtro estiver vazio, a categoria agregada pode ser
+    exibida. Se o filtro estiver preenchido, ela só aparece quando tiver
+    sido selecionada explicitamente.
+    """
+
+    for variavel in variaveis:
+
+        if variavel not in VARIAVEIS_TIPO_ESCOLA:
+
+            continue
 
 
-mostrar_integral_agregado = (
-    len(
-        filtro_tipo_escola
-    )
-    == 0
-    or
-    CATEGORIA_INTEGRAL_AGREGADA
-    in filtro_tipo_escola
+        valores = filtros.get(
+            variavel,
+            [],
+        )
+
+
+        if (
+            valores
+            and
+            CATEGORIA_INTEGRAL_AGREGADA
+            not in valores
+        ):
+
+            return False
+
+
+    return True
+
+
+# Mantido como referência para trechos genéricos que trabalham apenas
+# com a classificação anual. Os pontos que conhecem a dimensão escolhida
+# usam mostrar_integral_agregado_para(...).
+mostrar_integral_agregado = mostrar_integral_agregado_para(
+    "Tipo de Escola por ano"
 )
 
 
@@ -12729,7 +12826,10 @@ if pagina == "DISTRIBUIÇÕES":
                     ano_final_distrib
                 ],
                 incluir_integral_agregado=(
-                    mostrar_integral_agregado
+                    mostrar_integral_agregado_para(
+                        variavel_1_distribuicoes,
+                        variavel_2_boxplot,
+                    )
                 ),
             )
 
@@ -12770,7 +12870,10 @@ if pagina == "DISTRIBUIÇÕES":
                     ano_inicial=ano_inicial_distrib,
                     ano_final=ano_final_distrib,
                     incluir_integral_agregado=(
-                        mostrar_integral_agregado
+                        mostrar_integral_agregado_para(
+                            variavel_1_distribuicoes,
+                            variavel_2_boxplot,
+                        )
                     ),
                 )
 
@@ -14381,9 +14484,20 @@ if pagina == "MELHORES ESCOLAS":
     # DISTRIBUIÇÕES TOP
     # ========================================================
 
-    dist_tipo = preparar_distribuicao_top(
+    dist_tipo_ano = preparar_distribuicao_top(
         base_dim,
-        "Tipo de Escola",
+        "Tipo de Escola por ano",
+        [
+            "100% Integral",
+            "Parcial/Regular",
+            "Mista",
+        ],
+    )
+
+
+    dist_tipo_2025 = preparar_distribuicao_top(
+        base_dim,
+        "Tipo de Escola 2025",
         [
             "100% Integral",
             "Parcial/Regular",
@@ -14404,8 +14518,8 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
-    g1, g2, g3 = st.columns(
-        3,
+    g1, g2, g3, g4 = st.columns(
+        4,
         gap="medium",
     )
 
@@ -14415,13 +14529,13 @@ if pagina == "MELHORES ESCOLAS":
         st.altair_chart(
             aplicar_fundo_grafico(
                 grafico_barra_100_top(
-                dist_tipo,
-                "Tipo de Escola",
-                [
-                    "100% Integral",
-                    "Mista",
-                    "Parcial/Regular",
-                ],
+                    dist_tipo_ano,
+                    "Tipo de Escola por ano",
+                    [
+                        "100% Integral",
+                        "Mista",
+                        "Parcial/Regular",
+                    ],
                 )
             ),
             theme=None,
@@ -14434,14 +14548,13 @@ if pagina == "MELHORES ESCOLAS":
         st.altair_chart(
             aplicar_fundo_grafico(
                 grafico_barra_100_top(
-                dist_inse,
-                "INSE",
-                ordenar_dimensao(
-                    dist_inse[
-                        "Categoria"
-                    ].tolist(),
-                    "INSE",
-                    ),
+                    dist_tipo_2025,
+                    "Tipo de Escola 2025",
+                    [
+                        "100% Integral",
+                        "Mista",
+                        "Parcial/Regular",
+                    ],
                 )
             ),
             theme=None,
@@ -14454,13 +14567,33 @@ if pagina == "MELHORES ESCOLAS":
         st.altair_chart(
             aplicar_fundo_grafico(
                 grafico_barra_100_top(
-                dist_ppi,
-                "PPI",
-                ordenar_dimensao(
-                    dist_ppi[
-                        "Categoria"
-                    ].tolist(),
+                    dist_inse,
+                    "INSE",
+                    ordenar_dimensao(
+                        dist_inse[
+                            "Categoria"
+                        ].tolist(),
+                        "INSE",
+                    ),
+                )
+            ),
+            theme=None,
+            width="stretch",
+        )
+
+
+    with g4:
+
+        st.altair_chart(
+            aplicar_fundo_grafico(
+                grafico_barra_100_top(
+                    dist_ppi,
                     "PPI",
+                    ordenar_dimensao(
+                        dist_ppi[
+                            "Categoria"
+                        ].tolist(),
+                        "PPI",
                     ),
                 )
             ),
@@ -15114,9 +15247,9 @@ if pagina == "PRINCIPAIS INDICADORES":
 
         if (
             variavel_1
-            == "Tipo de Escola"
+            in VARIAVEIS_TIPO_ESCOLA
             and
-            not mostrar_integral_agregado
+            not mostrar_integral_agregado_para(variavel_1)
         ):
 
             resultado_cruz = (
@@ -15344,7 +15477,10 @@ if pagina == "PRINCIPAIS INDICADORES":
                 variavel_1=variavel_1,
                 variavel_2=variavel_2,
                 incluir_integral_agregado=(
-                    mostrar_integral_agregado
+                    mostrar_integral_agregado_para(
+                        variavel_1,
+                        variavel_2,
+                    )
                 ),
             )
         )
@@ -15786,7 +15922,9 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_1
                 ),
                 incluir_integral_agregado=(
-                    mostrar_integral_agregado
+                    mostrar_integral_agregado_para(
+                        historia_var_1
+                    )
                 ),
                 incluir_consolidado=(
                     incluir_consolidado_historia
@@ -15805,7 +15943,9 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_2
                 ),
                 incluir_integral_agregado=(
-                    mostrar_integral_agregado
+                    mostrar_integral_agregado_para(
+                        historia_var_1
+                    )
                 ),
                 incluir_consolidado=(
                     incluir_consolidado_historia
@@ -15879,7 +16019,10 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_1
                 ),
                 incluir_integral_agregado=(
-                    mostrar_integral_agregado
+                    mostrar_integral_agregado_para(
+                        historia_var_1,
+                        historia_var_2,
+                    )
                 ),
                 incluir_consolidado=(
                     incluir_consolidado_historia
@@ -15899,7 +16042,10 @@ if pagina == "HISTÓRIA DO ANO":
                     indicadores_etapa_2
                 ),
                 incluir_integral_agregado=(
-                    mostrar_integral_agregado
+                    mostrar_integral_agregado_para(
+                        historia_var_1,
+                        historia_var_2,
+                    )
                 ),
                 incluir_consolidado=(
                     incluir_consolidado_historia
@@ -16627,9 +16773,9 @@ if pagina == "DEMOGRAFIA":
 
     if (
         variavel_demo
-        == "Tipo de Escola"
+        in VARIAVEIS_TIPO_ESCOLA
         and
-        mostrar_integral_agregado
+        mostrar_integral_agregado_para(variavel_demo)
     ):
 
         temp = (

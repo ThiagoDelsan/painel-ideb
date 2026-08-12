@@ -60,9 +60,14 @@ FAIXAS_IDEB = [
 
 EIXOS_DISPONIVEIS = {
 
-    "Tipo de Escola": {
+    "Tipo de Escola por ano": {
         "tipo": "status",
         "coluna": "Status (do ano)",
+    },
+
+    "Tipo de Escola 2025": {
+        "tipo": "status",
+        "coluna": "Tipo de Escola 2025",
     },
 
     "PPI": {
@@ -298,6 +303,12 @@ def valor_categorico(valor):
 # ============================================================
 # TIPO DE ESCOLA
 # ============================================================
+
+VARIAVEIS_TIPO_ESCOLA = {
+    "Tipo de Escola por ano",
+    "Tipo de Escola 2025",
+}
+
 
 def classificar_status(valor):
 
@@ -821,6 +832,7 @@ def carregar_escolas_consolidado():
                 "Same_Schools",
                 "Transicao",
                 "1º IDEB 100% integral",
+                "Tipo de Escola 2025",
             ]
         )
 
@@ -890,6 +902,7 @@ def carregar_escolas_consolidado():
         "Same_Schools",
         "Transicao",
         "1a_edicao_IDEB_100",
+        "Tipo_Escola_2025",
     ]
 
 
@@ -992,6 +1005,7 @@ def carregar_escolas_consolidado():
         columns={
             "Codigo_INEP": "Cód. INEP",
             "1a_edicao_IDEB_100": "1º IDEB 100% integral",
+            "Tipo_Escola_2025": "Tipo de Escola 2025",
         }
     )
 
@@ -1001,6 +1015,7 @@ def carregar_escolas_consolidado():
     for coluna in [
         "Transicao",
         "1º IDEB 100% integral",
+        "Tipo de Escola 2025",
     ]:
 
         df[
@@ -1440,7 +1455,7 @@ def preparar_base():
     # ========================================================
     # ATRIBUTOS DA ABA ESCOLAS_CONSOLIDADO
     #
-    # Same_Schools, Transicao e 1a_edicao_IDEB_100 são atributos
+    # Same_Schools, Transicao, 1a_edicao_IDEB_100 e Tipo_Escola_2025 são atributos
     # no nível da escola. Por isso, são incorporados a todas as
     # linhas escola × ano do painel usando Codigo_INEP como chave.
     # ========================================================
@@ -1456,6 +1471,7 @@ def preparar_base():
                     "Same_Schools": "__Same_Schools_ESCOLAS_CONSOLIDADO",
                     "Transicao": "__Transicao_ESCOLAS_CONSOLIDADO",
                     "1º IDEB 100% integral": "__Primeiro_IDEB_100_ESCOLAS_CONSOLIDADO",
+                    "Tipo de Escola 2025": "__Tipo_Escola_2025_ESCOLAS_CONSOLIDADO",
                 }
             )
             .copy()
@@ -1493,11 +1509,19 @@ def preparar_base():
         ]
 
 
+        base_final[
+            "Tipo de Escola 2025"
+        ] = base_final[
+            "__Tipo_Escola_2025_ESCOLAS_CONSOLIDADO"
+        ]
+
+
         base_final = base_final.drop(
             columns=[
                 "__Same_Schools_ESCOLAS_CONSOLIDADO",
                 "__Transicao_ESCOLAS_CONSOLIDADO",
                 "__Primeiro_IDEB_100_ESCOLAS_CONSOLIDADO",
+                "__Tipo_Escola_2025_ESCOLAS_CONSOLIDADO",
             ]
         )
 
@@ -1514,6 +1538,10 @@ def preparar_base():
 
         base_final[
             "1º IDEB 100% integral"
+        ] = np.nan
+
+        base_final[
+            "Tipo de Escola 2025"
         ] = np.nan
 
 
@@ -1888,7 +1916,7 @@ def obter_opcoes_filtro(
 
     if (
         nome_filtro
-        == "Tipo de Escola"
+        in VARIAVEIS_TIPO_ESCOLA
     ):
 
         if (
@@ -2326,7 +2354,7 @@ def aplicar_filtros_categoricos(
 
         if (
             nome_filtro
-            == "Tipo de Escola"
+            in VARIAVEIS_TIPO_ESCOLA
         ):
 
             valores_base = []
@@ -2442,7 +2470,7 @@ def media_ponderada_por_categoria(
 
     if (
         eixo_painel
-        == "Tipo de Escola"
+        in VARIAVEIS_TIPO_ESCOLA
     ):
 
         integral = (
