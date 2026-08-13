@@ -136,6 +136,33 @@ EIXOS_DISPONIVEIS = {
 }
 
 
+def normalizar_nome_dimensao(nome):
+    """Converte rótulos exibidos/legados para o nome interno da dimensão."""
+
+    if nome is None:
+        return nome
+
+    texto = str(nome).strip()
+    aliases = {
+        "Tipo de Escola por ano": "Tipo de Escola",
+        "Tipo de Escola 2025": "Tipo de Escola",
+        "Carga Horária": "Carga horária",
+        "Colégio com seleção": "Colégio com Seleção",
+    }
+    texto = aliases.get(texto, texto)
+    texto_sem_ano = re.sub(
+        r"\s*\((2017|2019|2021|2023|2025)\)\s*$",
+        "",
+        texto,
+    ).strip()
+    texto_sem_ano = aliases.get(texto_sem_ano, texto_sem_ano)
+
+    if texto_sem_ano in EIXOS_DISPONIVEIS:
+        return texto_sem_ano
+
+    return texto
+
+
 # ============================================================
 # CONEXÃO COM GOOGLE SHEETS
 # ============================================================
@@ -1666,9 +1693,8 @@ def criar_variavel_eixo(
     eixo_painel,
 ):
 
-    # Compatibilidade interna com versões anteriores do painel.
-    if eixo_painel in {"Tipo de Escola por ano", "Tipo de Escola 2025"}:
-        eixo_painel = "Tipo de Escola"
+    # Compatibilidade com nomes antigos e rótulos dinâmicos.
+    eixo_painel = normalizar_nome_dimensao(eixo_painel)
 
     if (
         eixo_painel
@@ -1865,8 +1891,7 @@ def obter_opcoes_filtro(
     nome_filtro,
 ):
 
-    if nome_filtro in {"Tipo de Escola por ano", "Tipo de Escola 2025"}:
-        nome_filtro = "Tipo de Escola"
+    nome_filtro = normalizar_nome_dimensao(nome_filtro)
 
     try:
 
@@ -2318,8 +2343,7 @@ def aplicar_filtros_categoricos(
     ) in filtros.items():
 
 
-        if nome_filtro in {"Tipo de Escola por ano", "Tipo de Escola 2025"}:
-            nome_filtro = "Tipo de Escola"
+        nome_filtro = normalizar_nome_dimensao(nome_filtro)
 
 
         if not valores:
@@ -2427,6 +2451,8 @@ def media_ponderada_por_categoria(
     eixo_painel,
 ):
 
+    eixo_painel = normalizar_nome_dimensao(eixo_painel)
+
     if (
         indicador
         not in INDICADORES_DISPONIVEIS
@@ -2438,9 +2464,13 @@ def media_ponderada_por_categoria(
         )
 
 
+    base_entrada = df.copy()
+    if "Categoria" in base_entrada.columns:
+        base_entrada = base_entrada.drop(columns=["Categoria"])
+
     base = (
         criar_variavel_eixo(
-            df,
+            base_entrada,
             eixo_painel,
         )
     )
@@ -2499,13 +2529,23 @@ def media_ponderada_por_categoria(
     # ANOS SELECIONADOS
     # ========================================================
 
+    base["Ano"] = pd.to_numeric(base["Ano"], errors="coerce")
+    base[indicador] = pd.to_numeric(base[indicador], errors="coerce")
+    base[peso] = pd.to_numeric(base[peso], errors="coerce")
+
+    anos_numericos = [
+        int(ano)
+        for ano in anos
+        if pd.notna(ano)
+    ]
+
     base = (
         base[
             base[
                 "Ano"
             ]
             .isin(
-                anos
+                anos_numericos
             )
         ]
         .copy()
@@ -2634,10 +2674,11 @@ def media_ponderada_por_categoria(
     resultado[
         "Ano"
     ] = (
-        resultado[
-            "Ano"
-        ]
-        .astype(int)
+        pd.to_numeric(
+            resultado["Ano"],
+            errors="coerce",
+        )
+        .astype("Int64")
         .astype(str)
     )
 

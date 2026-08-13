@@ -16,7 +16,7 @@ from src.data import (
     aplicar_filtro_binario_coluna,
     aplicar_filtro_participacao_ideb,
     obter_opcoes_filtro as obter_opcoes_filtro_data,
-    media_ponderada_por_categoria,
+    media_ponderada_por_categoria as media_ponderada_por_categoria_data,
     criar_variavel_eixo as criar_variavel_eixo_data,
     EIXOS_DISPONIVEIS as EIXOS_DISPONIVEIS_DATA,
     FAIXAS_IDEB,
@@ -706,6 +706,42 @@ def rotulo_dimensao(nome):
     return rotulo_base
 
 
+def nome_dimensao_canonico(nome):
+    """Retorna o identificador interno mesmo se vier um rótulo com ano."""
+
+    if nome is None:
+        return nome
+
+    texto = str(nome).strip()
+    aliases = {
+        "Tipo de Escola por ano": "Tipo de Escola",
+        "Tipo de Escola 2025": "Tipo de Escola",
+        "Carga Horária": "Carga horária",
+        "Colégio com seleção": "Colégio com Seleção",
+    }
+    texto = aliases.get(texto, texto)
+    texto_sem_ano = re.sub(
+        r"\s*\((2017|2019|2021|2023|2025)\)\s*$",
+        "",
+        texto,
+    ).strip()
+    texto_sem_ano = aliases.get(texto_sem_ano, texto_sem_ano)
+
+    if texto_sem_ano in EIXOS_DISPONIVEIS:
+        return texto_sem_ano
+
+    return texto
+
+
+def media_ponderada_por_categoria(df, indicador, anos, eixo_painel):
+    return media_ponderada_por_categoria_data(
+        df=df,
+        indicador=indicador,
+        anos=anos,
+        eixo_painel=nome_dimensao_canonico(eixo_painel),
+    )
+
+
 # ============================================================
 # LOGIN
 # ============================================================
@@ -1062,6 +1098,8 @@ def criar_variavel_eixo(
     eixo,
 ):
 
+    eixo = nome_dimensao_canonico(eixo)
+
     if eixo in VARIAVEIS_TIPO_ESCOLA:
 
         coluna = EIXOS_DISPONIVEIS[eixo]["coluna"]
@@ -1119,6 +1157,8 @@ def obter_opcoes_filtro(
     df,
     nome,
 ):
+
+    nome = nome_dimensao_canonico(nome)
 
     if nome in VARIAVEIS_TIPO_ESCOLA:
 
@@ -12276,12 +12316,12 @@ for chave_dimensao in [
     "insights_dimensao_2",
 ]:
 
-    if st.session_state.get(chave_dimensao) in {
-        "Tipo de Escola por ano",
-        "Tipo de Escola 2025",
-    }:
+    valor_dimensao_sessao = st.session_state.get(chave_dimensao)
 
-        st.session_state[chave_dimensao] = "Tipo de Escola"
+    if valor_dimensao_sessao not in {None, "<vazio>"}:
+        valor_canonico = nome_dimensao_canonico(valor_dimensao_sessao)
+        if valor_canonico in EIXOS_DISPONIVEIS:
+            st.session_state[chave_dimensao] = valor_canonico
 
 
 # ============================================================
