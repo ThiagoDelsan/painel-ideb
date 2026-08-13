@@ -2079,15 +2079,16 @@ def limpar_todos_os_filtros():
         ] = []
 
 
+    padroes[
+        "filtro_anos_ideb_obrigatorios"
+    ] = []
+
+
     for ano in ANOS_PAINEL:
 
         padroes[
             f"filtro_ideb_{ano}"
         ] = []
-
-        padroes[
-            f"filtro_considerar_ideb_{ano}"
-        ] = False
 
 
     # Remove chaves antigas/legadas de filtros para evitar que uma versão
@@ -12530,25 +12531,24 @@ ano_variaveis_fixadas = obter_ano_variaveis_fixadas()
 
 
 # Seleção cumulativa (lógica E) de participação no IDEB.
-# Se mais de um ano for marcado, a escola precisa ter resultado
-# em TODOS os anos selecionados para permanecer no universo.
-st.sidebar.markdown(
-    "**Considerar apenas escolas do IDEB em:**"
+# Se mais de um ano for selecionado, a escola precisa ter resultado
+# em TODOS os anos escolhidos para permanecer no universo. O multiselect
+# mantém o mesmo padrão visual do seletor "Fixar variáveis no ano".
+anos_ideb_obrigatorios = st.sidebar.multiselect(
+    "Apenas escolas com IDEB em (lógica E):",
+    options=ANOS_PAINEL,
+    default=[],
+    key="filtro_anos_ideb_obrigatorios",
+    help=(
+        "Mantém somente escolas com resultado de IDEB em todos os anos "
+        "selecionados. Ex.: marcar 2023 e 2025 exige IDEB em 2023 E em 2025."
+    ),
 )
 
-anos_ideb_obrigatorios = []
-
-for ano in ANOS_PAINEL:
-
-    if st.sidebar.checkbox(
-        str(ano),
-        value=False,
-        key=f"filtro_considerar_ideb_{ano}",
-    ):
-
-        anos_ideb_obrigatorios.append(
-            ano
-        )
+anos_ideb_obrigatorios = [
+    int(ano)
+    for ano in anos_ideb_obrigatorios
+]
 
 
 # SAME SCHOOLS usa exclusivamente o indicador Same_Schools da aba
@@ -13140,19 +13140,19 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
         ),
         (
             rotulo_dimensao("PPI"),
-            "Faixa PPI registrada para a escola, utilizada para segmentar o perfil racial dos estudantes.",
+            "Faixa PPI registrada para a escola, utilizada para segmentar o perfil racial dos estudantes. Quando 'Fixar variáveis no ano' está selecionado, o valor observado naquele ano é aplicado à mesma escola em todas as edições e o rótulo passa a indicar o ano de referência.",
         ),
         (
             rotulo_dimensao("INSE"),
-            "Faixa do Indicador de Nível Socioeconômico associada à escola.",
+            "Faixa do Indicador de Nível Socioeconômico associada à escola. Quando 'Fixar variáveis no ano' está selecionado, o valor observado naquele ano é aplicado à mesma escola em todas as edições e o rótulo passa a indicar o ano de referência.",
         ),
         (
             rotulo_dimensao("Colégio Militar"),
-            "Indica se a escola está classificada como colégio militar na base.",
+            "Indica se a escola está classificada como colégio militar na base. Quando 'Fixar variáveis no ano' está selecionado, a classificação daquele ano é aplicada à mesma escola em todas as edições e o rótulo passa a indicar o ano de referência.",
         ),
         (
             rotulo_dimensao("Colégio com Seleção"),
-            "Indica se a escola possui processo de seleção de estudantes segundo a classificação disponível na base.",
+            "Indica se a escola possui processo de seleção de estudantes segundo a classificação disponível na base. Quando 'Fixar variáveis no ano' está selecionado, a classificação daquele ano é aplicada à mesma escola em todas as edições e o rótulo passa a indicar o ano de referência.",
         ),
         (
             "Estado",
@@ -13168,7 +13168,7 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
         ),
         (
             rotulo_dimensao("Carga horária"),
-            "Classificação de carga horária construída a partir dos registros de escola EMI 7h e EMI 9h: 7h, 9h, 7h + 9h ou Não se aplica.",
+            "Classificação de carga horária construída a partir dos registros de escola EMI 7h e EMI 9h: 7h, 9h, 7h + 9h ou Não se aplica. Quando 'Fixar variáveis no ano' está selecionado, a classificação daquele ano é aplicada à mesma escola em todas as edições e o rótulo passa a indicar o ano de referência.",
         ),
         (
             "Categorias Same Schools",
@@ -13199,8 +13199,8 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
             "Quando um ano é selecionado, Tipo de Escola, PPI, INSE, Colégio com seleção, Colégio Militar e Carga Horária passam a usar, para todas as edições, a classificação observada naquele ano. Com <vazio>, cada edição usa seu próprio valor.",
         ),
         (
-            "Considerar apenas escolas do IDEB em [ano]",
-            "Mantém apenas escolas com resultado de IDEB no ano marcado. Quando vários anos são marcados, as condições são aplicadas simultaneamente (lógica E).",
+            "Apenas escolas com IDEB em (lógica E)",
+            "Permite selecionar um ou mais anos e mantém somente escolas com resultado de IDEB em todos eles. Quando vários anos são escolhidos, as condições são simultâneas: por exemplo, 2023 + 2025 significa IDEB em 2023 E em 2025.",
         ),
         (
             "Propedêutico",
