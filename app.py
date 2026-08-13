@@ -16296,63 +16296,60 @@ if pagina == "PRINCIPAIS INDICADORES":
     # ========================================================
     # CONTROLES DE APRESENTAÇÃO
     #
-    # Os dois controles são mutuamente exclusivos: o usuário pode
-    # exibir os dois gráficos, apenas médias ou apenas variações.
+    # Os três controles seguem o mesmo racional: ligados significam
+    # que o elemento deve ser incluído no painel. Médias e variações
+    # começam ligadas; o Consolidado começa desligado. Mantemos pelo
+    # menos um dos dois gráficos principais sempre visível.
     # ========================================================
 
-    if (
-        "cruz_ocultar_medias"
-        not in st.session_state
-    ):
+    if "cruz_incluir_medias" not in st.session_state:
 
         st.session_state[
-            "cruz_ocultar_medias"
-        ] = False
+            "cruz_incluir_medias"
+        ] = True
 
 
-    if (
-        "cruz_ocultar_variacoes"
-        not in st.session_state
-    ):
+    if "cruz_incluir_variacoes" not in st.session_state:
 
         st.session_state[
-            "cruz_ocultar_variacoes"
-        ] = False
+            "cruz_incluir_variacoes"
+        ] = True
 
 
+    # Com apenas um ano não há variação temporal a ser exibida.
     if ano_ini_cruz is None:
 
         st.session_state[
-            "cruz_ocultar_medias"
-        ] = False
+            "cruz_incluir_medias"
+        ] = True
 
         st.session_state[
-            "cruz_ocultar_variacoes"
+            "cruz_incluir_variacoes"
         ] = False
 
 
-    def ao_alterar_ocultar_medias():
+    def ao_alterar_incluir_medias():
 
-        if st.session_state.get(
-            "cruz_ocultar_medias",
-            False,
+        if not st.session_state.get(
+            "cruz_incluir_medias",
+            True,
         ):
 
             st.session_state[
-                "cruz_ocultar_variacoes"
-            ] = False
+                "cruz_incluir_variacoes"
+            ] = True
 
 
-    def ao_alterar_ocultar_variacoes():
+    def ao_alterar_incluir_variacoes():
 
-        if st.session_state.get(
-            "cruz_ocultar_variacoes",
-            False,
+        if not st.session_state.get(
+            "cruz_incluir_variacoes",
+            True,
         ):
 
             st.session_state[
-                "cruz_ocultar_medias"
-            ] = False
+                "cruz_incluir_medias"
+            ] = True
 
 
     if "cruz_incluir_consolidado" not in st.session_state:
@@ -16364,8 +16361,8 @@ if pagina == "PRINCIPAIS INDICADORES":
 
     (
         col_apres_esq,
-        col_ocultar_medias,
-        col_ocultar_variacoes,
+        col_incluir_medias,
+        col_incluir_variacoes,
         col_incluir_consolidado,
         col_apres_dir,
     ) = st.columns(
@@ -16379,35 +16376,35 @@ if pagina == "PRINCIPAIS INDICADORES":
     )
 
 
-    with col_ocultar_medias:
+    with col_incluir_medias:
 
-        ocultar_medias_cruz = st.toggle(
-            "Ocultar gráfico de médias",
-            key="cruz_ocultar_medias",
+        incluir_medias_cruz = st.toggle(
+            "Incluir gráfico de médias",
+            key="cruz_incluir_medias",
             disabled=(
                 ano_ini_cruz
                 is None
             ),
             help=(
-                "Exibe somente as variações entre os dois anos mais recentes selecionados."
+                "Inclui o gráfico de médias ponderadas no painel."
             ),
-            on_change=ao_alterar_ocultar_medias,
+            on_change=ao_alterar_incluir_medias,
         )
 
 
-    with col_ocultar_variacoes:
+    with col_incluir_variacoes:
 
-        ocultar_variacoes_cruz = st.toggle(
-            "Ocultar gráfico de variações",
-            key="cruz_ocultar_variacoes",
+        incluir_variacoes_cruz = st.toggle(
+            "Incluir gráfico de variações",
+            key="cruz_incluir_variacoes",
             disabled=(
                 ano_ini_cruz
                 is None
             ),
             help=(
-                "Exibe somente o gráfico de médias ponderadas."
+                "Inclui o gráfico de variações entre os dois anos mais recentes selecionados."
             ),
-            on_change=ao_alterar_ocultar_variacoes,
+            on_change=ao_alterar_incluir_variacoes,
         )
 
 
@@ -16651,10 +16648,10 @@ if pagina == "PRINCIPAIS INDICADORES":
             ano_inicial=ano_ini_cruz,
             ano_final=ano_final_cruz,
             mostrar_medias=(
-                not ocultar_medias_cruz
+                incluir_medias_cruz
             ),
             mostrar_variacoes=(
-                not ocultar_variacoes_cruz
+                incluir_variacoes_cruz
             ),
         )
 
@@ -16919,10 +16916,10 @@ if pagina == "PRINCIPAIS INDICADORES":
                 ano_inicial=ano_ini_cruz,
                 ano_final=ano_final_cruz,
                 mostrar_medias=(
-                    not ocultar_medias_cruz
+                    incluir_medias_cruz
                 ),
                 mostrar_variacoes=(
-                    not ocultar_variacoes_cruz
+                    incluir_variacoes_cruz
                 ),
             )
         )
@@ -17828,54 +17825,54 @@ if pagina == "DEMOGRAFIA":
     # ========================================================
     # CONTROLES DE EXIBIÇÃO
     #
-    # Um único par de botões controla simultaneamente os gráficos
-    # de escolas e de matrículas. Como em Principais Indicadores,
-    # impedimos que os dois tipos de gráfico sejam ocultados ao
-    # mesmo tempo.
+    # Os três controles seguem o mesmo racional: ligados significam
+    # que o elemento deve ser incluído. Distribuição e totais começam
+    # ligados; o Consolidado começa desligado. O mesmo par de controles
+    # vale simultaneamente para Escolas e Matrículas.
     # ========================================================
 
-    if "demo_ocultar_distribuicao" not in st.session_state:
+    if "demo_incluir_distribuicao" not in st.session_state:
 
         st.session_state[
-            "demo_ocultar_distribuicao"
-        ] = False
+            "demo_incluir_distribuicao"
+        ] = True
 
 
-    if "demo_ocultar_totais" not in st.session_state:
+    if "demo_incluir_totais" not in st.session_state:
 
         st.session_state[
-            "demo_ocultar_totais"
-        ] = False
+            "demo_incluir_totais"
+        ] = True
 
 
-    def ao_alterar_ocultar_distribuicao_demo():
+    def ao_alterar_incluir_distribuicao_demo():
 
-        if st.session_state.get(
-            "demo_ocultar_distribuicao",
-            False,
+        if not st.session_state.get(
+            "demo_incluir_distribuicao",
+            True,
         ):
 
             st.session_state[
-                "demo_ocultar_totais"
-            ] = False
+                "demo_incluir_totais"
+            ] = True
 
 
-    def ao_alterar_ocultar_totais_demo():
+    def ao_alterar_incluir_totais_demo():
 
-        if st.session_state.get(
-            "demo_ocultar_totais",
-            False,
+        if not st.session_state.get(
+            "demo_incluir_totais",
+            True,
         ):
 
             st.session_state[
-                "demo_ocultar_distribuicao"
-            ] = False
+                "demo_incluir_distribuicao"
+            ] = True
 
 
     (
         col_demo_ctrl_esq,
-        col_demo_ocultar_distribuicao,
-        col_demo_ocultar_totais,
+        col_demo_incluir_distribuicao,
+        col_demo_incluir_totais,
         col_demo_incluir_consolidado,
         col_demo_ctrl_dir,
     ) = st.columns(
@@ -17889,29 +17886,27 @@ if pagina == "DEMOGRAFIA":
     )
 
 
-    with col_demo_ocultar_distribuicao:
+    with col_demo_incluir_distribuicao:
 
-        ocultar_distribuicao_demo = st.toggle(
-            "Ocultar gráfico de distribuição",
-            key="demo_ocultar_distribuicao",
+        incluir_distribuicao_demo = st.toggle(
+            "Incluir gráfico de distribuição",
+            key="demo_incluir_distribuicao",
             help=(
-                "Oculta o gráfico percentual tanto em Escolas quanto "
-                "em Matrículas, mantendo apenas os gráficos de totais."
+                "Inclui o gráfico percentual tanto em Escolas quanto em Matrículas."
             ),
-            on_change=ao_alterar_ocultar_distribuicao_demo,
+            on_change=ao_alterar_incluir_distribuicao_demo,
         )
 
 
-    with col_demo_ocultar_totais:
+    with col_demo_incluir_totais:
 
-        ocultar_totais_demo = st.toggle(
-            "Ocultar gráfico de totais",
-            key="demo_ocultar_totais",
+        incluir_totais_demo = st.toggle(
+            "Incluir gráfico de totais",
+            key="demo_incluir_totais",
             help=(
-                "Oculta os gráficos de totais tanto em Escolas quanto "
-                "em Matrículas, mantendo apenas as distribuições."
+                "Inclui os gráficos de totais tanto em Escolas quanto em Matrículas."
             ),
-            on_change=ao_alterar_ocultar_totais_demo,
+            on_change=ao_alterar_incluir_totais_demo,
         )
 
 
@@ -18937,7 +18932,7 @@ if pagina == "DEMOGRAFIA":
                         ticks=False,
                         domain=False,
                     )
-                    if ocultar_distribuicao_demo
+                    if not incluir_distribuicao_demo
                     else None
                 ),
             ),
@@ -19006,7 +19001,7 @@ if pagina == "DEMOGRAFIA":
     ).properties(
         width=(
             520
-            if ocultar_distribuicao_demo
+            if not incluir_distribuicao_demo
             else 210
         ),
         height=altura_demo,
@@ -19052,13 +19047,13 @@ if pagina == "DEMOGRAFIA":
 
     with col_demo_centro:
 
-        if ocultar_distribuicao_demo:
+        if not incluir_distribuicao_demo:
 
             grafico_demografia_completo = graf_n
             grafico_demo_interativo = False
 
 
-        elif ocultar_totais_demo:
+        elif not incluir_totais_demo:
 
             grafico_demografia_completo = graf_pct
             grafico_demo_interativo = True
@@ -19599,7 +19594,7 @@ if pagina == "DEMOGRAFIA":
                         ticks=False,
                         domain=False,
                     )
-                    if ocultar_distribuicao_demo
+                    if not incluir_distribuicao_demo
                     else None
                 ),
             ),
@@ -19661,7 +19656,7 @@ if pagina == "DEMOGRAFIA":
     ).properties(
         width=(
             520
-            if ocultar_distribuicao_demo
+            if not incluir_distribuicao_demo
             else 210
         ),
         height=altura_demo_matriculas,
@@ -19681,7 +19676,7 @@ if pagina == "DEMOGRAFIA":
 
     with col_demo_mat_centro:
 
-        if ocultar_distribuicao_demo:
+        if not incluir_distribuicao_demo:
 
             grafico_demografia_matriculas = (
                 graf_n_matriculas
@@ -19690,7 +19685,7 @@ if pagina == "DEMOGRAFIA":
             grafico_matriculas_interativo = False
 
 
-        elif ocultar_totais_demo:
+        elif not incluir_totais_demo:
 
             grafico_demografia_matriculas = (
                 graf_pct_matriculas
