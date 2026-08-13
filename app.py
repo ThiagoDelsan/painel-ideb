@@ -1318,7 +1318,7 @@ def formatos_indicador(
         return {
             "rotulo": ".1%",
             "tooltip": ".1%",
-            "delta": "+.1%",
+            "delta": "+.2%",
             "delta_cruz": "+.2%",
             "baseline": 0.30,
         }
@@ -1327,7 +1327,7 @@ def formatos_indicador(
     return {
         "rotulo": ".1f",
         "tooltip": ".1f",
-        "delta": "+.1f",
+        "delta": "+.2f",
         "delta_cruz": "+.2f",
         "baseline": 3.0,
     }
@@ -1336,6 +1336,7 @@ def formatos_indicador(
 def formatar_valor_tabela(
     valor,
     indicador,
+    variacao=False,
 ):
 
     if pd.isna(valor):
@@ -1345,8 +1346,30 @@ def formatar_valor_tabela(
 
     if indicador == "Rendimento":
 
+        if variacao:
+
+            return (
+                f"{float(valor) * 100:+.2f} p.p."
+                .replace(
+                    ".",
+                    ",",
+                )
+            )
+
+
         return (
             f"{float(valor) * 100:.1f}%"
+            .replace(
+                ".",
+                ",",
+            )
+        )
+
+
+    if variacao:
+
+        return (
+            f"{float(valor):+.2f}"
             .replace(
                 ".",
                 ",",
@@ -3925,8 +3948,8 @@ def criar_grafico_delta_boxplots(
 
     if indicador == "Rendimento":
 
-        formato_eixo = "+.0%"
-        formato_tooltip = "+.1%"
+        formato_eixo = "+.2%"
+        formato_tooltip = "+.2%"
 
         medias[
             "Rótulo média"
@@ -3934,7 +3957,7 @@ def criar_grafico_delta_boxplots(
             "Média"
         ].apply(
             lambda valor: (
-                f"{float(valor) * 100:+.1f} p.p."
+                f"{float(valor) * 100:+.2f} p.p."
                 .replace(
                     ".",
                     ",",
@@ -3944,8 +3967,8 @@ def criar_grafico_delta_boxplots(
 
     else:
 
-        formato_eixo = "+.1f"
-        formato_tooltip = "+.1f"
+        formato_eixo = "+.2f"
+        formato_tooltip = "+.2f"
 
         medias[
             "Rótulo média"
@@ -3953,7 +3976,7 @@ def criar_grafico_delta_boxplots(
             "Média"
         ].apply(
             lambda valor: (
-                f"{float(valor):+.1f}"
+                f"{float(valor):+.2f}"
                 .replace(
                     ".",
                     ",",
@@ -4591,8 +4614,8 @@ def criar_grafico_barras_medias_delta_agregado(
 
     if indicador == "Rendimento":
 
-        formato_eixo = "+.0%"
-        formato_tooltip = "+.1%"
+        formato_eixo = "+.2%"
+        formato_tooltip = "+.2%"
 
         medias[
             "Rótulo média"
@@ -4600,7 +4623,7 @@ def criar_grafico_barras_medias_delta_agregado(
             "Média"
         ].apply(
             lambda valor: (
-                f"{float(valor) * 100:+.1f} p.p."
+                f"{float(valor) * 100:+.2f} p.p."
                 .replace(
                     ".",
                     ",",
@@ -4610,8 +4633,8 @@ def criar_grafico_barras_medias_delta_agregado(
 
     else:
 
-        formato_eixo = "+.1f"
-        formato_tooltip = "+.1f"
+        formato_eixo = "+.2f"
+        formato_tooltip = "+.2f"
 
         medias[
             "Rótulo média"
@@ -4619,7 +4642,7 @@ def criar_grafico_barras_medias_delta_agregado(
             "Média"
         ].apply(
             lambda valor: (
-                f"{float(valor):+.1f}"
+                f"{float(valor):+.2f}"
                 .replace(
                     ".",
                     ",",
@@ -6905,6 +6928,7 @@ def calcular_testes_categoria_vs_demais(
 def exibir_p_valores_categoria_vs_demais(
     resultados,
     indicador,
+    variacao=False,
 ):
 
     st.markdown(
@@ -6999,6 +7023,7 @@ def exibir_p_valores_categoria_vs_demais(
                     np.nan,
                 ),
                 indicador,
+                variacao=variacao,
             )
         )
 
@@ -7169,6 +7194,7 @@ def nome_curto_teste_media(
 def formatar_diferenca_medias(
     valor,
     indicador,
+    variacao=False,
 ):
 
     if pd.isna(
@@ -7183,10 +7209,13 @@ def formatar_diferenca_medias(
     )
 
 
+    casas = 2 if variacao else 1
+
+
     if indicador == "Rendimento":
 
         return (
-            f"{valor * 100:+.1f} p.p."
+            f"{valor * 100:+.{casas}f} p.p."
             .replace(
                 ".",
                 ",",
@@ -7195,7 +7224,7 @@ def formatar_diferenca_medias(
 
 
     return (
-        f"{valor:+.1f}"
+        f"{valor:+.{casas}f}"
         .replace(
             ".",
             ",",
@@ -7265,6 +7294,7 @@ def classificar_relevancia_estatistica(
 def exibir_p_valores_agregados(
     resultados,
     indicador,
+    variacao=False,
 ):
 
     st.markdown(
@@ -7356,6 +7386,7 @@ def exibir_p_valores_agregados(
                     np.nan,
                 ),
                 indicador,
+                variacao=variacao,
             )
         )
 
@@ -11975,7 +12006,7 @@ def _formatar_valor_mapa_calor(
         if tipo == "delta":
 
             return (
-                f"{numero:+.1f} p.p."
+                f"{numero:+.2f} p.p."
                 .replace(".", ",")
             )
 
@@ -11988,7 +12019,7 @@ def _formatar_valor_mapa_calor(
     if tipo == "delta":
 
         return (
-            f"{float(valor):+.1f}"
+            f"{float(valor):+.2f}"
             .replace(".", ",")
         )
 
@@ -14610,6 +14641,7 @@ if pagina == "DISTRIBUIÇÕES":
             exibir_p_valores_categoria_vs_demais(
                 testes_todos_delta,
                 indicador=indicador_distribuicoes,
+                variacao=True,
             )
 
 
@@ -15474,6 +15506,7 @@ if pagina == "DISTRIBUIÇÕES":
             exibir_p_valores_agregados(
                 testes_agregado_delta,
                 indicador=indicador_agregado,
+                variacao=True,
             )
 
 
@@ -16142,6 +16175,7 @@ if pagina == "MELHORES ESCOLAS":
                 formatar_valor_tabela(
                     x,
                     indicador_rank,
+                    variacao=True,
                 )
             )
         )
