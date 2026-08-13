@@ -96,21 +96,26 @@ st.markdown(
 
         .block-container {
             max-width: 1580px;
-            padding-top: 1.35rem;
+            /* Mantém o conteúdo abaixo do toolbar fixo do Streamlit
+               também em telas mais baixas/estreitas. */
+            padding-top: 2.45rem;
             padding-bottom: 2.6rem;
             padding-left: 2.1rem;
             padding-right: 2.1rem;
+            /* Permite que componentes internos reajam à largura REAL
+               disponível no painel (e não apenas à largura da tela). */
+            container-type: inline-size;
         }
 
         .panel-main-title {
             display: block;
             font-size: 2.15rem;
             font-weight: 760;
-            line-height: 1.15;
+            line-height: 1.25;
             letter-spacing: -0.035em;
             color: var(--ink-900);
-            margin: 0 0 0.85rem 0;
-            padding: 0.20rem 0 0.15rem 0;
+            margin: 0 0 0.78rem 0;
+            padding: 0.42rem 0 0.16rem 0;
             overflow: visible;
         }
 
@@ -152,6 +157,98 @@ st.markdown(
             font-weight: 650;
             letter-spacing: 0.01em;
             white-space: nowrap !important;
+        }
+
+        /* ====================================================
+           NAVEGAÇÃO RESPONSIVA
+           ----------------------------------------------------
+           A navegação continua em uma única linha quando há
+           espaço. Em notebooks/telas mais estreitas, os botões
+           passam naturalmente para a linha seguinte, sem cortar
+           textos. A regra responde à largura do conteúdo principal,
+           portanto continua funcionando mesmo com a sidebar aberta.
+           ==================================================== */
+
+        .stApp .st-key-nav_dicionario button p,
+        .stApp .st-key-nav_principais button p,
+        .stApp .st-key-nav_historia_ano button p,
+        .stApp .st-key-nav_demografia button p,
+        .stApp .st-key-nav_distribuicoes button p,
+        .stApp .st-key-nav_melhores button p,
+        .stApp .st-key-nav_mapa_calor button p,
+        .stApp .st-key-nav_insights button p {
+            white-space: normal !important;
+            overflow-wrap: normal !important;
+            word-break: keep-all !important;
+            line-height: 1.12 !important;
+            text-align: center !important;
+        }
+
+        @container (max-width: 1280px) {
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights) {
+                flex-wrap: wrap !important;
+                align-items: stretch !important;
+                gap: 0.48rem !important;
+            }
+
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"] {
+                flex: 1 1 128px !important;
+                width: auto !important;
+                min-width: 116px !important;
+            }
+
+            .st-key-nav_dicionario button,
+            .st-key-nav_principais button,
+            .st-key-nav_historia_ano button,
+            .st-key-nav_demografia button,
+            .st-key-nav_distribuicoes button,
+            .st-key-nav_melhores button,
+            .st-key-nav_mapa_calor button,
+            .st-key-nav_insights button {
+                min-height: 2.72rem !important;
+                height: 100% !important;
+                padding-left: 0.48rem !important;
+                padding-right: 0.48rem !important;
+            }
+        }
+
+        @container (max-width: 820px) {
+            .panel-main-title {
+                font-size: 1.82rem;
+                line-height: 1.28;
+                padding-top: 0.50rem;
+                margin-bottom: 0.68rem;
+            }
+
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"] {
+                flex-basis: 138px !important;
+                min-width: 112px !important;
+            }
+
+            .stApp .st-key-nav_dicionario button p,
+            .stApp .st-key-nav_principais button p,
+            .stApp .st-key-nav_historia_ano button p,
+            .stApp .st-key-nav_demografia button p,
+            .stApp .st-key-nav_distribuicoes button p,
+            .stApp .st-key-nav_melhores button p,
+            .stApp .st-key-nav_mapa_calor button p,
+            .stApp .st-key-nav_insights button p {
+                font-size: 0.72rem !important;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .block-container {
+                padding-left: 1.15rem;
+                padding-right: 1.15rem;
+            }
+
+            section[data-testid="stSidebar"] .block-container {
+                padding-left: 0.72rem;
+                padding-right: 0.72rem;
+            }
         }
 
         /* Dicionário de variáveis: leitura editorial, leve e escaneável. */
