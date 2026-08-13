@@ -60,14 +60,9 @@ FAIXAS_IDEB = [
 
 EIXOS_DISPONIVEIS = {
 
-    "Tipo de Escola por ano": {
+    "Tipo de Escola": {
         "tipo": "status",
         "coluna": "Status (do ano)",
-    },
-
-    "Tipo de Escola 2025": {
-        "tipo": "status",
-        "coluna": "Tipo de Escola 2025",
     },
 
     "PPI": {
@@ -305,8 +300,7 @@ def valor_categorico(valor):
 # ============================================================
 
 VARIAVEIS_TIPO_ESCOLA = {
-    "Tipo de Escola por ano",
-    "Tipo de Escola 2025",
+    "Tipo de Escola",
 }
 
 
@@ -832,7 +826,6 @@ def carregar_escolas_consolidado():
                 "Same_Schools",
                 "Transicao",
                 "1º IDEB 100% integral",
-                "Tipo de Escola 2025",
             ]
         )
 
@@ -902,7 +895,6 @@ def carregar_escolas_consolidado():
         "Same_Schools",
         "Transicao",
         "1a_edicao_IDEB_100",
-        "Tipo_Escola_2025",
     ]
 
 
@@ -1005,7 +997,6 @@ def carregar_escolas_consolidado():
         columns={
             "Codigo_INEP": "Cód. INEP",
             "1a_edicao_IDEB_100": "1º IDEB 100% integral",
-            "Tipo_Escola_2025": "Tipo de Escola 2025",
         }
     )
 
@@ -1015,7 +1006,6 @@ def carregar_escolas_consolidado():
     for coluna in [
         "Transicao",
         "1º IDEB 100% integral",
-        "Tipo de Escola 2025",
     ]:
 
         df[
@@ -1455,7 +1445,7 @@ def preparar_base():
     # ========================================================
     # ATRIBUTOS DA ABA ESCOLAS_CONSOLIDADO
     #
-    # Same_Schools, Transicao, 1a_edicao_IDEB_100 e Tipo_Escola_2025 são atributos
+    # Same_Schools, Transicao e 1a_edicao_IDEB_100 são atributos
     # no nível da escola. Por isso, são incorporados a todas as
     # linhas escola × ano do painel usando Codigo_INEP como chave.
     # ========================================================
@@ -1471,7 +1461,6 @@ def preparar_base():
                     "Same_Schools": "__Same_Schools_ESCOLAS_CONSOLIDADO",
                     "Transicao": "__Transicao_ESCOLAS_CONSOLIDADO",
                     "1º IDEB 100% integral": "__Primeiro_IDEB_100_ESCOLAS_CONSOLIDADO",
-                    "Tipo de Escola 2025": "__Tipo_Escola_2025_ESCOLAS_CONSOLIDADO",
                 }
             )
             .copy()
@@ -1509,19 +1498,11 @@ def preparar_base():
         ]
 
 
-        base_final[
-            "Tipo de Escola 2025"
-        ] = base_final[
-            "__Tipo_Escola_2025_ESCOLAS_CONSOLIDADO"
-        ]
-
-
         base_final = base_final.drop(
             columns=[
                 "__Same_Schools_ESCOLAS_CONSOLIDADO",
                 "__Transicao_ESCOLAS_CONSOLIDADO",
                 "__Primeiro_IDEB_100_ESCOLAS_CONSOLIDADO",
-                "__Tipo_Escola_2025_ESCOLAS_CONSOLIDADO",
             ]
         )
 
@@ -1539,52 +1520,6 @@ def preparar_base():
         base_final[
             "1º IDEB 100% integral"
         ] = np.nan
-
-        base_final[
-            "Tipo de Escola 2025"
-        ] = np.nan
-
-
-    # ========================================================
-    # GARANTIA / FALLBACK — TIPO DE ESCOLA 2025
-    # ========================================================
-    # A fonte principal continua sendo ESCOLAS_CONSOLIDADO. Caso exista
-    # alguma lacuna de preenchimento, usa-se a classificação anual da
-    # própria escola em 2025, que representa a mesma informação.
-
-    if (
-        "Cód. INEP" in base_final.columns
-        and "Ano" in base_final.columns
-        and "Status (do ano)" in base_final.columns
-    ):
-
-        referencia_tipo_2025 = (
-            base_final.loc[
-                pd.to_numeric(base_final["Ano"], errors="coerce").eq(2025),
-                ["Cód. INEP", "Status (do ano)"],
-            ]
-            .dropna(subset=["Cód. INEP"])
-            .drop_duplicates(subset=["Cód. INEP"], keep="last")
-            .set_index("Cód. INEP")["Status (do ano)"]
-        )
-
-        fallback_tipo_2025 = base_final["Cód. INEP"].map(
-            referencia_tipo_2025
-        )
-
-        atual_tipo_2025 = base_final["Tipo de Escola 2025"]
-        mascara_tipo_2025_vazio = (
-            atual_tipo_2025.isna()
-            | atual_tipo_2025.astype(str).str.strip().str.lower().isin(
-                {"", "nan", "none"}
-            )
-        )
-
-        base_final.loc[
-            mascara_tipo_2025_vazio,
-            "Tipo de Escola 2025",
-        ] = fallback_tipo_2025.loc[mascara_tipo_2025_vazio]
-
 
     # ========================================================
     # IDEB DE CADA EDIÇÃO COMO ATRIBUTO DA ESCOLA
@@ -1731,10 +1666,9 @@ def criar_variavel_eixo(
     eixo_painel,
 ):
 
-    # Compatibilidade apenas interna com sessões/códigos antigos.
-    # O rótulo legado não é exposto em EIXOS_DISPONIVEIS.
-    if eixo_painel == "Tipo de Escola":
-        eixo_painel = "Tipo de Escola por ano"
+    # Compatibilidade interna com versões anteriores do painel.
+    if eixo_painel in {"Tipo de Escola por ano", "Tipo de Escola 2025"}:
+        eixo_painel = "Tipo de Escola"
 
     if (
         eixo_painel
@@ -1931,8 +1865,8 @@ def obter_opcoes_filtro(
     nome_filtro,
 ):
 
-    if nome_filtro == "Tipo de Escola":
-        nome_filtro = "Tipo de Escola por ano"
+    if nome_filtro in {"Tipo de Escola por ano", "Tipo de Escola 2025"}:
+        nome_filtro = "Tipo de Escola"
 
     try:
 
@@ -2384,8 +2318,8 @@ def aplicar_filtros_categoricos(
     ) in filtros.items():
 
 
-        if nome_filtro == "Tipo de Escola":
-            nome_filtro = "Tipo de Escola por ano"
+        if nome_filtro in {"Tipo de Escola por ano", "Tipo de Escola 2025"}:
+            nome_filtro = "Tipo de Escola"
 
 
         if not valores:

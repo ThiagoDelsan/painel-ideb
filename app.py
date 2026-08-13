@@ -27,32 +27,29 @@ from src.data import (
 # REGISTRO CANÔNICO DE DIMENSÕES DO PAINEL
 # ============================================================
 #
-# O app mantém os nomes de apresentação explicitamente, em vez de
-# depender de uma sessão antiga ou de uma versão anterior de src/data.py.
-# Isso evita que o rótulo legado "Tipo de Escola" reapareça nos
-# selectboxes e garante que as duas classificações sejam sempre tratadas
-# como dimensões independentes e paralelas.
+# As dimensões usam nomes internos estáveis. Quando o usuário escolhe
+# "Fixar variáveis no ano", apenas os rótulos exibidos mudam; a lógica
+# continua apontando para as mesmas colunas, que são previamente fixadas
+# no ano de referência selecionado.
 
-EIXOS_DISPONIVEIS = {
-    "Tipo de Escola por ano": {
-        "tipo": "status",
-        "coluna": "Status (do ano)",
-    },
-    "Tipo de Escola 2025": {
-        "tipo": "status",
-        "coluna": "Tipo de Escola 2025",
-    },
-}
+EIXOS_DISPONIVEIS = dict(EIXOS_DISPONIVEIS_DATA)
 
-for _nome_eixo, _config_eixo in EIXOS_DISPONIVEIS_DATA.items():
-    if _nome_eixo in {
-        "Tipo de Escola",
-        "Tipo de Escola por ano",
-        "Tipo de Escola 2025",
-    }:
-        continue
+# Compatibilidade: versões anteriores expunham duas dimensões distintas
+# para Tipo de Escola. A partir desta versão existe apenas a dimensão
+# canônica "Tipo de Escola".
+for _eixo_legado in [
+    "Tipo de Escola",
+]:
+    EIXOS_DISPONIVEIS.pop(_eixo_legado, None)
 
-    EIXOS_DISPONIVEIS[_nome_eixo] = _config_eixo
+if "Tipo de Escola" not in EIXOS_DISPONIVEIS:
+    EIXOS_DISPONIVEIS = {
+        "Tipo de Escola": {
+            "tipo": "status",
+            "coluna": "Status (do ano)",
+        },
+        **EIXOS_DISPONIVEIS,
+    }
 
 
 # ============================================================
@@ -658,17 +655,55 @@ ROTULOS_DIMENSOES = {
 
 
 VARIAVEIS_TIPO_ESCOLA = {
-    "Tipo de Escola por ano",
-    "Tipo de Escola 2025",
+    "Tipo de Escola",
 }
+
+
+# Variáveis cuja classificação pode ser congelada em uma edição específica.
+# O congelamento é feito por escola (Cód. INEP) e replicado para todas as
+# linhas/anos do painel.
+VARIAVEIS_FIXAVEIS = {
+    "Tipo de Escola",
+    "PPI",
+    "INSE",
+    "Colégio com Seleção",
+    "Colégio Militar",
+    "Carga horária",
+}
+
+
+VALOR_SEM_ANO_FIXO = "<vazio>"
+
+
+def obter_ano_variaveis_fixadas():
+
+    valor = st.session_state.get(
+        "filtro_fixar_variaveis_ano",
+        VALOR_SEM_ANO_FIXO,
+    )
+
+    if valor in {None, "", VALOR_SEM_ANO_FIXO}:
+        return None
+
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
 
 
 def rotulo_dimensao(nome):
 
-    return ROTULOS_DIMENSOES.get(
+    rotulo_base = ROTULOS_DIMENSOES.get(
         nome,
         nome,
     )
+
+    ano_fixo = obter_ano_variaveis_fixadas()
+
+    if ano_fixo is not None and nome in VARIAVEIS_FIXAVEIS:
+        return f"{rotulo_base} ({ano_fixo})"
+
+    return rotulo_base
 
 
 # ============================================================
@@ -942,51 +977,80 @@ def _classificar_tipo_escola_painel(valor):
     return "Outros / não informado"
 
 
-def _garantir_tipo_escola_2025(base):
-    """Garante a classificação fixa de 2025 em todas as linhas.
+def _fixar_variaveis_no_ano(base, ano_referencia):
+    """Congela variáveis selecionadas na classificação de um ano.
 
-    A fonte prioritária é a coluna trazida de ESCOLAS_CONSOLIDADO.
-    Como proteção para deploy/cache de uma versão anterior do data.py,
-    lacunas podem ser preenchidas usando a própria classificação anual
-    observada em 2025, que contém a mesma informação.
+    Para cada escola, busca o valor observado no ano de referência e replica
+    esse valor para todas as linhas escola × ano. Se a escola não possuir
+    registro naquele ano, o valor fixado permanece ausente — não há fallback
+    para outro ano, pois o objetivo é representar exatamente a classificação
+    da edição escolhida.
     """
 
     resultado = base.copy()
 
-    if "Tipo de Escola 2025" not in resultado.columns:
-        resultado["Tipo de Escola 2025"] = np.nan
-
-    colunas_necessarias = {
-        "Cód. INEP",
-        "Ano",
-        "Status (do ano)",
-    }
-
-    if not colunas_necessarias.issubset(resultado.columns):
+    if ano_referencia is None:
         return resultado
 
-    referencia_2025 = (
-        resultado.loc[
-            pd.to_numeric(resultado["Ano"], errors="coerce").eq(2025),
-            ["Cód. INEP", "Status (do ano)"],
+    colunas_chave = {
+        "Cód. INEP",
+        "Ano",
+    }
+
+    if not colunas_chave.issubset(resultado.columns):
+        return resultado
+
+    ano_num = pd.to_numeric(
+        resultado["Ano"],
+        errors="coerce",
+    )
+
+    referencia = resultado.loc[
+        ano_num.eq(int(ano_referencia))
+    ].copy()
+
+    if referencia.empty:
+        # Sem linhas no ano escolhido: mantém as colunas, mas sem inventar
+        # classificações a partir de outras edições.
+        return resultado
+
+    colunas_fixaveis = [
+        "Status (do ano)",
+        "Faixa PPI",
+        "INSE (norm)",
+        "Seleção",
+        "Militar",
+        "Escola EMI 7h",
+        "Escola EMI 9h",
+    ]
+
+    colunas_disponiveis = [
+        coluna
+        for coluna in colunas_fixaveis
+        if coluna in resultado.columns
+        and coluna in referencia.columns
+    ]
+
+    if not colunas_disponiveis:
+        return resultado
+
+    referencia = (
+        referencia[
+            ["Cód. INEP", *colunas_disponiveis]
         ]
         .dropna(subset=["Cód. INEP"])
-        .drop_duplicates(subset=["Cód. INEP"], keep="last")
-        .set_index("Cód. INEP")["Status (do ano)"]
+        .drop_duplicates(
+            subset=["Cód. INEP"],
+            keep="last",
+        )
+        .set_index("Cód. INEP")
     )
 
-    fallback = resultado["Cód. INEP"].map(referencia_2025)
-
-    atual = resultado["Tipo de Escola 2025"]
-    vazio = (
-        atual.isna()
-        | atual.astype(str).str.strip().str.lower().isin({"", "nan", "none"})
-    )
-
-    resultado.loc[vazio, "Tipo de Escola 2025"] = fallback.loc[vazio]
+    for coluna in colunas_disponiveis:
+        mapa = referencia[coluna]
+        resultado[coluna] = resultado["Cód. INEP"].map(mapa)
 
     return resultado
-
 
 
 # ============================================================
@@ -2002,6 +2066,7 @@ def limpar_todos_os_filtros():
 
     padroes = {
         "filtro_same_schools": False,
+        "filtro_fixar_variaveis_ano": VALOR_SEM_ANO_FIXO,
         "filtro_proped": [],
         "filtro_ept": [],
     }
@@ -12159,7 +12224,6 @@ def _criar_matriz_mapa_calor(
 try:
 
     df_completo = preparar_base()
-    df_completo = _garantir_tipo_escola_2025(df_completo)
 
 
 except Exception as erro:
@@ -12207,16 +12271,16 @@ for chave_dimensao in [
     "mapa_variavel",
     "demo_variavel_barras",
     "demo_variavel_comp",
+    "insights_dimensao_1",
+    "insights_dimensao_2",
 ]:
 
-    if (
-        st.session_state.get(chave_dimensao)
-        == "Tipo de Escola"
-    ):
+    if st.session_state.get(chave_dimensao) in {
+        "Tipo de Escola por ano",
+        "Tipo de Escola 2025",
+    }:
 
-        st.session_state[chave_dimensao] = (
-            "Tipo de Escola por ano"
-        )
+        st.session_state[chave_dimensao] = "Tipo de Escola"
 
 
 # ============================================================
@@ -12450,6 +12514,21 @@ same_schools_ativo = st.sidebar.toggle(
 )
 
 
+ano_variaveis_fixadas_selecao = st.sidebar.selectbox(
+    "Fixar variáveis no ano:",
+    options=[VALOR_SEM_ANO_FIXO, *ANOS_PAINEL],
+    index=0,
+    key="filtro_fixar_variaveis_ano",
+    help=(
+        "Quando um ano é selecionado, Tipo de Escola, PPI, INSE, "
+        "Colégio com seleção, Colégio Militar e Carga Horária passam a "
+        "usar a classificação desse ano para a mesma escola em todas as edições."
+    ),
+)
+
+ano_variaveis_fixadas = obter_ano_variaveis_fixadas()
+
+
 # Seleção cumulativa (lógica E) de participação no IDEB.
 # Se mais de um ano for marcado, a escola precisa ter resultado
 # em TODOS os anos selecionados para permanecer no universo.
@@ -12476,7 +12555,10 @@ for ano in ANOS_PAINEL:
 # ESCOLAS_CONSOLIDADO: 1 = entra no universo; 0 = não entra.
 # A coluna Transicao NÃO define o universo. Ela fornece apenas as
 # categorias exibidas no painel como "Categorias Same Schools".
-df_base_filtros = df_completo.copy()
+df_base_filtros = _fixar_variaveis_no_ano(
+    df_completo,
+    ano_variaveis_fixadas,
+)
 
 
 if same_schools_ativo:
@@ -12642,6 +12724,21 @@ def renderizar_filtro_categorico(nome):
     )
 
 
+    # Ao trocar o ano de referência das variáveis fixadas, algumas
+    # categorias podem deixar de existir. Remove valores antigos do estado
+    # antes de recriar o multiselect para evitar seleções órfãs.
+    chave_filtro = f"filtro_{nome}"
+
+    if chave_filtro in st.session_state:
+        valor_atual = st.session_state.get(chave_filtro, [])
+        if isinstance(valor_atual, (list, tuple, set)):
+            st.session_state[chave_filtro] = [
+                valor
+                for valor in valor_atual
+                if valor in opcoes
+            ]
+
+
     placeholder = (
         "Brasil"
         if nome
@@ -12670,11 +12767,7 @@ def renderizar_filtro_categorico(nome):
 # ============================================================
 
 renderizar_filtro_categorico(
-    "Tipo de Escola por ano"
-)
-
-renderizar_filtro_categorico(
-    "Tipo de Escola 2025"
+    "Tipo de Escola"
 )
 
 
@@ -12812,8 +12905,7 @@ renderizar_filtro_categorico(
 # ============================================================
 
 filtros_categoricos_existentes = [
-    "Tipo de Escola por ano",
-    "Tipo de Escola 2025",
+    "Tipo de Escola",
     "PPI",
     "INSE",
     "Colégio Militar",
@@ -12895,7 +12987,7 @@ def mostrar_integral_agregado_para(*variaveis):
 # com a classificação anual. Os pontos que conhecem a dimensão escolhida
 # usam mostrar_integral_agregado_para(...).
 mostrar_integral_agregado = mostrar_integral_agregado_para(
-    "Tipo de Escola por ano"
+    "Tipo de Escola"
 )
 
 
@@ -13043,27 +13135,23 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
 
     dimensoes_dicionario = [
         (
-            "Tipo de Escola por ano",
-            "Classificação da escola em cada edição analisada: Parcial/Regular, Mista ou 100% Integral. A categoria agregada Integral (Mista + 100%) reúne Mistas e 100% Integrais.",
+            rotulo_dimensao("Tipo de Escola"),
+            "Classificação da escola em cada edição analisada: Parcial/Regular, Mista ou 100% Integral. A categoria agregada Integral (Mista + 100%) reúne Mistas e 100% Integrais. Quando 'Fixar variáveis no ano' está selecionado, a classificação daquele ano é aplicada à mesma escola em todas as edições.",
         ),
         (
-            "Tipo de Escola 2025",
-            "Classificação fixa da escola em 2025, aplicada também aos anos anteriores. Permite acompanhar ao longo do tempo o mesmo grupo definido pela situação da escola em 2025.",
-        ),
-        (
-            "PPI",
+            rotulo_dimensao("PPI"),
             "Faixa PPI registrada para a escola, utilizada para segmentar o perfil racial dos estudantes.",
         ),
         (
-            "INSE",
+            rotulo_dimensao("INSE"),
             "Faixa do Indicador de Nível Socioeconômico associada à escola.",
         ),
         (
-            "Colégio Militar",
+            rotulo_dimensao("Colégio Militar"),
             "Indica se a escola está classificada como colégio militar na base.",
         ),
         (
-            "Colégio com Seleção",
+            rotulo_dimensao("Colégio com Seleção"),
             "Indica se a escola possui processo de seleção de estudantes segundo a classificação disponível na base.",
         ),
         (
@@ -13079,7 +13167,7 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
             "Primeira edição do IDEB em que a escola aparece classificada como 100% Integral.",
         ),
         (
-            "Carga Horária",
+            rotulo_dimensao("Carga horária"),
             "Classificação de carga horária construída a partir dos registros de escola EMI 7h e EMI 9h: 7h, 9h, 7h + 9h ou Não se aplica.",
         ),
         (
@@ -13105,6 +13193,10 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
         (
             "SAME SCHOOLS",
             "Quando ativado, restringe a análise às escolas marcadas na base consolidada como pertencentes ao conjunto Same Schools.",
+        ),
+        (
+            "Fixar variáveis no ano",
+            "Quando um ano é selecionado, Tipo de Escola, PPI, INSE, Colégio com seleção, Colégio Militar e Carga Horária passam a usar, para todas as edições, a classificação observada naquele ano. Com <vazio>, cada edição usa seu próprio valor.",
         ),
         (
             "Considerar apenas escolas do IDEB em [ano]",
@@ -15777,20 +15869,9 @@ if pagina == "MELHORES ESCOLAS":
     # DISTRIBUIÇÕES TOP
     # ========================================================
 
-    dist_tipo_ano = preparar_distribuicao_top(
+    dist_tipo = preparar_distribuicao_top(
         base_dim,
-        "Tipo de Escola por ano",
-        [
-            "100% Integral",
-            "Parcial/Regular",
-            "Mista",
-        ],
-    )
-
-
-    dist_tipo_2025 = preparar_distribuicao_top(
-        base_dim,
-        "Tipo de Escola 2025",
+        "Tipo de Escola",
         [
             "100% Integral",
             "Parcial/Regular",
@@ -15811,8 +15892,8 @@ if pagina == "MELHORES ESCOLAS":
     )
 
 
-    g1, g2, g3, g4 = st.columns(
-        4,
+    g1, g2, g3 = st.columns(
+        3,
         gap="medium",
     )
 
@@ -15822,8 +15903,8 @@ if pagina == "MELHORES ESCOLAS":
         st.altair_chart(
             aplicar_fundo_grafico(
                 grafico_barra_100_top(
-                    dist_tipo_ano,
-                    "Tipo de Escola por ano",
+                    dist_tipo,
+                    rotulo_dimensao("Tipo de Escola"),
                     [
                         "100% Integral",
                         "Mista",
@@ -15841,27 +15922,8 @@ if pagina == "MELHORES ESCOLAS":
         st.altair_chart(
             aplicar_fundo_grafico(
                 grafico_barra_100_top(
-                    dist_tipo_2025,
-                    "Tipo de Escola 2025",
-                    [
-                        "100% Integral",
-                        "Mista",
-                        "Parcial/Regular",
-                    ],
-                )
-            ),
-            theme=None,
-            width="stretch",
-        )
-
-
-    with g3:
-
-        st.altair_chart(
-            aplicar_fundo_grafico(
-                grafico_barra_100_top(
                     dist_inse,
-                    "INSE",
+                    rotulo_dimensao("INSE"),
                     ordenar_dimensao(
                         dist_inse[
                             "Categoria"
@@ -15875,13 +15937,13 @@ if pagina == "MELHORES ESCOLAS":
         )
 
 
-    with g4:
+    with g3:
 
         st.altair_chart(
             aplicar_fundo_grafico(
                 grafico_barra_100_top(
                     dist_ppi,
-                    "PPI",
+                    rotulo_dimensao("PPI"),
                     ordenar_dimensao(
                         dist_ppi[
                             "Categoria"
