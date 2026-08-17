@@ -173,6 +173,7 @@ st.markdown(
         .stApp .st-key-nav_distribuicoes button p,
         .stApp .st-key-nav_melhores button p,
         .stApp .st-key-nav_mapa_calor button p,
+        .stApp .st-key-nav_atualizacoes button p,
         .stApp .st-key-nav_insights button p {
             white-space: normal !important;
             overflow-wrap: normal !important;
@@ -190,9 +191,19 @@ st.markdown(
 
             div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
             > div[data-testid="stColumn"] {
-                flex: 1 1 128px !important;
+                flex: 1 1 13% !important;
                 width: auto !important;
                 min-width: 116px !important;
+            }
+
+            /* As páginas editoriais permanecem juntas na segunda linha. */
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"]:has(.st-key-nav_dicionario),
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"]:has(.st-key-nav_atualizacoes),
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"]:has(.st-key-nav_insights) {
+                flex: 1 1 28% !important;
             }
 
             .st-key-nav_dicionario button,
@@ -202,6 +213,7 @@ st.markdown(
             .st-key-nav_distribuicoes button,
             .st-key-nav_melhores button,
             .st-key-nav_mapa_calor button,
+            .st-key-nav_atualizacoes button,
             .st-key-nav_insights button {
                 min-height: 2.72rem !important;
                 height: 100% !important;
@@ -224,6 +236,15 @@ st.markdown(
                 min-width: 112px !important;
             }
 
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"]:has(.st-key-nav_dicionario),
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"]:has(.st-key-nav_atualizacoes),
+            div[data-testid="stHorizontalBlock"]:has(.st-key-nav_dicionario):has(.st-key-nav_insights)
+            > div[data-testid="stColumn"]:has(.st-key-nav_insights) {
+                flex-basis: 28% !important;
+            }
+
             .stApp .st-key-nav_dicionario button p,
             .stApp .st-key-nav_principais button p,
             .stApp .st-key-nav_historia_ano button p,
@@ -231,6 +252,7 @@ st.markdown(
             .stApp .st-key-nav_distribuicoes button p,
             .stApp .st-key-nav_melhores button p,
             .stApp .st-key-nav_mapa_calor button p,
+            .stApp .st-key-nav_atualizacoes button p,
             .stApp .st-key-nav_insights button p {
                 font-size: 0.72rem !important;
             }
@@ -10258,7 +10280,7 @@ def _ordem_historia_uma_dimensao(
     )
 
 
-    if ordenacao == "Ordem para gráfico":
+    if ordenacao == "Ordem intuitiva":
 
         return ordenar_dimensao_para_grafico(
             categorias,
@@ -10521,7 +10543,7 @@ def _ordens_historia_duas_dimensoes(
     )
 
 
-    if ordenacao == "Ordem para gráfico":
+    if ordenacao == "Ordem intuitiva":
 
         ordem_nivel_1 = ordenar_dimensao_para_grafico(
             resultado_ancora[
@@ -12355,6 +12377,16 @@ for chave_dimensao in [
             st.session_state[chave_dimensao] = valor_canonico
 
 
+# Compatibilidade com sessões abertas antes da renomeação da opção.
+for chave_ordenacao in [
+    "ordenacao_distribuicoes",
+    "ordenacao_cruz",
+    "historia_ordenacao",
+]:
+    if st.session_state.get(chave_ordenacao) == "Ordem para gráfico":
+        st.session_state[chave_ordenacao] = "Ordem intuitiva"
+
+
 # ============================================================
 # NAVEGAÇÃO
 # ============================================================
@@ -12366,15 +12398,16 @@ if "pagina" not in st.session_state:
     )
 
 
-nav_0, nav_1, nav_2, nav_3, nav_4, nav_5, nav_6, nav_7 = st.columns(
+nav_0, nav_1, nav_2, nav_3, nav_4, nav_5, nav_6, nav_7, nav_8 = st.columns(
     [
-        1.02,
         0.98,
         1.06,
         1.00,
         0.92,
         1.30,
         0.98,
+        1.02,
+        1.06,
         0.88,
     ],
     gap="small",
@@ -12382,23 +12415,6 @@ nav_0, nav_1, nav_2, nav_3, nav_4, nav_5, nav_6, nav_7 = st.columns(
 
 
 with nav_0:
-
-    if st.button(
-        "DICIONÁRIO",
-        width="stretch",
-        key="nav_dicionario",
-        help=(
-            "Consulte as definições dos indicadores, dimensões, filtros e "
-            "variáveis de apoio usados no painel."
-        ),
-    ):
-
-        st.session_state.pagina = (
-            "DICIONÁRIO DE VARIÁVEIS"
-        )
-
-
-with nav_1:
 
     if st.button(
         "INDICADORES",
@@ -12415,7 +12431,7 @@ with nav_1:
         )
 
 
-with nav_2:
+with nav_1:
 
     if st.button(
         "DECOMPOSIÇÃO",
@@ -12432,7 +12448,7 @@ with nav_2:
         )
 
 
-with nav_3:
+with nav_2:
 
     if st.button(
         "COMPOSIÇÃO",
@@ -12449,7 +12465,7 @@ with nav_3:
         )
 
 
-with nav_4:
+with nav_3:
 
     if st.button(
         "DISPERSÃO",
@@ -12466,7 +12482,7 @@ with nav_4:
         )
 
 
-with nav_5:
+with nav_4:
 
     if st.button(
         "MELHORES ESCOLAS",
@@ -12483,7 +12499,7 @@ with nav_5:
         )
 
 
-with nav_6:
+with nav_5:
 
     if st.button(
         "TRANSIÇÕES",
@@ -12500,7 +12516,41 @@ with nav_6:
         )
 
 
+with nav_6:
+
+    if st.button(
+        "DICIONÁRIO",
+        width="stretch",
+        key="nav_dicionario",
+        help=(
+            "Consulte as definições dos indicadores, dimensões, filtros e "
+            "variáveis de apoio usados no painel."
+        ),
+    ):
+
+        st.session_state.pagina = (
+            "DICIONÁRIO DE VARIÁVEIS"
+        )
+
+
 with nav_7:
+
+    if st.button(
+        "ATUALIZAÇÕES",
+        width="stretch",
+        key="nav_atualizacoes",
+        help=(
+            "Consulte as alterações já realizadas no painel e os itens "
+            "previstos para desenvolvimento."
+        ),
+    ):
+
+        st.session_state.pagina = (
+            "ATUALIZAÇÕES"
+        )
+
+
+with nav_8:
 
     if st.button(
         "INSIGHTS",
@@ -12533,6 +12583,7 @@ chave_nav_ativa = {
     "DISTRIBUIÇÕES": "nav_distribuicoes",
     "MELHORES ESCOLAS": "nav_melhores",
     "MAPA DE CALOR": "nav_mapa_calor",
+    "ATUALIZAÇÕES": "nav_atualizacoes",
     "INSIGHTS": "nav_insights",
 }.get(
     pagina
@@ -13341,6 +13392,85 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
 
 
 # ============================================================
+# ATUALIZAÇÕES E BACKLOG
+# ============================================================
+
+if pagina == "ATUALIZAÇÕES":
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-size:23px;
+            font-weight:750;
+            letter-spacing:-0.02em;
+            color:#27364A;
+            margin-bottom:0.20rem;
+        ">
+            ATUALIZAÇÕES
+        </div>
+        <div style="
+            text-align:center;
+            font-size:0.91rem;
+            color:#6B7A90;
+            margin-bottom:1.15rem;
+        ">
+            Histórico das melhorias incorporadas ao painel e itens previstos para desenvolvimento.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    atualizacoes_painel = [
+        (
+            "Navegação e documentação",
+            "Inclusão da página Atualizações, com áreas próprias para o histórico de mudanças e o backlog.",
+        ),
+        (
+            "Organização das páginas",
+            "Reorganização do menu para manter Dicionário, Atualizações e Insights agrupados quando a navegação ocupar mais de uma linha.",
+        ),
+        (
+            "Ordenação dos gráficos",
+            "Renomeação da opção 'Ordem para gráfico' para 'Ordem intuitiva' em todo o painel.",
+        ),
+    ]
+
+
+    backlog_painel = [
+        (
+            "Próximas entregas",
+            "Novos itens poderão ser adicionados aqui conforme forem priorizados.",
+        ),
+    ]
+
+
+    st.markdown(
+        '<div class="dictionary-section-title">Atualizações realizadas</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        _tabela_dicionario_html(atualizacoes_painel)
+        .replace("Variável", "Tema", 1)
+        .replace("O que representa no painel", "Atualização", 1),
+        unsafe_allow_html=True,
+    )
+
+
+    st.markdown(
+        '<div class="dictionary-section-title">Backlog</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        _tabela_dicionario_html(backlog_painel)
+        .replace("Variável", "Item", 1)
+        .replace("O que representa no painel", "Descrição", 1),
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================
 # INSIGHTS — RACIONAL DE AGREGADOS EM DOIS NÍVEIS
 # ============================================================
 
@@ -14105,7 +14235,7 @@ if pagina == "DISTRIBUIÇÕES":
                 [
                     "Número absoluto",
                     "Delta",
-                    "Ordem para gráfico",
+                    "Ordem intuitiva",
                 ],
                 key="ordenacao_distribuicoes",
             )
@@ -14408,7 +14538,7 @@ if pagina == "DISTRIBUIÇÕES":
             )
 
 
-        elif ordenacao_distribuicoes == "Ordem para gráfico":
+        elif ordenacao_distribuicoes == "Ordem intuitiva":
 
             dados_ordem_grafico = (
                 dados_boxplot[
@@ -16427,7 +16557,7 @@ if pagina == "PRINCIPAIS INDICADORES":
             [
                 "Número absoluto",
                 "Delta",
-                "Ordem para gráfico",
+                "Ordem intuitiva",
             ],
             key="ordenacao_cruz",
         )
@@ -16736,7 +16866,7 @@ if pagina == "PRINCIPAIS INDICADORES":
             )
 
 
-        elif ordenacao_cruz == "Ordem para gráfico":
+        elif ordenacao_cruz == "Ordem intuitiva":
 
             ordem_categorias_cruz = ordenar_dimensao_para_grafico(
                 categorias_cruz,
@@ -17092,7 +17222,7 @@ if pagina == "PRINCIPAIS INDICADORES":
                 )
 
 
-        elif ordenacao_cruz == "Ordem para gráfico":
+        elif ordenacao_cruz == "Ordem intuitiva":
 
             ordem_nivel_1 = ordenar_dimensao_para_grafico(
                 resultado_cruz[
@@ -17274,7 +17404,7 @@ if pagina == "HISTÓRIA DO ANO":
             "Ordenação",
             [
                 "Número absoluto",
-                "Ordem para gráfico",
+                "Ordem intuitiva",
             ],
             key="historia_ordenacao",
         )
