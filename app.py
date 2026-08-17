@@ -2,8 +2,10 @@ import hmac
 import html
 import itertools
 import math
+import os
 import re
 import textwrap
+from io import BytesIO
 
 import altair as alt
 import numpy as np
@@ -8071,7 +8073,7 @@ def criar_painel_horizontal(
 
 
     altura = max(
-        260,
+        110,
         len(
             plot
         )
@@ -8580,7 +8582,7 @@ def criar_painel_horizontal(
 
 
         altura_delta = max(
-            260,
+            120,
             len(
                 ordem_delta_compacto
             )
@@ -9357,7 +9359,7 @@ def criar_painel_cruzamentos(
 
 
     altura = max(
-        290,
+        120,
         len(
             plot
         )
@@ -9933,7 +9935,7 @@ def criar_painel_cruzamentos(
 
 
         altura_delta = max(
-            290,
+            130,
             len(
                 ordem_delta_compacto
             )
@@ -14004,7 +14006,7 @@ def gerar_top_achados_filtros_insights(
             ["_score", "p-valor", "_magnitude_efeito"],
             ascending=[False, True, False],
         )
-        .head(10)
+        .head(20)
         .reset_index(drop=True)
     )
 
@@ -14064,6 +14066,277 @@ def exibir_top_achados_insights(tabela):
         + "</tbody></table></div>"
     )
     st.markdown(tabela_html, unsafe_allow_html=True)
+
+
+def gerar_pdf_achados_insights(
+    tabela_principal,
+    tabela_filtros,
+    descricao_agregado_1,
+    descricao_agregado_2,
+):
+    """Gera, em memória, o relatório PDF das tabelas e de seus gráficos."""
+
+    try:
+        from reportlab.graphics.shapes import Drawing, Line, Rect, String
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.platypus import (
+            KeepTogether,
+            PageBreak,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+        )
+    except ImportError as erro:
+        raise RuntimeError(
+            "A exportação em PDF requer a biblioteca reportlab. "
+            "Inclua 'reportlab>=4.0' no requirements.txt."
+        ) from erro
+
+    fonte_regular = "Helvetica"
+    fonte_negrito = "Helvetica-Bold"
+    caminhos_fonte = [
+        (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ),
+        (
+            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+        ),
+    ]
+    for caminho_regular, caminho_negrito in caminhos_fonte:
+        if os.path.exists(caminho_regular) and os.path.exists(caminho_negrito):
+            if "DejaVuSansInsights" not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont("DejaVuSansInsights", caminho_regular))
+                pdfmetrics.registerFont(TTFont("DejaVuSansInsights-Bold", caminho_negrito))
+            fonte_regular = "DejaVuSansInsights"
+            fonte_negrito = "DejaVuSansInsights-Bold"
+            break
+
+    buffer = BytesIO()
+    pagina = landscape(A4)
+    documento = SimpleDocTemplate(
+        buffer,
+        pagesize=pagina,
+        leftMargin=12 * mm,
+        rightMargin=12 * mm,
+        topMargin=15 * mm,
+        bottomMargin=14 * mm,
+        title="Insights do Painel IDEB",
+        author="Painel IDEB",
+    )
+
+    estilos_base = getSampleStyleSheet()
+    estilo_titulo = ParagraphStyle(
+        "TituloInsights",
+        parent=estilos_base["Title"],
+        fontName=fonte_negrito,
+        fontSize=19,
+        leading=23,
+        textColor=colors.HexColor("#27364A"),
+        alignment=TA_CENTER,
+        spaceAfter=10,
+    )
+    estilo_secao = ParagraphStyle(
+        "SecaoInsights",
+        parent=estilos_base["Heading2"],
+        fontName=fonte_negrito,
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#27364A"),
+        spaceBefore=5,
+        spaceAfter=7,
+    )
+    estilo_corpo = ParagraphStyle(
+        "CorpoInsights",
+        parent=estilos_base["BodyText"],
+        fontName=fonte_regular,
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#42526A"),
+        alignment=TA_LEFT,
+    )
+    estilo_pequeno = ParagraphStyle(
+        "PequenoInsights",
+        parent=estilo_corpo,
+        fontSize=7,
+        leading=8.5,
+    )
+
+    elementos = [
+        Paragraph("Insights do Painel IDEB", estilo_titulo),
+        Paragraph(
+            f"<b>Agregado 1:</b> {html.escape(descricao_agregado_1)}<br/>"
+            f"<b>Agregado 2:</b> {html.escape(descricao_agregado_2)}",
+            estilo_corpo,
+        ),
+        Spacer(1, 5 * mm),
+    ]
+
+    def desenhar_rodape(canvas, doc):
+        canvas.saveState()
+        canvas.setFont(fonte_regular, 7)
+        canvas.setFillColor(colors.HexColor("#7B8498"))
+        canvas.drawString(12 * mm, 7 * mm, "Painel IDEB - Relatório de Insights")
+        canvas.drawRightString(pagina[0] - 12 * mm, 7 * mm, f"Página {doc.page}")
+        canvas.restoreState()
+
+    def paragrafo_celula(valor):
+        return Paragraph(html.escape(str(valor)), estilo_pequeno)
+
+    def tabela_resumo(tabela, incluir_recorte=False):
+        colunas = []
+        if incluir_recorte:
+            colunas.append(("Recorte adicional", "Recorte"))
+        colunas.extend(
+            [
+                ("Análise", "Análise"),
+                ("Indicador", "Indicador"),
+                ("Diferença", "Diferença (2 - 1)"),
+                ("p-valor", "p-valor"),
+                ("Tamanho de efeito", "g de Hedges"),
+                ("Magnitude", "Magnitude"),
+                ("N considerado", "N"),
+            ]
+        )
+        dados_tabela = [[paragrafo_celula(rotulo) for _, rotulo in colunas]]
+        for _, linha in tabela.iterrows():
+            valores = []
+            for coluna, _ in colunas:
+                valor = linha[coluna]
+                if coluna == "Diferença":
+                    valor = formatar_diferenca_medias(
+                        valor,
+                        linha["Indicador"],
+                        variacao=str(linha["Análise"]).startswith("Variação"),
+                    )
+                elif coluna == "p-valor":
+                    valor = formatar_p_valor(valor)
+                elif coluna == "Tamanho de efeito":
+                    valor = f"{float(valor):+.2f}".replace(".", ",")
+                valores.append(paragrafo_celula(valor))
+            dados_tabela.append(valores)
+
+        largura_util = pagina[0] - 24 * mm
+        pesos = [1.55, 1.25, 0.68, 0.85, 0.63, 0.70, 0.75, 0.62] if incluir_recorte else [1.35, 0.72, 0.90, 0.65, 0.74, 0.80, 0.65]
+        soma_pesos = sum(pesos)
+        larguras = [largura_util * peso / soma_pesos for peso in pesos]
+        tabela_pdf = Table(dados_tabela, colWidths=larguras, repeatRows=1)
+        tabela_pdf.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF3FB")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#27364A")),
+                    ("FONTNAME", (0, 0), (-1, 0), fonte_negrito),
+                    ("FONTNAME", (0, 1), (-1, -1), fonte_regular),
+                    ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D7DFE8")),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (2, 1), (-1, -1), "CENTER"),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        return tabela_pdf
+
+    def grafico_achado(linha):
+        largura, altura = 690, 82
+        desenho = Drawing(largura, altura)
+        media_1 = float(linha["Média Agregado 1"])
+        media_2 = float(linha["Média Agregado 2"])
+        limite = max(abs(media_1), abs(media_2), 1e-9) * 1.15
+        zero_x = 170
+        extensao = 430
+
+        desenho.add(Line(zero_x, 12, zero_x, 70, strokeColor=colors.HexColor("#AAB4C0"), strokeWidth=0.7))
+        for indice, (rotulo, valor, cor) in enumerate(
+            [
+                ("Agregado 1", media_1, "#7CB1D7"),
+                ("Agregado 2", media_2, "#28649B"),
+            ]
+        ):
+            y = 49 - indice * 29
+            fim_x = zero_x + (valor / limite) * extensao
+            inicio = min(zero_x, fim_x)
+            largura_barra = max(abs(fim_x - zero_x), 1.2)
+            desenho.add(String(5, y + 4, rotulo, fontName=fonte_negrito, fontSize=8, fillColor=colors.HexColor("#42526A")))
+            desenho.add(Rect(inicio, y, largura_barra, 13, fillColor=colors.HexColor(cor), strokeColor=None))
+            alinhamento = "start" if valor >= 0 else "end"
+            x_texto = fim_x + (5 if valor >= 0 else -5)
+            desenho.add(String(x_texto, y + 3, f"{valor:.2f}".replace(".", ","), fontName=fonte_regular, fontSize=8, textAnchor=alinhamento))
+        return desenho
+
+    def adicionar_graficos(tabela, titulo, incluir_recorte=False):
+        elementos.append(PageBreak())
+        elementos.append(Paragraph(titulo, estilo_secao))
+        for posicao, (_, linha) in enumerate(tabela.iterrows(), start=1):
+            recorte = (
+                f" | {linha['Recorte adicional']}"
+                if incluir_recorte
+                else ""
+            )
+            cabecalho = Paragraph(
+                f"<b>{posicao}. {html.escape(str(linha['Análise']))} - "
+                f"{html.escape(str(linha['Indicador']))}</b>{html.escape(recorte)}",
+                estilo_corpo,
+            )
+            estatisticas = Paragraph(
+                f"Diferença: <b>{html.escape(formatar_diferenca_medias(linha['Diferença'], linha['Indicador'], variacao=str(linha['Análise']).startswith('Variação')))}</b> | "
+                f"p-valor: <b>{html.escape(formatar_p_valor(linha['p-valor']))}</b> | "
+                f"g de Hedges: <b>{float(linha['Tamanho de efeito']):+.2f}</b> ({html.escape(str(linha['Magnitude']))}) | "
+                f"N: {html.escape(str(linha['N considerado']))}",
+                estilo_pequeno,
+            )
+            elementos.append(
+                KeepTogether(
+                    [
+                        cabecalho,
+                        Spacer(1, 1.5 * mm),
+                        grafico_achado(linha),
+                        estatisticas,
+                        Spacer(1, 4 * mm),
+                    ]
+                )
+            )
+
+    elementos.extend(
+        [
+            Paragraph("Tabela 1 - Principais achados: resultados e deltas", estilo_secao),
+            tabela_resumo(tabela_principal, incluir_recorte=False),
+            Spacer(1, 5 * mm),
+            Paragraph("Tabela 2 - Achados com filtros adicionais", estilo_secao),
+            tabela_resumo(tabela_filtros, incluir_recorte=True),
+        ]
+    )
+    adicionar_graficos(
+        tabela_principal,
+        "Gráficos dos achados da Tabela 1",
+        incluir_recorte=False,
+    )
+    adicionar_graficos(
+        tabela_filtros,
+        "Gráficos dos achados da Tabela 2",
+        incluir_recorte=True,
+    )
+
+    documento.build(
+        elementos,
+        onFirstPage=desenhar_rodape,
+        onLaterPages=desenhar_rodape,
+    )
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 # ============================================================
@@ -14477,7 +14750,7 @@ if pagina == "INSIGHTS":
 
 
                 st.markdown(
-                    "#### 10 principais achados com filtros adicionais"
+                    "#### 20 principais achados com filtros adicionais"
                 )
 
                 st.caption(
@@ -14488,6 +14761,21 @@ if pagina == "INSIGHTS":
                     "Sim, Colégio Militar: Não e os demais recortes possíveis. "
                     "Também são considerados resultados por ano e deltas entre "
                     "todos os pares de anos."
+                )
+
+
+                assinatura_insights = repr(
+                    (
+                        dimensao_1_insights,
+                        dimensao_2_insights,
+                        tuple(agregado_insights_1),
+                        tuple(agregado_insights_2),
+                        tuple(
+                            (chave, st.session_state.get(chave))
+                            for chave in sorted(st.session_state)
+                            if chave.startswith("filtro_")
+                        ),
+                    )
                 )
 
 
@@ -14511,9 +14799,97 @@ if pagina == "INSIGHTS":
                             )
                         )
 
+                    st.session_state["insights_tabela_filtros"] = (
+                        top_achados_filtros_insights
+                    )
+                    st.session_state["insights_tabela_filtros_assinatura"] = (
+                        assinatura_insights
+                    )
+                    st.session_state.pop("insights_pdf_bytes", None)
+
+
+                tabela_filtros_sessao = st.session_state.get(
+                    "insights_tabela_filtros"
+                )
+                assinatura_filtros_sessao = st.session_state.get(
+                    "insights_tabela_filtros_assinatura"
+                )
+
+
+                tabela_filtros_valida = (
+                    isinstance(tabela_filtros_sessao, pd.DataFrame)
+                    and assinatura_filtros_sessao == assinatura_insights
+                )
+
+                if not tabela_filtros_valida:
+                    st.session_state.pop("insights_pdf_bytes", None)
+
+
+                if tabela_filtros_valida:
 
                     exibir_top_achados_insights(
-                        top_achados_filtros_insights
+                        tabela_filtros_sessao
+                    )
+
+
+                st.markdown(
+                    "#### Relatório em PDF"
+                )
+
+                st.caption(
+                    "O PDF reúne as duas tabelas e inclui um gráfico para cada "
+                    "achado, comparando as médias dos Agregados 1 e 2. Gere "
+                    "primeiro a análise com filtros adicionais."
+                )
+
+
+                if st.button(
+                    "Gerar PDF com tabelas e gráficos",
+                    key="gerar_pdf_insights",
+                    disabled=not tabela_filtros_valida,
+                ):
+
+                    descricao_agregado_1 = "; ".join(
+                        rotulo_combinacao_insights(
+                            combinacao,
+                            dimensao_1_insights,
+                            dimensao_2_insights,
+                        )
+                        for combinacao in agregado_insights_1
+                    )
+                    descricao_agregado_2 = "; ".join(
+                        rotulo_combinacao_insights(
+                            combinacao,
+                            dimensao_1_insights,
+                            dimensao_2_insights,
+                        )
+                        for combinacao in agregado_insights_2
+                    )
+
+                    try:
+                        with st.spinner(
+                            "Montando o PDF e os gráficos dos achados..."
+                        ):
+                            st.session_state["insights_pdf_bytes"] = (
+                                gerar_pdf_achados_insights(
+                                    top_achados_insights,
+                                    tabela_filtros_sessao,
+                                    descricao_agregado_1,
+                                    descricao_agregado_2,
+                                )
+                            )
+                    except Exception as erro_pdf:
+                        st.error(str(erro_pdf))
+
+
+                if st.session_state.get("insights_pdf_bytes"):
+
+                    st.download_button(
+                        "Baixar relatório de Insights (PDF)",
+                        data=st.session_state["insights_pdf_bytes"],
+                        file_name="insights_painel_ideb.pdf",
+                        mime="application/pdf",
+                        key="baixar_pdf_insights",
                     )
 
 
