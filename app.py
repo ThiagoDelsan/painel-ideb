@@ -13820,6 +13820,7 @@ def gerar_top_achados_insights(
     dimensao_2,
     agregado_1,
     agregado_2,
+    limite=10,
 ):
     """Varre indicadores, anos e todos os pares de anos disponíveis."""
 
@@ -13895,6 +13896,109 @@ def gerar_top_achados_insights(
         + tabela["_magnitude_efeito"].rank(pct=True, method="average")
     ) / 2
 
+    tabela = tabela.sort_values(
+        ["_score", "p-valor", "_magnitude_efeito"],
+        ascending=[False, True, False],
+    )
+
+    if limite is not None:
+        tabela = tabela.head(int(limite))
+
+    return tabela.reset_index(drop=True)
+
+
+def gerar_top_achados_filtros_insights(
+    base,
+    dimensao_1,
+    dimensao_2,
+    agregado_1,
+    agregado_2,
+):
+    """Repete a varredura dentro de cada categoria dos demais filtros."""
+
+    resultados = []
+    dimensoes_agregados = {
+        dimensao
+        for dimensao in [dimensao_1, dimensao_2]
+        if dimensao is not None
+    }
+
+    fontes_filtro = []
+
+    for dimensao_filtro in EIXOS_DISPONIVEIS:
+        if dimensao_filtro in dimensoes_agregados:
+            continue
+
+        try:
+            categorias_filtro = criar_variavel_eixo(base, dimensao_filtro)["Categoria"]
+        except Exception:
+            continue
+
+        fontes_filtro.append(
+            (rotulo_dimensao(dimensao_filtro), dimensao_filtro, categorias_filtro)
+        )
+
+    # Propedêutico e EPT são filtros da sidebar, embora não façam parte do
+    # registro de dimensões usado pelos gráficos.
+    for rotulo_filtro, colunas_candidatas in [
+        ("Propedêutico", ["Propedêutido", "Propedêutico"]),
+        ("EPT", ["EPT"]),
+    ]:
+        coluna = next(
+            (nome for nome in colunas_candidatas if nome in base.columns),
+            None,
+        )
+        if coluna is not None:
+            fontes_filtro.append((rotulo_filtro, None, base[coluna]))
+
+    for rotulo_filtro, dimensao_filtro, categorias_filtro in fontes_filtro:
+
+        categorias_validas = categorias_filtro.dropna().astype(str)
+
+        categorias_ordenadas = categorias_validas.unique().tolist()
+        if dimensao_filtro is not None:
+            categorias_ordenadas = ordenar_dimensao(
+                categorias_ordenadas,
+                dimensao_filtro,
+            )
+        else:
+            categorias_ordenadas = sorted(categorias_ordenadas)
+
+        for categoria in categorias_ordenadas:
+            mascara = categorias_filtro.notna() & categorias_filtro.astype(str).eq(str(categoria))
+            recorte = base.loc[mascara].copy()
+
+            if recorte.empty:
+                continue
+
+            achados_recorte = gerar_top_achados_insights(
+                recorte,
+                dimensao_1,
+                dimensao_2,
+                agregado_1,
+                agregado_2,
+                limite=None,
+            )
+
+            if achados_recorte.empty:
+                continue
+
+            achados_recorte["Recorte adicional"] = (
+                f"{rotulo_filtro}: {categoria}"
+            )
+            resultados.append(achados_recorte)
+
+    if not resultados:
+        return pd.DataFrame()
+
+    tabela = pd.concat(resultados, ignore_index=True)
+    tabela["_forca_p"] = -np.log10(tabela["p-valor"].clip(lower=1e-300))
+    tabela["_magnitude_efeito"] = tabela["Tamanho de efeito"].abs()
+    tabela["_score"] = (
+        tabela["_forca_p"].rank(pct=True, method="average")
+        + tabela["_magnitude_efeito"].rank(pct=True, method="average")
+    ) / 2
+
     return (
         tabela.sort_values(
             ["_score", "p-valor", "_magnitude_efeito"],
@@ -13910,6 +14014,7 @@ def exibir_top_achados_insights(tabela):
         st.info("Não há amostra suficiente nos dois agregados para gerar os achados.")
         return
 
+    incluir_recorte = "Recorte adicional" in tabela.columns
     linhas = []
     for posicao, resultado in tabela.iterrows():
         p_valor = resultado["p-valor"]
@@ -13922,6 +14027,12 @@ def exibir_top_achados_insights(tabela):
         linhas.append(
             "<tr>"
             f"<td>{posicao + 1}</td>"
+            + (
+                f"<td>{html.escape(str(resultado['Recorte adicional']))}</td>"
+                if incluir_recorte
+                else ""
+            )
+            +
             f"<td>{html.escape(str(resultado['Análise']))}</td>"
             f"<td>{html.escape(indicador)}</td>"
             f"<td style='font-weight:700;'>{html.escape(diferenca)}</td>"
@@ -13933,10 +14044,13 @@ def exibir_top_achados_insights(tabela):
             "</tr>"
         )
 
-    cabecalhos = [
-        "#", "Análise", "Indicador", "Diferença (2 − 1)", "p-valor",
+    cabecalhos = ["#"]
+    if incluir_recorte:
+        cabecalhos.append("Recorte adicional")
+    cabecalhos.extend([
+        "Análise", "Indicador", "Diferença (2 − 1)", "p-valor",
         "Relevância", "g de Hedges", "Magnitude", "N considerado",
-    ]
+    ])
     tabela_html = (
         "<div style='width:100%;overflow-x:auto;background:#FFFFFF;border:1px solid #E1E7EE;border-radius:10px;'>"
         "<table style='width:100%;border-collapse:collapse;font-size:0.78rem;text-align:center;color:#42526A;'>"
@@ -14323,7 +14437,7 @@ if pagina == "INSIGHTS":
 
 
             st.markdown(
-                "#### 10 principais achados"
+                "#### 10 principais achados — resultados e deltas"
             )
 
             st.caption(
@@ -14360,6 +14474,47 @@ if pagina == "INSIGHTS":
                 exibir_top_achados_insights(
                     top_achados_insights
                 )
+
+
+                st.markdown(
+                    "#### 10 principais achados com filtros adicionais"
+                )
+
+                st.caption(
+                    "Esta análise mantém a composição dos dois agregados e "
+                    "repete as comparações dentro de cada categoria das demais "
+                    "dimensões disponíveis. Por exemplo: se os agregados usam "
+                    "Tipo de Escola, são avaliados separadamente Colégio Militar: "
+                    "Sim, Colégio Militar: Não e os demais recortes possíveis. "
+                    "Também são considerados resultados por ano e deltas entre "
+                    "todos os pares de anos."
+                )
+
+
+                if st.button(
+                    "Gerar análise com filtros adicionais",
+                    key="gerar_insights_filtros_adicionais",
+                    type="primary",
+                ):
+
+                    with st.spinner(
+                        "Cruzando os agregados com os filtros adicionais..."
+                    ):
+
+                        top_achados_filtros_insights = (
+                            gerar_top_achados_filtros_insights(
+                                df,
+                                dimensao_1_insights,
+                                dimensao_2_insights,
+                                agregado_insights_1,
+                                agregado_insights_2,
+                            )
+                        )
+
+
+                    exibir_top_achados_insights(
+                        top_achados_filtros_insights
+                    )
 
 
 # ============================================================
