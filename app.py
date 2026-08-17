@@ -13440,8 +13440,12 @@ if pagina == "ATUALIZAÇÕES":
 
     backlog_painel = [
         (
-            "Próximas entregas",
-            "Novos itens poderão ser adicionados aqui conforme forem priorizados.",
+            "Same Schools",
+            "Ampliar possibilidade de visualização de Same Schools para demais anos.",
+        ),
+        (
+            "Anos Finais",
+            "Espelhar painel para Anos Finais.",
         ),
     ]
 
@@ -13708,6 +13712,244 @@ def _html_resumo_agregado_insights(
             ">{conteudo}</div>
         </div>
     """
+
+
+def _tamanho_efeito_hedges_g(amostra_1, amostra_2):
+    """Calcula g de Hedges (Agregado 2 − Agregado 1)."""
+
+    amostra_1 = _limpar_amostra_numerica(amostra_1)
+    amostra_2 = _limpar_amostra_numerica(amostra_2)
+    n_1, n_2 = len(amostra_1), len(amostra_2)
+
+    if n_1 < 2 or n_2 < 2:
+        return np.nan
+
+    variancia_agrupada = (
+        ((n_1 - 1) * np.var(amostra_1, ddof=1))
+        + ((n_2 - 1) * np.var(amostra_2, ddof=1))
+    ) / (n_1 + n_2 - 2)
+
+    if variancia_agrupada <= 0:
+        return 0.0 if np.isclose(np.mean(amostra_1), np.mean(amostra_2)) else np.nan
+
+    d_cohen = (np.mean(amostra_2) - np.mean(amostra_1)) / math.sqrt(variancia_agrupada)
+    correcao = 1 - (3 / (4 * (n_1 + n_2) - 9))
+    return float(d_cohen * correcao)
+
+
+def _classificar_tamanho_efeito(valor):
+    if pd.isna(valor):
+        return "Indisponível"
+
+    magnitude = abs(float(valor))
+    if magnitude < 0.20:
+        return "Desprezível"
+    if magnitude < 0.50:
+        return "Pequeno"
+    if magnitude < 0.80:
+        return "Médio"
+    return "Grande"
+
+
+def _atribuir_agregados_insights(
+    base,
+    dimensao_1,
+    dimensao_2,
+    agregado_1,
+    agregado_2,
+):
+    """Identifica a qual agregado pertence cada linha da base."""
+
+    resultado = base.copy()
+    categoria_1 = criar_variavel_eixo(resultado, dimensao_1)["Categoria"]
+
+    if dimensao_2 is None:
+        chaves = list(zip(categoria_1.astype(str), [None] * len(resultado)))
+    else:
+        categoria_2 = criar_variavel_eixo(resultado, dimensao_2)["Categoria"]
+        chaves = list(zip(categoria_1.astype(str), categoria_2.astype(str)))
+
+    conjunto_1 = set(tuple(item) for item in agregado_1)
+    conjunto_2 = set(tuple(item) for item in agregado_2)
+    resultado["_Agregado_Insight"] = [
+        "Agregado 1" if chave in conjunto_1
+        else "Agregado 2" if chave in conjunto_2
+        else None
+        for chave in chaves
+    ]
+
+    return resultado[resultado["_Agregado_Insight"].notna()].copy()
+
+
+def _registrar_achado_insights(resultados, amostra_1, amostra_2, indicador, analise):
+    """Calcula estatística, efeito e acrescenta um achado válido à lista."""
+
+    # Na varredura usamos Welch de forma uniforme. Isso torna comparáveis
+    # milhares de cenários e evita o custo de 10 mil permutações por recorte.
+    amostra_1 = _limpar_amostra_numerica(amostra_1)
+    amostra_2 = _limpar_amostra_numerica(amostra_2)
+
+    if len(amostra_1) < 5 or len(amostra_2) < 5:
+        return
+
+    p_valor = _p_valor_welch(amostra_1, amostra_2)
+    efeito = _tamanho_efeito_hedges_g(amostra_1, amostra_2)
+
+    if pd.isna(p_valor) or pd.isna(efeito):
+        return
+
+    resultados.append(
+        {
+            "Análise": analise,
+            "Indicador": indicador,
+            "Média Agregado 1": float(np.mean(amostra_1)),
+            "Média Agregado 2": float(np.mean(amostra_2)),
+            "Diferença": float(np.mean(amostra_2) - np.mean(amostra_1)),
+            "p-valor": float(p_valor),
+            "Tamanho de efeito": float(efeito),
+            "Magnitude": _classificar_tamanho_efeito(efeito),
+            "N considerado": f"{len(amostra_1)} × {len(amostra_2)}",
+            "Teste aplicado": "t de Welch",
+        }
+    )
+
+
+def gerar_top_achados_insights(
+    base,
+    dimensao_1,
+    dimensao_2,
+    agregado_1,
+    agregado_2,
+):
+    """Varre indicadores, anos e todos os pares de anos disponíveis."""
+
+    base_grupos = _atribuir_agregados_insights(
+        base,
+        dimensao_1,
+        dimensao_2,
+        agregado_1,
+        agregado_2,
+    )
+
+    if base_grupos.empty:
+        return pd.DataFrame()
+
+    indicadores = ["IDEB", "N(LP)", "N(M)", "N", "Rendimento"]
+    anos = sorted(pd.to_numeric(base_grupos["Ano"], errors="coerce").dropna().astype(int).unique())
+    resultados = []
+
+    # Resultados absolutos por edição.
+    for indicador in indicadores:
+        if indicador not in base_grupos.columns:
+            continue
+
+        for ano in anos:
+            recorte = base_grupos[pd.to_numeric(base_grupos["Ano"], errors="coerce").eq(ano)]
+            _registrar_achado_insights(
+                resultados,
+                recorte.loc[recorte["_Agregado_Insight"].eq("Agregado 1"), indicador],
+                recorte.loc[recorte["_Agregado_Insight"].eq("Agregado 2"), indicador],
+                indicador,
+                f"Resultado em {ano}",
+            )
+
+        # Variações para todas as combinações de dois anos. A classificação
+        # do agregado é a observada no ano final, como na página Dispersão.
+        valores = base_grupos[["Cód. INEP", "Ano", indicador]].copy()
+        valores[indicador] = pd.to_numeric(valores[indicador], errors="coerce")
+        valores = valores.dropna(subset=[indicador]).drop_duplicates(["Cód. INEP", "Ano"])
+
+        for ano_inicial, ano_final in itertools.combinations(anos, 2):
+            pivot = valores[valores["Ano"].isin([ano_inicial, ano_final])].pivot(
+                index="Cód. INEP", columns="Ano", values=indicador
+            )
+            if ano_inicial not in pivot.columns or ano_final not in pivot.columns:
+                continue
+
+            delta = (pivot[ano_final] - pivot[ano_inicial]).dropna().rename("Delta").reset_index()
+            grupos_finais = (
+                base_grupos[pd.to_numeric(base_grupos["Ano"], errors="coerce").eq(ano_final)]
+                [["Cód. INEP", "_Agregado_Insight"]]
+                .drop_duplicates("Cód. INEP")
+            )
+            delta = delta.merge(grupos_finais, on="Cód. INEP", how="inner")
+            _registrar_achado_insights(
+                resultados,
+                delta.loc[delta["_Agregado_Insight"].eq("Agregado 1"), "Delta"],
+                delta.loc[delta["_Agregado_Insight"].eq("Agregado 2"), "Delta"],
+                indicador,
+                f"Variação {ano_final} − {ano_inicial}",
+            )
+
+    if not resultados:
+        return pd.DataFrame()
+
+    tabela = pd.DataFrame(resultados)
+    tabela["_forca_p"] = -np.log10(tabela["p-valor"].clip(lower=1e-300))
+    tabela["_magnitude_efeito"] = tabela["Tamanho de efeito"].abs()
+
+    # Ranking combinado por percentis: metade evidência estatística e metade
+    # magnitude do efeito, sem deixar a escala de uma dominar a outra.
+    tabela["_score"] = (
+        tabela["_forca_p"].rank(pct=True, method="average")
+        + tabela["_magnitude_efeito"].rank(pct=True, method="average")
+    ) / 2
+
+    return (
+        tabela.sort_values(
+            ["_score", "p-valor", "_magnitude_efeito"],
+            ascending=[False, True, False],
+        )
+        .head(10)
+        .reset_index(drop=True)
+    )
+
+
+def exibir_top_achados_insights(tabela):
+    if tabela.empty:
+        st.info("Não há amostra suficiente nos dois agregados para gerar os achados.")
+        return
+
+    linhas = []
+    for posicao, resultado in tabela.iterrows():
+        p_valor = resultado["p-valor"]
+        relevancia, cor_fundo, cor_texto = classificar_relevancia_estatistica(p_valor)
+        indicador = resultado["Indicador"]
+        variacao = str(resultado["Análise"]).startswith("Variação")
+        diferenca = formatar_diferenca_medias(resultado["Diferença"], indicador, variacao=variacao)
+        efeito = f"{resultado['Tamanho de efeito']:+.2f}".replace(".", ",")
+
+        linhas.append(
+            "<tr>"
+            f"<td>{posicao + 1}</td>"
+            f"<td>{html.escape(str(resultado['Análise']))}</td>"
+            f"<td>{html.escape(indicador)}</td>"
+            f"<td style='font-weight:700;'>{html.escape(diferenca)}</td>"
+            f"<td style='font-weight:700;color:{cor_texto};'>{html.escape(formatar_p_valor(p_valor))}</td>"
+            f"<td><span style='display:inline-block;padding:4px 9px;border-radius:999px;background:{cor_fundo};color:{cor_texto};font-weight:700;'>{html.escape(relevancia)}</span></td>"
+            f"<td style='font-weight:700;'>{efeito}</td>"
+            f"<td>{html.escape(str(resultado['Magnitude']))}</td>"
+            f"<td>{html.escape(str(resultado['N considerado']))}</td>"
+            "</tr>"
+        )
+
+    cabecalhos = [
+        "#", "Análise", "Indicador", "Diferença (2 − 1)", "p-valor",
+        "Relevância", "g de Hedges", "Magnitude", "N considerado",
+    ]
+    tabela_html = (
+        "<div style='width:100%;overflow-x:auto;background:#FFFFFF;border:1px solid #E1E7EE;border-radius:10px;'>"
+        "<table style='width:100%;border-collapse:collapse;font-size:0.78rem;text-align:center;color:#42526A;'>"
+        "<thead><tr>"
+        + "".join(
+            f"<th style='padding:9px 7px;border-bottom:1px solid #D7DFE8;background:#F7F9FC;color:#334155;white-space:nowrap;'>{cabecalho}</th>"
+            for cabecalho in cabecalhos
+        )
+        + "</tr></thead><tbody>"
+        + "".join(linhas)
+        + "</tbody></table></div>"
+    )
+    st.markdown(tabela_html, unsafe_allow_html=True)
 
 
 # ============================================================
@@ -14077,6 +14319,46 @@ if pagina == "INSIGHTS":
                         dimensao_2_insights,
                     ),
                     unsafe_allow_html=True,
+                )
+
+
+            st.markdown(
+                "#### 10 principais achados"
+            )
+
+            st.caption(
+                "A varredura compara os agregados nos cinco indicadores, em "
+                "todas as edições e em todas as combinações de dois anos, "
+                "respeitando os filtros globais ativos. A ordenação combina "
+                "maior evidência estatística (menor p-valor) e maior magnitude "
+                "do tamanho de efeito. O g de Hedges positivo indica resultado "
+                "maior no Agregado 2; negativo, maior no Agregado 1."
+            )
+
+
+            if not agregado_insights_1 or not agregado_insights_2:
+
+                st.info(
+                    "Selecione ao menos uma categoria ou combinação em cada agregado para gerar os achados."
+                )
+
+            else:
+
+                with st.spinner(
+                    "Analisando indicadores, anos e variações..."
+                ):
+
+                    top_achados_insights = gerar_top_achados_insights(
+                        df,
+                        dimensao_1_insights,
+                        dimensao_2_insights,
+                        agregado_insights_1,
+                        agregado_insights_2,
+                    )
+
+
+                exibir_top_achados_insights(
+                    top_achados_insights
                 )
 
 
