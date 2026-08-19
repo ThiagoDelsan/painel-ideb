@@ -1810,31 +1810,41 @@ def calcular_consolidado(
         )
 
 
-        recorte = (
-            recorte[
-                recorte[
-                    indicador
-                ].notna()
-                &
-                recorte[
-                    peso
-                ].notna()
-                &
-                (
-                    recorte[
-                        peso
-                    ]
-                    > 0
-                )
-            ]
-            .copy()
+        colunas_valor = (
+            ["N", "Rendimento"]
+            if indicador == "IDEB"
+            else [indicador]
         )
+        for coluna in [*colunas_valor, peso]:
+            recorte[coluna] = pd.to_numeric(
+                recorte[coluna],
+                errors="coerce",
+            )
+
+        recorte = recorte[
+            recorte[colunas_valor].notna().all(axis=1)
+            & recorte[peso].notna()
+            & recorte[peso].gt(0)
+        ].copy()
 
 
         if recorte.empty:
 
             continue
 
+
+        if indicador == "IDEB":
+            media_n = np.average(recorte["N"], weights=recorte[peso])
+            media_rendimento = np.average(
+                recorte["Rendimento"],
+                weights=recorte[peso],
+            )
+            media_grupo = media_n * media_rendimento
+        else:
+            media_grupo = np.average(
+                recorte[indicador],
+                weights=recorte[peso],
+            )
 
         resultados.append(
             {
@@ -1844,15 +1854,7 @@ def calcular_consolidado(
                 "Categoria":
                     "Consolidado",
 
-                "Média":
-                    np.average(
-                        recorte[
-                            indicador
-                        ],
-                        weights=recorte[
-                            peso
-                        ],
-                    ),
+                "Média": media_grupo,
 
                 "N escolas":
                     recorte[
@@ -2017,31 +2019,23 @@ def media_ponderada_duas_dimensoes(
     )
 
 
-    base_dupla = (
-        base_dupla[
-            base_dupla[
-                "Ano"
-            ].isin(
-                anos
-            )
-            &
-            base_dupla[
-                indicador
-            ].notna()
-            &
-            base_dupla[
-                peso
-            ].notna()
-            &
-            (
-                base_dupla[
-                    peso
-                ]
-                > 0
-            )
-        ]
-        .copy()
+    colunas_valor = (
+        ["N", "Rendimento"]
+        if indicador == "IDEB"
+        else [indicador]
     )
+    for coluna in [*colunas_valor, peso]:
+        base_dupla[coluna] = pd.to_numeric(
+            base_dupla[coluna],
+            errors="coerce",
+        )
+
+    base_dupla = base_dupla[
+        base_dupla["Ano"].isin(anos)
+        & base_dupla[colunas_valor].notna().all(axis=1)
+        & base_dupla[peso].notna()
+        & base_dupla[peso].gt(0)
+    ].copy()
 
 
     if base_dupla.empty:
@@ -2058,62 +2052,53 @@ def media_ponderada_duas_dimensoes(
         )
 
 
-    base_dupla[
-        "_produto"
-    ] = (
-        base_dupla[
-            indicador
-        ]
-        *
-        base_dupla[
-            peso
-        ]
-    )
+    if indicador == "IDEB":
+        base_dupla["_produto_n"] = base_dupla["N"] * base_dupla[peso]
+        base_dupla["_produto_rendimento"] = (
+            base_dupla["Rendimento"] * base_dupla[peso]
+        )
+    else:
+        base_dupla["_produto"] = base_dupla[indicador] * base_dupla[peso]
 
+
+    agregacoes = {
+        "Matrículas": (peso, "sum"),
+        "N escolas": ("Cód. INEP", "nunique"),
+    }
+    if indicador == "IDEB":
+        agregacoes.update(
+            {
+                "soma_ponderada_n": ("_produto_n", "sum"),
+                "soma_ponderada_rendimento": (
+                    "_produto_rendimento",
+                    "sum",
+                ),
+            }
+        )
+    else:
+        agregacoes["soma_ponderada"] = ("_produto", "sum")
 
     resultado = (
         base_dupla
         .groupby(
-            [
-                "Ano",
-                "Categoria_1",
-                "Categoria_2",
-            ],
+            ["Ano", "Categoria_1", "Categoria_2"],
             as_index=False,
         )
-        .agg(
+        .agg(**agregacoes)
+    )
 
-            soma_ponderada=(
-                "_produto",
-                "sum",
-            ),
 
-            Matrículas=(
-                peso,
-                "sum",
-            ),
-
-            **{
-                "N escolas": (
-                    "Cód. INEP",
-                    "nunique",
-                )
-            },
+    if indicador == "IDEB":
+        media_n = resultado["soma_ponderada_n"] / resultado["Matrículas"]
+        media_rendimento = (
+            resultado["soma_ponderada_rendimento"]
+            / resultado["Matrículas"]
         )
-    )
-
-
-    resultado[
-        "Média"
-    ] = (
-        resultado[
-            "soma_ponderada"
-        ]
-        /
-        resultado[
-            "Matrículas"
-        ]
-    )
+        resultado["Média"] = media_n * media_rendimento
+    else:
+        resultado["Média"] = (
+            resultado["soma_ponderada"] / resultado["Matrículas"]
+        )
 
 
     resultado[
@@ -11828,6 +11813,16 @@ def _preparar_base_mapa_calor(
             errors="coerce",
         )
 
+        if indicador == "IDEB":
+            recorte[f"N_{sufixo}"] = pd.to_numeric(
+                recorte["N"],
+                errors="coerce",
+            )
+            recorte[f"Rendimento_{sufixo}"] = pd.to_numeric(
+                recorte["Rendimento"],
+                errors="coerce",
+            )
+
 
         recorte[f"Peso_{sufixo}"] = (
             pd.to_numeric(
@@ -11839,14 +11834,18 @@ def _preparar_base_mapa_calor(
         )
 
 
-        return recorte[
-            [
-                "Cód. INEP",
-                f"Categoria_{sufixo}",
-                f"Indicador_{sufixo}",
-                f"Peso_{sufixo}",
-            ]
-        ].copy()
+        colunas_saida = [
+            "Cód. INEP",
+            f"Categoria_{sufixo}",
+            f"Indicador_{sufixo}",
+            f"Peso_{sufixo}",
+        ]
+        if indicador == "IDEB":
+            colunas_saida.extend(
+                [f"N_{sufixo}", f"Rendimento_{sufixo}"]
+            )
+
+        return recorte[colunas_saida].copy()
 
 
     base_inicial = preparar_ano(
@@ -11941,6 +11940,7 @@ def _media_ponderada_segura_mapa(
 def _valor_recorte_mapa(
     dados,
     tipo,
+    indicador,
 ):
 
     if dados.empty:
@@ -11948,7 +11948,38 @@ def _valor_recorte_mapa(
         return np.nan
 
 
+    def ideb_agregado(sufixo):
+        valores_n = pd.to_numeric(
+            dados[f"N_{sufixo}"],
+            errors="coerce",
+        )
+        valores_rendimento = pd.to_numeric(
+            dados[f"Rendimento_{sufixo}"],
+            errors="coerce",
+        )
+        pesos = pd.to_numeric(
+            dados[f"Peso_{sufixo}"],
+            errors="coerce",
+        )
+        validos = (
+            valores_n.notna()
+            & valores_rendimento.notna()
+            & pesos.notna()
+            & pesos.gt(0)
+        )
+        if not validos.any():
+            return np.nan
+        media_n = np.average(valores_n[validos], weights=pesos[validos])
+        media_rendimento = np.average(
+            valores_rendimento[validos],
+            weights=pesos[validos],
+        )
+        return media_n * media_rendimento
+
     if tipo == "media_inicial":
+
+        if indicador == "IDEB":
+            return ideb_agregado("inicial")
 
         return _media_ponderada_segura_mapa(
             dados,
@@ -11959,6 +11990,9 @@ def _valor_recorte_mapa(
 
     if tipo == "media_final":
 
+        if indicador == "IDEB":
+            return ideb_agregado("final")
+
         return _media_ponderada_segura_mapa(
             dados,
             "Indicador_final",
@@ -11967,6 +12001,13 @@ def _valor_recorte_mapa(
 
 
     if tipo == "delta":
+
+        if indicador == "IDEB":
+            valor_inicial = ideb_agregado("inicial")
+            valor_final = ideb_agregado("final")
+            if pd.isna(valor_inicial) or pd.isna(valor_final):
+                return np.nan
+            return valor_final - valor_inicial
 
         return _media_ponderada_segura_mapa(
             dados,
@@ -12094,6 +12135,7 @@ def _montar_dados_matriz_mapa(
             valor = _valor_recorte_mapa(
                 recorte,
                 tipo,
+                indicador,
             )
 
 
@@ -13236,7 +13278,7 @@ if pagina == "DICIONÁRIO DE VARIÁVEIS":
     indicadores_dicionario = [
         (
             "IDEB",
-            "Índice de Desenvolvimento da Educação Básica. No painel, corresponde ao produto entre N e Rendimento.",
+            "Índice de Desenvolvimento da Educação Básica. Para resultados de grupos, o painel calcula separadamente a média ponderada de N e a média ponderada de Rendimento e multiplica os dois resultados: IDEB do grupo = N médio ponderado × Rendimento médio ponderado. O IDEB individual da escola permanece disponível nas análises em que a escola é a unidade de observação.",
         ),
         (
             "N(LP)",
@@ -13436,6 +13478,10 @@ if pagina == "ATUALIZAÇÕES":
         (
             "Ordenação dos gráficos",
             "Renomeação da opção 'Ordem para gráfico' para 'Ordem intuitiva' em todo o painel.",
+        ),
+        (
+            "Cálculo do IDEB agregado",
+            "O IDEB dos grupos passou a ser calculado como o produto entre a média ponderada de N e a média ponderada de Rendimento, reduzindo o efeito do arredondamento do IDEB individual informado na base.",
         ),
     ]
 

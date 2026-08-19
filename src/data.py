@@ -2531,6 +2531,12 @@ def media_ponderada_por_categoria(
 
     base["Ano"] = pd.to_numeric(base["Ano"], errors="coerce")
     base[indicador] = pd.to_numeric(base[indicador], errors="coerce")
+    if indicador == "IDEB":
+        base["N"] = pd.to_numeric(base["N"], errors="coerce")
+        base["Rendimento"] = pd.to_numeric(
+            base["Rendimento"],
+            errors="coerce",
+        )
     base[peso] = pd.to_numeric(base[peso], errors="coerce")
 
     anos_numericos = [
@@ -2556,15 +2562,15 @@ def media_ponderada_por_categoria(
     # INDICADOR AUSENTE
     # ========================================================
 
-    base = (
-        base[
-            base[
-                indicador
-            ]
-            .notna()
-        ]
-        .copy()
+    colunas_obrigatorias = (
+        ["N", "Rendimento"]
+        if indicador == "IDEB"
+        else [indicador]
     )
+
+    base = base[
+        base[colunas_obrigatorias].notna().all(axis=1)
+    ].copy()
 
 
     # ========================================================
@@ -2606,51 +2612,39 @@ def media_ponderada_por_categoria(
     # PRODUTO DA MÉDIA PONDERADA
     # ========================================================
 
-    base[
-        "produto"
-    ] = (
-        base[
-            indicador
-        ]
-        *
-        base[
-            peso
-        ]
-    )
+    if indicador == "IDEB":
+        base["produto_n"] = base["N"] * base[peso]
+        base["produto_rendimento"] = base["Rendimento"] * base[peso]
+    else:
+        base["produto"] = base[indicador] * base[peso]
 
 
     # ========================================================
     # AGREGAÇÃO
     # ========================================================
 
+    agregacoes = {
+        "Matrículas": (peso, "sum"),
+        "N escolas": ("Cód. INEP", "nunique"),
+    }
+
+    if indicador == "IDEB":
+        agregacoes.update(
+            {
+                "soma_ponderada_n": ("produto_n", "sum"),
+                "soma_ponderada_rendimento": (
+                    "produto_rendimento",
+                    "sum",
+                ),
+            }
+        )
+    else:
+        agregacoes["soma_ponderada"] = ("produto", "sum")
+
     resultado = (
         base
-        .groupby(
-            [
-                "Ano",
-                "Categoria",
-            ],
-            as_index=False,
-        )
-        .agg(
-
-            soma_ponderada=(
-                "produto",
-                "sum",
-            ),
-
-            Matrículas=(
-                peso,
-                "sum",
-            ),
-
-            **{
-                "N escolas": (
-                    indicador,
-                    "count",
-                )
-            },
-        )
+        .groupby(["Ano", "Categoria"], as_index=False)
+        .agg(**agregacoes)
     )
 
 
@@ -2658,17 +2652,17 @@ def media_ponderada_por_categoria(
     # MÉDIA PONDERADA
     # ========================================================
 
-    resultado[
-        "Média"
-    ] = (
-        resultado[
-            "soma_ponderada"
-        ]
-        /
-        resultado[
-            "Matrículas"
-        ]
-    )
+    if indicador == "IDEB":
+        media_n = resultado["soma_ponderada_n"] / resultado["Matrículas"]
+        media_rendimento = (
+            resultado["soma_ponderada_rendimento"]
+            / resultado["Matrículas"]
+        )
+        resultado["Média"] = media_n * media_rendimento
+    else:
+        resultado["Média"] = (
+            resultado["soma_ponderada"] / resultado["Matrículas"]
+        )
 
 
     resultado[
